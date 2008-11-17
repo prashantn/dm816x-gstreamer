@@ -1,0 +1,177 @@
+# Makefile.common
+#
+# Specifies common settings for all build scripts.
+#
+# Copyright (C) $year Texas Instruments Incorporated - http://www.ti.com/
+#
+# This program is free software; you can redistribute it and/or modify 
+# it under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation version 2.1 of the License.
+#
+# This program is distributed #as is# WITHOUT ANY WARRANTY of any kind,
+# whether express or implied; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+
+#------------------------------------------------------------------------------
+# User specified paths:
+#    DVSDK_INSTALL_DIR 
+#        location of DVSDK installation directory; settings from the DVSDK's
+#        Rules.make will be used for the build.
+#    TARGET_ROOT_DIR 
+#        root directory of target filesystem on host machine
+#    GSTREAMER_DIR
+#        location of gstreamer installation on target filesystem.  This setting
+#        should assume that "/" is the root file system of the target, not the
+#        host.
+#    MVL_VERSION
+#        MontaVista pro version
+#
+# These paths must be specified or the build will fail.
+#------------------------------------------------------------------------------
+DVSDK_INSTALL_DIR    = 
+TARGET_ROOT_DIR      = 
+GSTREAMER_DIR        = /opt/gstreamer
+MVL_VERSION          = 
+
+#------------------------------------------------------------------------------
+# Build configuration:
+#
+#    VERBOSE 
+#        Set to "true" to see all build commands.     
+#------------------------------------------------------------------------------
+VERBOSE = false
+
+#------------------------------------------------------------------------------
+# Pull in build settings from the DVSDK, and error-check the settings we get.
+#------------------------------------------------------------------------------
+ifndef DVSDK_INSTALL_DIR
+   $(error DVSDK_INSTALL_DIR must be set in Makefile before building)
+endif
+include $(DVSDK_INSTALL_DIR)/Rules.make
+
+# Ensure the PLATFORM variable was set
+ifndef PLATFORM
+   $(error expected Rules.make from DVSDK to set the PLATFORM variable -- this variable must be set to the build target)
+endif
+
+# DVSDK 1.30 doesn't include DMAI, so make sure it gets added to the Rules.make
+ifndef DMAI_INSTALL_DIR
+   $(error please add setting for DMAI_INSTALL_DIR to the Rules.make in the DVSDK)
+endif
+
+# Ensure the target root directory is set.
+ifndef TARGET_ROOT_DIR
+   $(error TARGET_ROOT_DIR must be set in Makefile before building)
+endif
+
+# Export Rules.make variables so they are visible to the sub-makes
+export BIOS_INSTALL_DIR
+export CE_INSTALL_DIR
+export CMEM_INSTALL_DIR
+export CODEC_INSTALL_DIR
+export DMAI_INSTALL_DIR
+export FC_INSTALL_DIR
+export LINK_INSTALL_DIR
+export LINUXKERNEL_INSTALL_DIR
+export LPM_INSTALL_DIR
+export MVTOOL_DIR
+export MVTOOL_PREFIX
+export PLATFORM
+export XDAIS_INSTALL_DIR
+export XDC_INSTALL_DIR
+
+#------------------------------------------------------------------------------
+# Set the CROSS_COMPILE_PREFIX variable, this is used by libtool while linking 
+# the cross compiled libraries on MV platform
+#------------------------------------------------------------------------------
+export CROSS_COMPILE_PREFIX = $(TARGET_ROOT_DIR)
+
+#------------------------------------------------------------------------------
+# Set XDC target and platform based on PLATFORM variable
+#------------------------------------------------------------------------------
+ifeq ($(PLATFORM), dm355)
+    export XDC_TARGET   = gnu.targets.MVArm9
+    export XDC_PLATFORM = ti.platforms.evmDM355
+endif
+
+ifeq ($(PLATFORM), dm6446)
+    export XDC_TARGET   = gnu.targets.MVArm9
+    export XDC_PLATFORM = ti.platforms.evmDM6446
+endif
+
+ifeq ($(PLATFORM), dm6467)
+    export XDC_TARGET   = gnu.targets.MVArm9
+    export XDC_PLATFORM = ti.platforms.evmDM6467
+endif
+
+ifeq ($(PLATFORM), omap3530)
+    export XDC_TARGET    = gnu.targets.arm.GCArmv5T
+    export XDC_PLATFORM  = ti.platforms.evm3530
+    export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
+    export MVTOOL_DIR    = $(CSTOOL_DIR)
+endif
+
+#------------------------------------------------------------------------------
+# Enable ALSA support based on PLATFORM and MVL_VERSION variable
+#------------------------------------------------------------------------------
+ifeq ($(PLATFORM), omap3530)
+    export ALSA_SUPPORT = --enable-alsa --with-alsa-inc-prefix=$(DVSDK_INSTALL_DIR)/linuxlibs/include --with-alsa-prefix=$(DVSDK_INSTALL_DIR)/linuxlibs/lib
+else
+    ifeq ($(MVL_VERSION), 5.0)
+        export	ALSA_SUPPORT = --enable-alsa
+    endif 
+     
+    ifeq ($(MVL_VERSION), 4.0.1)
+        export	ALSA_SUPPORT = --disable-alsa
+    endif  
+
+    ifndef MVL_VERSION
+        export	ALSA_SUPPORT = --disable-alsa
+    endif
+endif
+
+
+#------------------------------------------------------------------------------
+# Configure amount of output we will generate based on the VERBOSE variable
+# setting.
+#------------------------------------------------------------------------------
+ifeq ($(VERBOSE), false)
+    override CMD_PREFIX        = @
+    override TAR_VERBOSE       = 
+    override CONFIGURE_VERBOSE = -q
+    override PATCH_VERBOSE     = -s
+    override MAKE_VERBOSE      = -s
+else
+    override CMD_PREFIX        = 
+    override TAR_VERBOSE       = v
+    override CONFIGURE_VERBOSE =
+    override PATCH_VERBOSE     =
+    override MAKE_VERBOSE      =
+endif
+
+#------------------------------------------------------------------------------
+# If the word "install" appears on the command line, we will invoke sub-make
+# commands with "make install" instead of just "make".
+#------------------------------------------------------------------------------
+ifeq ($(findstring install,$(MAKECMDGOALS)),install)
+    override BUILD_INSTALL = install
+else
+    override BUILD_INSTALL = 
+endif
+
+#------------------------------------------------------------------------------
+# Location of gstreamer installation on target
+#------------------------------------------------------------------------------
+TARGET_GSTREAMER_DIR = $(TARGET_ROOT_DIR)/$(GSTREAMER_DIR)
+
+#------------------------------------------------------------------------------
+# Configure command set up to do a cross-compile and install into the target
+# filesystem.
+#------------------------------------------------------------------------------
+CC_CONFIGURE_OPTS      = --build=i686-linux --host=arm-linux \
+                         --prefix=$(TARGET_GSTREAMER_DIR)
+export CC              = $(MVTOOL_PREFIX)gcc
+export LD_LIBRARY_PATH = $(TARGET_GSTREAMER_DIR)/lib
+export PKG_CONFIG_PATH = $(LD_LIBRARY_PATH)/pkgconfig
+

@@ -1,0 +1,76 @@
+diff -c -r orig/gstreamer-0.10.20/ChangeLog gstreamer-0.10.20/ChangeLog
+*** orig/gstreamer-0.10.20/ChangeLog	2008-06-18 04:56:04.000000000 -0500
+--- gstreamer-0.10.20/ChangeLog	2008-10-16 10:32:23.000000000 -0500
+***************
+*** 3707,3712 ****
+--- 3707,3717 ----
+  	API: gst_base_sink_get_last_buffer()
+  	API: GstBaseSink::last-buffer
+  
++     NOTE:  This feature is currently disabled when built for use with the TI
++     codec plugin.  It causes a severe performance issue that we haven't yet
++     investaged.  Once the cause is determined we hope to provide a proper fix
++     and re-enable it.
++ 
+  2007-10-29  Stefan Kost  <ensonic@users.sf.net>
+  
+  	* docs/gst/running.xml:
+diff -c -r orig/gstreamer-0.10.20/libs/gst/base/gstbasesink.c gstreamer-0.10.20/libs/gst/base/gstbasesink.c
+*** orig/gstreamer-0.10.20/libs/gst/base/gstbasesink.c	2008-06-04 14:41:22.000000000 -0500
+--- gstreamer-0.10.20/libs/gst/base/gstbasesink.c	2008-10-16 10:13:36.000000000 -0500
+***************
+*** 819,851 ****
+  GstBuffer *
+  gst_base_sink_get_last_buffer (GstBaseSink * sink)
+  {
+!   GstBuffer *res;
+! 
+    g_return_val_if_fail (GST_IS_BASE_SINK (sink), NULL);
+! 
+!   GST_OBJECT_LOCK (sink);
+!   if ((res = sink->priv->last_buffer))
+!     gst_buffer_ref (res);
+!   GST_OBJECT_UNLOCK (sink);
+! 
+!   return res;
+  }
+  
+  static void
+  gst_base_sink_set_last_buffer (GstBaseSink * sink, GstBuffer * buffer)
+  {
+!   GstBuffer *old;
+! 
+!   if (buffer)
+!     gst_buffer_ref (buffer);
+! 
+!   GST_OBJECT_LOCK (sink);
+!   old = sink->priv->last_buffer;
+!   sink->priv->last_buffer = buffer;
+!   GST_OBJECT_UNLOCK (sink);
+! 
+!   if (old)
+!     gst_buffer_unref (old);
+  }
+  
+  /**
+--- 819,838 ----
+  GstBuffer *
+  gst_base_sink_get_last_buffer (GstBaseSink * sink)
+  {
+!   /* DJD: this feature severely impairs performance on DaVinci -- disable it 
+!    * until we can investigate and implement a proper fix.
+!    */
+    g_return_val_if_fail (GST_IS_BASE_SINK (sink), NULL);
+!   return NULL;
+  }
+  
+  static void
+  gst_base_sink_set_last_buffer (GstBaseSink * sink, GstBuffer * buffer)
+  {
+!   /* DJD: this feature severely impairs performance on DaVinci -- disable it 
+!    * until we can investigate and implement a proper fix.
+!    */
+!   return;
+  }
+  
+  /**

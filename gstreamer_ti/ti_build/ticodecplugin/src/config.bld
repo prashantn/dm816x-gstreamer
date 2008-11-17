@@ -1,0 +1,24 @@
+/*
+ *  ======== config.bld ========
+ * User note: YOU MUST MODIFY THIS FILE TO SPECIFY THE COMPILER TOOL PATHS.
+ *
+ * Edit this file to specify compiler toolchain paths, and any custom
+ * compiler/linker options.
+ */
+
+/* location of your C6000 codegen tools */
+var C64P = xdc.useModule('ti.targets.C64P');
+
+
+C64P.rootDir = "/opt/dmsw/cg6x_6_0_16/";
+C64P.platform = "ti.platforms.evmDM6446"; 
+
+/*
+ *  ======== Build.targets ========
+ * list of targets (ISAs + compilers) to build for
+ */
+Build.targets = [
+    C64P,
+];
+
+

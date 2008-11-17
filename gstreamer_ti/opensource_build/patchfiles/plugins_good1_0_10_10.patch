@@ -1,0 +1,97 @@
+diff -c -r orig/gst-plugins-good-0.10.10/gst/avi/gstavidemux.c gst-plugins-good-0.10.10/gst/avi/gstavidemux.c
+*** orig/gst-plugins-good-0.10.10/gst/avi/gstavidemux.c	2008-07-19 08:16:02.000000000 -0500
+--- gst-plugins-good-0.10.10/gst/avi/gstavidemux.c	2008-10-15 15:14:26.000000000 -0500
+***************
+*** 1618,1625 ****
+    gst_pad_set_caps (pad, caps);
+    gst_pad_set_active (pad, TRUE);
+    gst_element_add_pad (GST_ELEMENT (avi), pad);
+!   GST_LOG_OBJECT (element, "Added pad %s with caps %" GST_PTR_FORMAT,
+!       GST_PAD_NAME (pad), caps);
+    gst_caps_unref (caps);
+  
+    /* make tags */
+--- 1618,1625 ----
+    gst_pad_set_caps (pad, caps);
+    gst_pad_set_active (pad, TRUE);
+    gst_element_add_pad (GST_ELEMENT (avi), pad);
+!   GST_LOG_OBJECT (element, "Added pad %s with caps %s",
+!       GST_PAD_NAME (pad), gst_caps_to_string(caps));
+    gst_caps_unref (caps);
+  
+    /* make tags */
+diff -c -r orig/gst-plugins-good-0.10.10/gst/avi/gstavimux.c gst-plugins-good-0.10.10/gst/avi/gstavimux.c
+*** orig/gst-plugins-good-0.10.10/gst/avi/gstavimux.c	2008-07-19 08:16:02.000000000 -0500
+--- gst-plugins-good-0.10.10/gst/avi/gstavimux.c	2008-10-15 15:14:26.000000000 -0500
+***************
+*** 441,448 ****
+    g_assert (avipad->parent.is_video);
+    g_assert (avipad->parent.hdr.type == GST_MAKE_FOURCC ('v', 'i', 'd', 's'));
+  
+!   GST_DEBUG_OBJECT (avimux, "%s:%s, caps=%" GST_PTR_FORMAT,
+!       GST_DEBUG_PAD_NAME (pad), vscaps);
+  
+    structure = gst_caps_get_structure (vscaps, 0);
+    mimetype = gst_structure_get_name (structure);
+--- 441,448 ----
+    g_assert (avipad->parent.is_video);
+    g_assert (avipad->parent.hdr.type == GST_MAKE_FOURCC ('v', 'i', 'd', 's'));
+  
+!   GST_DEBUG_OBJECT (avimux, "%s:%s, caps=%s",
+!       GST_DEBUG_PAD_NAME (pad), gst_caps_to_string(vscaps));
+  
+    structure = gst_caps_get_structure (vscaps, 0);
+    mimetype = gst_structure_get_name (structure);
+***************
+*** 611,617 ****
+  
+  refuse_caps:
+    {
+!     GST_WARNING_OBJECT (avimux, "refused caps %" GST_PTR_FORMAT, vscaps);
+      gst_object_unref (avimux);
+      return FALSE;
+    }
+--- 611,617 ----
+  
+  refuse_caps:
+    {
+!     GST_WARNING_OBJECT (avimux, "refused caps %s", gst_caps_to_string(vscaps));
+      gst_object_unref (avimux);
+      return FALSE;
+    }
+***************
+*** 638,645 ****
+    g_assert (!avipad->parent.is_video);
+    g_assert (avipad->parent.hdr.type == GST_MAKE_FOURCC ('a', 'u', 'd', 's'));
+  
+!   GST_DEBUG_OBJECT (avimux, "%s:%s, caps=%" GST_PTR_FORMAT,
+!       GST_DEBUG_PAD_NAME (pad), vscaps);
+  
+    structure = gst_caps_get_structure (vscaps, 0);
+    mimetype = gst_structure_get_name (structure);
+--- 638,645 ----
+    g_assert (!avipad->parent.is_video);
+    g_assert (avipad->parent.hdr.type == GST_MAKE_FOURCC ('a', 'u', 'd', 's'));
+  
+!   GST_DEBUG_OBJECT (avimux, "%s:%s, caps=%s",
+!       GST_DEBUG_PAD_NAME (pad), gst_caps_to_string(vscaps));
+  
+    structure = gst_caps_get_structure (vscaps, 0);
+    mimetype = gst_structure_get_name (structure);
+***************
+*** 758,764 ****
+  
+  refuse_caps:
+    {
+!     GST_WARNING_OBJECT (avimux, "refused caps %" GST_PTR_FORMAT, vscaps);
+      gst_object_unref (avimux);
+      return FALSE;
+    }
+--- 758,764 ----
+  
+  refuse_caps:
+    {
+!     GST_WARNING_OBJECT (avimux, "refused caps %s", gst_caps_to_string(vscaps));
+      gst_object_unref (avimux);
+      return FALSE;
+    }

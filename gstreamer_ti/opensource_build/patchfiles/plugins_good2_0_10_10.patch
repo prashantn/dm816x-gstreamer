@@ -1,0 +1,22 @@
+diff -c -r orig/gst-plugins-good-0.10.10/sys/oss/gstosshelper.c gst-plugins-good-0.10.10/sys/oss/gstosshelper.c
+*** orig/gst-plugins-good-0.10.10/sys/oss/gstosshelper.c	2008-04-20 07:58:10.000000000 -0500
+--- gst-plugins-good-0.10.10/sys/oss/gstosshelper.c	2008-10-15 15:16:03.000000000 -0500
+***************
+*** 236,241 ****
+--- 236,251 ----
+    probe->min = gst_oss_helper_rate_check_rate (probe, 1000);
+    n_checks++;
+    probe->max = gst_oss_helper_rate_check_rate (probe, 100000);
++ 
++   /* Probing is not proper -- check additional sample rates */
++   gst_oss_helper_rate_check_rate(probe, 22050);
++   gst_oss_helper_rate_check_rate(probe, 11025);
++   gst_oss_helper_rate_check_rate(probe, 24000);
++   gst_oss_helper_rate_check_rate(probe, 32000);
++   gst_oss_helper_rate_check_rate(probe, 44100);
++   gst_oss_helper_rate_check_rate(probe, 48000);
++   gst_oss_helper_rate_check_rate(probe, 8000);
++ 
+    /* a little bug workaround */
+    {
+      int max;
