@@ -11,10 +11,6 @@
  * Notes:
  *  * There is still a lot of clean up that needs to be done here.  Some
  *    of the tasks are:
- *    - Abstract the code to set defaults from the set_sink_caps function. 
- *      this code should be called no matter what.
- *    - Check how the input buffer to the codec process call is set.
- *    - See about whether there should be a seperate input/output resolution
  *    - search for CEM and look at notes I have there for potential issues
  *    - I was able to make this work with the following command
  *      gst-launch ${DEBUG} filesrc location=$1 ! TIImgenc1 engineName=encode codecName=jpegenc resolution=720x480 iColorSpace=UYVY oColorSpace=422P ! filesink location="./test.jpeg"
@@ -396,6 +392,7 @@ static void gst_tiimgenc1_init(GstTIImgenc1 *imgenc1, GstTIImgenc1Class *gclass)
     imgenc1->hIe               = NULL;
     imgenc1->drainingEOS       = FALSE;
     imgenc1->threadStatus      = 0UL;
+    imgenc1->capsSet           = FALSE;
 
     imgenc1->encodeDrained     = FALSE;
     imgenc1->waitOnEncodeDrain = NULL;
@@ -559,21 +556,15 @@ static void gst_tiimgenc1_get_property(GObject *object, guint prop_id,
     GST_LOG("Finish\n");
 }
 
-//CEM NOTE:  I may just be taking in any type of data.  I'm not sure how I can
-//           take in a raw file and know it's format.  I would know the format
-//           if this were captured and send from an element that set that, but
-//           not from a raw file.
-//          
-//           What I need to do is abstract the contents of this function
-//           and set the defaults, etc on the first chain call if this function
-//           was not already called.  That will allow me to get the info
-//           if it was passed as part of the gst-launch command.  In that
-//           way everything will be properly set.
-/******************************************************************************
- * gst_tiimgenc1_set_sink_caps
- *     Negotiate our sink pad capabilities.
+/*******************************************************************************
+ * gst_tiimgenc1_set_sink_caps_helper
+ *     This function will look at the capabilities given and set the values
+ *     for the encoder if they were not specified on the command line.
+ *     It returns TRUE if everything passes and FALSE if there is no
+ *     capability in the buffer and the value was not specified on the
+ *     command line.
  ******************************************************************************/
-static gboolean gst_tiimgenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
+static gboolean gst_tiimgenc1_set_sink_caps_helper(GstPad *pad, GstCaps *caps)
 {
     GstTIImgenc1 *imgenc1;
     GstStructure *capStruct;
@@ -583,53 +574,6 @@ static gboolean gst_tiimgenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
     GST_LOG("Begin\n");
 
     imgenc1   = GST_TIIMGENC1(gst_pad_get_parent(pad));
-    capStruct = gst_caps_get_structure(caps, 0);
-    mime      = gst_structure_get_name(capStruct);
-
-    GST_INFO("requested sink caps:  %s", gst_caps_to_string(caps));
-
-    /* Generic Video Properties */
-//CEM what about width and height here??
-//CEM Can I get all my properties here like width, height, chroma, framerate?
-//CEM THIS framerate overwrites the user input????
-    if (!strncmp(mime, "video/", 6)) {
-        gint  framerateNum;
-        gint  framerateDen;
-        gint  width;
-        gint  height;
-
-        if (gst_structure_get_fraction(capStruct, "framerate", &framerateNum,
-                &framerateDen)) {
-            imgenc1->framerateNum = framerateNum;
-            imgenc1->framerateDen = framerateDen;
-        }
-
-        /* Get the width and height of the frame if available */
-        if (gst_structure_get_int(capStruct, "width", &width)) 
-            imgenc1->params.maxWidth = imgenc1->dynParams.inputWidth = width;
-        if (gst_structure_get_int(capStruct, "height", &height))
-            imgenc1->params.maxHeight = imgenc1->dynParams.inputHeight = height;
-    }
-
-    /* MPEG Decode */
-    //CEM Need to work on this here.
-    if (!strcmp(mime, "video/x-raw-yuv")) {
-        gint32      format;
-
-        /* Retreive input Color Format.  Assume same format for output
-           unless something else is specified on the command line
-         */
-        if (gst_structure_get_int(capStruct, "format", &format)) {
-            imgenc1->params.forceChromaFormat =
-            imgenc1->dynParams.inputChromaFormat =
-                gst_tiimgenc1_convert_fourcc(format);
-        }
-    } else {
-        /* Mime type not supported */
-        GST_ERROR("stream type not supported");
-        gst_object_unref(imgenc1);
-        return FALSE;
-    }
 
     /* Set codec to JPEG Encoder */
     codec = gst_ticodec_get_codec("JPEG Image Encoder");
@@ -637,13 +581,6 @@ static gboolean gst_tiimgenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
     /* Report if the required codec was not found */
     if (!codec) {
         GST_ERROR("unable to find codec needed for stream");
-        gst_object_unref(imgenc1);
-        return FALSE;
-    }
-
-    /* Shut-down any running image encoder */
-    if (!gst_tiimgenc1_exit_image(imgenc1)) {
-        gst_object_unref(imgenc1);
         return FALSE;
     }
 
@@ -657,7 +594,92 @@ static gboolean gst_tiimgenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
         imgenc1->codecName = codec->CE_CodecName;
     }
 
-    gst_object_unref(imgenc1);
+    if (!caps) {
+        GST_INFO("No caps on input.  Using command line values");
+        imgenc1->capsSet = TRUE;
+        return TRUE;
+    }
+
+    capStruct = gst_caps_get_structure(caps, 0);
+    mime      = gst_structure_get_name(capStruct);
+
+    GST_INFO("requested sink caps:  %s", gst_caps_to_string(caps));
+
+    /* Generic Video Properties */
+    if (!strncmp(mime, "video/", 6)) {
+        gint  framerateNum;
+        gint  framerateDen;
+        gint  width;
+        gint  height;
+   
+        if (!imgenc1->framerateNum) {        
+            if (gst_structure_get_fraction(capStruct, "framerate", 
+                                &framerateNum, &framerateDen)) {
+                imgenc1->framerateNum = framerateNum;
+                imgenc1->framerateDen = framerateDen;
+            }
+        }
+
+        /* Get the width and height of the frame if available */
+        if (!imgenc1->width)
+            if (gst_structure_get_int(capStruct, "width", &width)) 
+                imgenc1->params.maxWidth = 
+                imgenc1->dynParams.inputWidth = width;
+        if (!imgenc1->height)
+            if (gst_structure_get_int(capStruct, "height", &height))
+                imgenc1->params.maxHeight = 
+                imgenc1->dynParams.inputHeight = height;
+    }
+
+    /* MPEG Decode */
+    if (!strcmp(mime, "video/x-raw-yuv")) {
+        gint32      format;
+
+        /* Retreive input Color Format.  Assume same format for output
+           unless something else is specified on the command line
+         */
+        if (!imgenc1->iColor) {
+            if (gst_structure_get_int(capStruct, "format", &format)) {
+                imgenc1->params.forceChromaFormat =
+                imgenc1->dynParams.inputChromaFormat =
+                    gst_tiimgenc1_convert_fourcc(format);
+            }
+        }
+    } else {
+        /* Mime type not supported */
+        GST_ERROR("stream type not supported");
+        return FALSE;
+    }
+
+    /* Shut-down any running image encoder */
+    if (!gst_tiimgenc1_exit_image(imgenc1)) {
+        GST_ERROR("unable to shut-down running image encoder");
+        return FALSE;
+    }
+
+    imgenc1->capsSet = TRUE;
+
+    GST_LOG("Finish\n");
+    return TRUE;
+}
+
+/******************************************************************************
+ * gst_tiimgenc1_set_sink_caps
+ *     Negotiate our sink pad capabilities.
+ ******************************************************************************/
+static gboolean gst_tiimgenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
+{
+    GstTIImgenc1 *imgenc1;
+    imgenc1   = GST_TIIMGENC1(gst_pad_get_parent(pad));
+
+    GST_LOG("Begin\n");
+
+    /* If this call fails then unref the gobject */
+    if (!gst_tiimgenc1_set_sink_caps_helper(pad, caps)) {
+        GST_ERROR("stream type not supported");
+        gst_object_unref(imgenc1);
+        return FALSE;
+    }
 
     GST_LOG("sink caps negotiation successful\n");
     GST_LOG("Finish\n");
@@ -684,8 +706,6 @@ static gboolean gst_tiimgenc1_set_source_caps(
     /* Create a UYVY caps object using the dimensions from the given buffer */
     BufferGfx_getDimensions(hBuf, &dim);
 
-    //CEM These need to be set based on the codec settings
-    //CEM Need to convert format to fourcc here
     switch (imgenc1->params.forceChromaFormat) {
         case XDM_YUV_422ILE:
             format=GST_MAKE_FOURCC('U', 'Y', 'V', 'Y');
@@ -704,7 +724,6 @@ static gboolean gst_tiimgenc1_set_source_caps(
 
     caps =
         gst_caps_new_simple("image/x-jpeg",
-//            "format",    GST_TYPE_FOURCC,   GST_MAKE_FOURCC('U','Y','V','Y'),
             "format",    GST_TYPE_FOURCC,   format,
             "framerate", GST_TYPE_FRACTION, imgenc1->framerateNum,
                                             imgenc1->framerateDen,
@@ -800,7 +819,8 @@ static gboolean gst_tiimgenc1_sink_event(GstPad *pad, GstEvent *event)
  ******************************************************************************/
 static GstFlowReturn gst_tiimgenc1_chain(GstPad * pad, GstBuffer * buf)
 {
-    GstTIImgenc1 *imgenc1 = GST_TIIMGENC1(GST_OBJECT_PARENT(pad));
+    GstTIImgenc1 *imgenc1       = GST_TIIMGENC1(GST_OBJECT_PARENT(pad));
+    GstCaps      *caps          = GST_BUFFER_CAPS(buf);
     gboolean     checkResult;
 
     GST_LOG("Begin\n");
@@ -809,6 +829,14 @@ static GstFlowReturn gst_tiimgenc1_chain(GstPad * pad, GstBuffer * buf)
             imgenc1, TIThread_ANY_ABORTED, checkResult)) {
        gst_buffer_unref(buf);
        return GST_FLOW_UNEXPECTED;
+    }
+
+    /* If we have not negotiated the caps at least once then do so now */
+    if (!imgenc1->capsSet) {
+        if (!gst_tiimgenc1_set_sink_caps_helper(pad, caps)) {
+            GST_ERROR("Could not set caps");
+            return GST_FLOW_UNEXPECTED;
+        }
     }
 
     /* If our engine handle is currently NULL, then either this is our first
@@ -832,7 +860,6 @@ static GstFlowReturn gst_tiimgenc1_chain(GstPad * pad, GstBuffer * buf)
      * without consuming them we'll run out of memory.  Once we reach a
      * threshold, block until the queue thread removes some buffers.
      */
-    //CEM Leave this here for MJPEG?
     if (Fifo_getNumEntries(imgenc1->hInFifo) > 500) {
         gst_tiimgenc1_wait_on_queue_thread(imgenc1, 400);
     }
@@ -1360,7 +1387,6 @@ static void* gst_tiimgenc1_encode_thread(void *arg)
     BufferGfx_Dimensions   dim;
     GstBuffer              *outBuf;
     Int                    ret;
-    int bpp, offset;
 
     GST_LOG("Begin\n");
     /* Calculate the duration of a single frame in this stream */
@@ -1399,26 +1425,24 @@ static void* gst_tiimgenc1_encode_thread(void *arg)
         /* Make sure the whole buffer is used for output */
         BufferGfx_resetDimensions(hDstBuf);
 
-    /* Create a BufferGfx object that will point to a reference buffer from
-     * The circular buffer.  This is needed for the encoder which requires
-     * that the input buffer be a BufferGfx object.
-     */
-    BufferGfx_getBufferAttrs(&gfxAttrs)->reference = TRUE;
-    imgenc1->hInBuf = Buffer_create(Buffer_getSize(hEncDataWindow),
-                            BufferGfx_getBufferAttrs(&gfxAttrs));
-    Buffer_setUserPtr(imgenc1->hInBuf, Buffer_getUserPtr(hEncDataWindow));
-    Buffer_setNumBytesUsed(imgenc1->hInBuf, Buffer_getSize(imgenc1->hInBuf));
+        /* Create a BufferGfx object that will point to a reference buffer from
+         * The circular buffer.  This is needed for the encoder which requires
+         * that the input buffer be a BufferGfx object.
+         */
+        BufferGfx_getBufferAttrs(&gfxAttrs)->reference = TRUE;
+        imgenc1->hInBuf = Buffer_create(Buffer_getSize(hEncDataWindow),
+                                BufferGfx_getBufferAttrs(&gfxAttrs));
+        Buffer_setUserPtr(imgenc1->hInBuf, Buffer_getUserPtr(hEncDataWindow));
+        Buffer_setNumBytesUsed(imgenc1->hInBuf, 
+                               Buffer_getSize(imgenc1->hInBuf));
 
-    /* Set the dimensions of the buffer to the resolution */
-    //CEM use the output buf here?
-    //BufferGfx_getDimensions(imgenc1->hInBuf, &dim);
-    BufferGfx_getDimensions(hDstBuf, &dim);
-    dim.width = imgenc1->dynParams.inputWidth;
-    dim.height = imgenc1->dynParams.inputHeight;
-    BufferGfx_setDimensions(imgenc1->hInBuf, &dim);
-    BufferGfx_setColorSpace(imgenc1->hInBuf, gst_tiimgenc1_convert_attrs(VAR_OCOLORSPACE, imgenc1)); 
-    bpp = ColorSpace_getBpp(BufferGfx_getColorSpace(imgenc1->hInBuf));
-    offset = (dim.y * dim.lineLength) + (dim.x * (bpp >> 3));
+        /* Set the dimensions of the buffer to the resolution */
+        BufferGfx_getDimensions(hDstBuf, &dim);
+        dim.width = imgenc1->dynParams.inputWidth;
+        dim.height = imgenc1->dynParams.inputHeight;
+        BufferGfx_setDimensions(imgenc1->hInBuf, &dim);
+        BufferGfx_setColorSpace(imgenc1->hInBuf,
+                     gst_tiimgenc1_convert_attrs(VAR_OCOLORSPACE, imgenc1)); 
 
         /* Invoke the image encoder */
         GST_LOG("invoking the image encoder\n");

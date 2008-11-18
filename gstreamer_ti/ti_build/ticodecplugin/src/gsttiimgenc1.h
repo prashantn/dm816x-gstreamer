@@ -84,7 +84,8 @@ struct _GstTIImgenc1
   gboolean                  drainingEOS;
   pthread_mutex_t           threadStatusMutex;
   UInt32                    threadStatus;
-  gboolean                  firstFrame;
+//CEM  gboolean                  firstFrame;
+  gboolean                  capsSet;
 
   /* Codec Parameters */
   IMGENC1_Params            params;
