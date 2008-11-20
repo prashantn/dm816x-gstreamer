@@ -33,6 +33,7 @@
 #include <ti/sdo/dmai/Dmai.h>
 
 #include "gsttiauddec.h"
+#include "gsttiauddec1.h"
 #include "gsttividdec.h"
 #include "gsttividdec2.h"
 #include "gsttiimgenc1.h"
@@ -69,6 +70,11 @@ TICodecPlugin_init (GstPlugin * TICodecPlugin)
     if (!gst_element_register(
         TICodecPlugin, "TIAuddec", GST_RANK_PRIMARY,
         GST_TYPE_TIAUDDEC))
+        return FALSE;
+
+    if (!gst_element_register(
+        TICodecPlugin, "TIAuddec1", GST_RANK_PRIMARY,
+        GST_TYPE_TIAUDDEC1))
         return FALSE;
 
     if (!gst_element_register(

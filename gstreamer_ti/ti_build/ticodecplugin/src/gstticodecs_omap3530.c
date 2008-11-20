@@ -1,7 +1,7 @@
 /*
- * gstticodecs_dm6446.c
+ * gstticodecs_omap3530.c
  *
- * This file provides information for available codecs on the DM6446 platform.
+ * This file provides information for available codecs on the OMAP3530 platform.
  *
  * Original Author:
  *     Don Darling, Texas Instruments, Inc.
@@ -34,14 +34,18 @@ GstTICodec gst_ticodec_codecs[] = {
         decodeEngine             /* Engine that contains this codec          */
     }, {
         "MPEG1L2 Audio Decoder", /* String name of codec used by plugin      */
-        "mp3dec",                /* String name of codec used by CE          */
+        "mp3dec1",                /* String name of codec used by CE          */
         decodeEngine             /* Engine that contains this codec          */
     }, {
         "MPEG1L3 Audio Decoder", /* String name of codec used by plugin      */
-        "mp3dec",                /* String name of codec used by CE          */
+        "mp3dec1",                /* String name of codec used by CE          */
+        decodeEngine             /* Engine that contains this codec          */
+    }, {
+        "WMA Audio Decoder",     /* String name of codec used by plugin      */
+        "wmadec1",                /* String name of codec used by CE          */
         decodeEngine             /* Engine that contains this codec          */
     },
-
+    
     /* Video Codecs */
     {
         "H.264 Video Decoder",   /* String name of codec used by plugin      */

@@ -4,7 +4,7 @@ XDC_CONFIG_BASENAME = gstticodecplugin_$(PLATFORM)
 plugin_LTLIBRARIES  = libgstticodecplugin.la
 
 # sources used to compile this plug-in
-libgstticodecplugin_la_SOURCES = gstticodecplugin.c gsttiauddec.c gsttividdec.c gsttividdec2.c gsttiimgenc1.c gsttidmaibuffertransport.c gstticircbuffer.c gsttidmaivideosink.c gstticodecs.c gstticodecs_platform.c
+libgstticodecplugin_la_SOURCES = gstticodecplugin.c gsttiauddec.c gsttiauddec1.c gsttividdec.c gsttividdec2.c gsttiimgenc1.c gsttidmaibuffertransport.c gstticircbuffer.c gsttidmaivideosink.c gstticodecs.c gstticodecs_platform.c 
 
 # flags used to compile this plugin
 # add other _CFLAGS and _LIBS as needed
@@ -13,7 +13,7 @@ libgstticodecplugin_la_LIBADD  = $(GST_LIBS) $(GST_BASE_LIBS) $(GST_PLUGINS_BASE
 libgstticodecplugin_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -Wl,$(XDC_CONFIG_BASENAME)/linker.cmd
 
 # headers we need but don't want installed
-noinst_HEADERS = gsttiauddec.h gsttividdec.h gsttividdec2.h gsttiimgenc1.h gsttidmaibuffertransport.h gstticircbuffer.h gsttidmaivideosink.h gsttithreadprops.h gstticodecs.h
+noinst_HEADERS = gsttiauddec.h gsttiauddec1.h gsttividdec.h gsttividdec2.h gsttiimgenc1.h gsttidmaibuffertransport.h gstticircbuffer.h gsttidmaivideosink.h gsttithreadprops.h gstticodecs.h
 
 # XDC Configuration
 CONFIGURO     = $(XDC_INSTALL_DIR)/xs xdc.tools.configuro

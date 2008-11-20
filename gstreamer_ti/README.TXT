@@ -90,6 +90,9 @@ TIImgenc1
 TIAuddec
     xDM 0.9 Audio Decoder
 
+TIAuddec1
+    xDM 1.0 Audio Decoder
+
 TIDmaiVideoSink
     Video sink supporting both framebuffer and V4L2 displays
 
