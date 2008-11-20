@@ -4,18 +4,12 @@
  * This file defines the "TIImgenc1" element, which encodes a JPEG image
  *
  * Example usage:
- *     gst-launch filesrc location=<image file> !
- *         TIImgenc1 engineName="<engine name>" codecName="<codecName>" !
- *         fakesink silent=TRUE
+ *     gst-launch videotestsrc num-buffers=1 ! 'video/x-raw-yuv, format=(fourcc)I420, width=720, height=480' ! TIImgenc1 filesink location="<output file>"
  *
  * Notes:
- *  * There is still a lot of clean up that needs to be done here.  Some
- *    of the tasks are:
+ *    - There is still an issue with the static caps negotiation.  See the
+ *      note below by the src pad declaration for more detail.
  *    - search for CEM and look at notes I have there for potential issues
- *    - I was able to make this work with the following command
- *      gst-launch ${DEBUG} filesrc location=$1 ! TIImgenc1 engineName=encode codecName=jpegenc resolution=720x480 iColorSpace=UYVY oColorSpace=422P ! filesink location="./test.jpeg"
-
-        the filesrc was a 720x480 raw YUV file.
  *
  * Original Author:
  *     Chase Maupin, Texas Instruments, Inc.
@@ -97,34 +91,34 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
      GST_VIDEO_CAPS_YUV("Y42B")
     )
 );
-//CEM This is a backup of the original caps I was using.  Need to make sure
-//This is all specified correctly.
-#if 0
-static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
-    "rawimage",
-    GST_PAD_SINK,
-    GST_PAD_ALWAYS,
-    GST_STATIC_CAPS
-    ("video/x-raw-yuv, "                        /* UYVY */
-         "format=(fourcc)UYVY, "
-         "framerate=(fraction)[ 0, MAX ], "
-         "width=(int)[ 1, MAX ], "
-         "height=(int)[ 1, MAX ]"
-    )
-);
-#endif
 
-/* Define source (output) pad capabilities.  Currently, UYVY is supported. */
+/* NOTE: There is some issue with the static caps on the output pad.
+ *       If they are not defined to any and there are capabilities
+ *       on the input buffer then the following error occurs:
+ *       erroneous pipeline: could not link tiimgenc10 to filesink0
+ *
+ *       This needs to be fixed.
+ *
+ *       The original static caps were defined as:
+ *
+        static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
+            "encimage",
+            GST_PAD_SRC,
+            GST_PAD_ALWAYS,
+            GST_STATIC_CAPS
+            ("video/x-jpeg, "
+                "width=(int)[ 1, MAX ], "
+                "height=(int)[ 1, MAX ], "
+                "framerate=(fraction)[ 0, MAX ]"
+            )
+        );
+ */
+/* Define source (output) pad capabilities */
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     "encimage",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS
-    ("video/x-jpeg, "  /* MPEG versions 2 and 4 */
-        "width=(int)[ 1, MAX ], "
-        "height=(int)[ 1, MAX ], "
-        "framerate=(fraction)[ 0, MAX ]"
-    )
+    GST_STATIC_CAPS_ANY
 );
 
 /* Constants */
@@ -173,8 +167,16 @@ static void
  gst_tiimgenc1_drain_pipeline(GstTIImgenc1 *imgenc1);
 static GstClockTime
  gst_tiimgenc1_frame_duration(GstTIImgenc1 *imgenc1);
-static int gst_tiimgenc1_convert_fourcc(guint32 fourcc);
-static int gst_tiimgenc1_convert_color_space(int cspace);
+static int 
+ gst_tiimgenc1_convert_fourcc(guint32 fourcc);
+static int 
+ gst_tiimgenc1_convert_attrs(int attr, GstTIImgenc1 *imgenc1);
+static char *
+ gst_tiimgenc1_codec_color_space_to_str(int cspace);
+static int 
+ gst_tiimgenc1_codec_color_space_to_fourcc(int cspace);
+static int 
+ gst_tiimgenc1_convert_color_space(int cspace);
 
 
 /******************************************************************************
@@ -285,14 +287,12 @@ static void gst_tiimgenc1_class_init(GstTIImgenc1Class *klass)
         g_param_spec_string("codecName", "Codec Name", "Name of image codec",
             "unspecified", G_PARAM_READWRITE));
 
-//CEM  Do we need a cache maintenance property here like in the DMAI example?
-
     g_object_class_install_property(gobject_class, PROP_QVALUE,
         g_param_spec_int("qValue",
             "qValue for encoder",
-            "Q compression factor, from 0 (lowest quality)\n"
-            "to 100 (highest quality). [default: 75]\n",
-            0, 100, 75, G_PARAM_READWRITE));
+            "Q compression factor, from 1 (lowest quality)\n"
+            "to 97 (highest quality). [default: 75]\n",
+            1, 97, 75, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_ICOLORSPACE,
         g_param_spec_string("iColorSpace", "Input Color Space",
@@ -425,8 +425,8 @@ static void gst_tiimgenc1_string_cap(gchar *str) {
     for (i=0; i<len; i++) {
         str[i] = (char)toupper(str[i]);
     }
-    return;
     GST_LOG("Finish\n");
+    return;
 }
 
 /******************************************************************************
@@ -575,6 +575,10 @@ static gboolean gst_tiimgenc1_set_sink_caps_helper(GstPad *pad, GstCaps *caps)
 
     imgenc1   = GST_TIIMGENC1(gst_pad_get_parent(pad));
 
+    /* Set the default values */
+    imgenc1->params = Ienc1_Params_DEFAULT;
+    imgenc1->dynParams = Ienc1_DynamicParams_DEFAULT;
+
     /* Set codec to JPEG Encoder */
     codec = gst_ticodec_get_codec("JPEG Image Encoder");
 
@@ -631,19 +635,32 @@ static gboolean gst_tiimgenc1_set_sink_caps_helper(GstPad *pad, GstCaps *caps)
                 imgenc1->dynParams.inputHeight = height;
     }
 
-    /* MPEG Decode */
+    /* Get the Chroma Format */
     if (!strcmp(mime, "video/x-raw-yuv")) {
-        gint32      format;
+        guint32      format;
 
-        /* Retreive input Color Format.  Assume same format for output
-           unless something else is specified on the command line
+        /* Retreive input Color Format from the buffer properties unless
+         * a value was set on the command line.
          */
         if (!imgenc1->iColor) {
-            if (gst_structure_get_int(capStruct, "format", &format)) {
-                imgenc1->params.forceChromaFormat =
+            if (gst_structure_get_fourcc(capStruct, "format", &format)) {
                 imgenc1->dynParams.inputChromaFormat =
                     gst_tiimgenc1_convert_fourcc(format);
             }
+            else {
+                GST_ERROR("Input chroma format not specified on either "
+                          "the command line with iColorFormat or in "
+                          "the buffer caps");
+                return FALSE;
+            }
+        }
+
+        /* If an output color format is not specified use the input color
+         * format.
+         */
+        if (!imgenc1->oColor) {
+            imgenc1->params.forceChromaFormat = 
+                        imgenc1->dynParams.inputChromaFormat;
         }
     } else {
         /* Mime type not supported */
@@ -657,6 +674,7 @@ static gboolean gst_tiimgenc1_set_sink_caps_helper(GstPad *pad, GstCaps *caps)
         return FALSE;
     }
 
+    /* Flag that we have run this code at least once */
     imgenc1->capsSet = TRUE;
 
     GST_LOG("Finish\n");
@@ -706,24 +724,14 @@ static gboolean gst_tiimgenc1_set_source_caps(
     /* Create a UYVY caps object using the dimensions from the given buffer */
     BufferGfx_getDimensions(hBuf, &dim);
 
-    switch (imgenc1->params.forceChromaFormat) {
-        case XDM_YUV_422ILE:
-            format=GST_MAKE_FOURCC('U', 'Y', 'V', 'Y');
-            break;
-        case XDM_YUV_420P:
-            format=GST_MAKE_FOURCC('I', '4', '2', '0');
-            break;
-        case XDM_YUV_422P:
-            format=GST_MAKE_FOURCC('Y', '4', '2', 'B');
-            break;
-        default:
-            GST_ERROR("Could not recognize chroma format\n");
-            return FALSE;
-            break;
-    }
+    format = gst_tiimgenc1_codec_color_space_to_fourcc(imgenc1->params.forceChromaFormat);
 
+    if (format == -1) {
+        GST_ERROR("Could not convert codec color space to fourcc");
+        return FALSE;
+    }
     caps =
-        gst_caps_new_simple("image/x-jpeg",
+        gst_caps_new_simple("video/x-jpeg",
             "format",    GST_TYPE_FOURCC,   format,
             "framerate", GST_TYPE_FRACTION, imgenc1->framerateNum,
                                             imgenc1->framerateDen,
@@ -882,27 +890,31 @@ static GstFlowReturn gst_tiimgenc1_chain(GstPad * pad, GstBuffer * buf)
  *      format for the codec to use.
 *******************************************************************************/
 static int gst_tiimgenc1_convert_fourcc(guint32 fourcc) {
-    gchar* format=NULL;
+    gchar format[4];
 
-    sprintf(format, "%" GST_FOURCC_FORMAT, GST_FOURCC_ARGS(fourcc));
+    GST_LOG("Begin\n");
+    sprintf(format, "%"GST_FOURCC_FORMAT, GST_FOURCC_ARGS(fourcc));
     GST_DEBUG("format is %s\n", format);
 
-    if (!strcmp(format, "UYVY"))
+    if (!strcmp(format, "UYVY")) {
+        GST_LOG("Finish\n");
         return gst_tiimgenc1_convert_color_space(ColorSpace_UYVY);
-    else if (!strcmp(format, "Y42B"))
+    } else if (!strcmp(format, "Y42B")) {
+        GST_LOG("Finish\n");
         return gst_tiimgenc1_convert_color_space(ColorSpace_YUV422P);
-    else if (!strcmp(format, "I420"))
+    } else if (!strcmp(format, "I420")) {
+        GST_LOG("Finish\n");
         return gst_tiimgenc1_convert_color_space(ColorSpace_YUV420P);
-    else
+    } else {
+        GST_LOG("Finish\n");
         return -1;
+    }
 }
 
 /*******************************************************************************
  * gst_tiimgenc1_convert_attrs
  *    This function will convert the human readable strings for the
  *    attributes into the proper integer values for the enumerations.
- *   
- * NOTE:  Need to add new Color Space values here as they are supported.
 *******************************************************************************/
 static int gst_tiimgenc1_convert_attrs(int attr, GstTIImgenc1 *imgenc1)
 {
@@ -924,11 +936,11 @@ static int gst_tiimgenc1_convert_attrs(int attr, GstTIImgenc1 *imgenc1)
       }
     break;
     case VAR_OCOLORSPACE:
-      if (!strcmp(imgenc1->iColor, "UYVY"))
+      if (!strcmp(imgenc1->oColor, "UYVY"))
           return ColorSpace_UYVY;
-      else if (!strcmp(imgenc1->iColor, "YUV420P"))
+      else if (!strcmp(imgenc1->oColor, "YUV420P"))
           return ColorSpace_YUV420P;
-      else if (!strcmp(imgenc1->iColor, "YUV422P"))
+      else if (!strcmp(imgenc1->oColor, "YUV422P"))
           return ColorSpace_YUV422P;
       else {
         GST_ERROR("Invalid oColorSpace entered (%s).  Please choose from:\n"
@@ -946,23 +958,83 @@ static int gst_tiimgenc1_convert_attrs(int attr, GstTIImgenc1 *imgenc1)
 }
 
 /*******************************************************************************
+ * gst_tiimgenc1_codec_color_space_to_str
+ *      Converts the codec color space values to the corresponding
+ *      human readable string value
+*******************************************************************************/
+static char *gst_tiimgenc1_codec_color_space_to_str(int cspace) {
+    GST_LOG("Begin");
+    switch (cspace) {
+        case XDM_YUV_422ILE:
+            GST_LOG("Finish");
+            return "UYVY";
+            break;
+        case XDM_YUV_420P:
+            GST_LOG("Finish");
+            return "YUV420P";
+            break;
+        case XDM_YUV_422P:
+            GST_LOG("Finish");
+            return "YUV422P";
+            break;
+        default:
+            GST_ERROR("Unknown xDM color space");
+            GST_LOG("Finish");
+            return "Unknown";
+    }
+}
+
+/*******************************************************************************
+ * gst_tiimgenc1_codec_color_space_to_fourcc
+ *      Converts the codec color space values to the corresponding
+ *      fourcc values
+*******************************************************************************/
+static int gst_tiimgenc1_codec_color_space_to_fourcc(int cspace) {
+    GST_LOG("Begin");
+    switch (cspace) {
+        case XDM_YUV_422ILE:
+            GST_LOG("Finish");
+            return GST_MAKE_FOURCC('U', 'Y', 'V', 'Y');
+            break;
+        case XDM_YUV_420P:
+            GST_LOG("Finish");
+            return GST_MAKE_FOURCC('I', '4', '2', '0');
+            break;
+        case XDM_YUV_422P:
+            GST_LOG("Finish");
+            return GST_MAKE_FOURCC('Y', '4', '2', 'B');
+            break;
+        default:
+            GST_ERROR("Unknown xDM color space");
+            GST_LOG("Finish");
+            return -1;
+            break;
+    }
+}
+
+/*******************************************************************************
  * gst_tiimgenc1_convert_color_space
  *      Convert the DMAI color space type to the corresponding color space
  *      used by the codec.
 *******************************************************************************/
 static int gst_tiimgenc1_convert_color_space(int cspace) {
+    GST_LOG("Begin");
     switch (cspace) {
         case ColorSpace_UYVY:
+            GST_LOG("Finish");
             return XDM_YUV_422ILE;
             break;
         case ColorSpace_YUV420P:
+            GST_LOG("Finish");
             return XDM_YUV_420P;
             break;
         case ColorSpace_YUV422P:
+            GST_LOG("Finish");
             return XDM_YUV_422P;
             break;
         default:
             GST_ERROR("Unsupported Color Space\n");
+            GST_LOG("Finish");
             return -1;
     }
 }
@@ -976,18 +1048,20 @@ static int gst_tiimgenc1_convert_color_space(int cspace) {
  ******************************************************************************/
 static gboolean gst_tiimgenc1_set_codec_attrs(GstTIImgenc1 *imgenc1)
 { 
+    char *toColor;
+    char *tiColor;
     GST_LOG("Begin\n");
-    /* Set the default values */
-    imgenc1->params = Ienc1_Params_DEFAULT;
-    imgenc1->dynParams = Ienc1_DynamicParams_DEFAULT;
 
     /* Set ColorSpace */
-    imgenc1->params.forceChromaFormat = imgenc1->oColor == NULL ?
-                    imgenc1->params.forceChromaFormat :
-                    gst_tiimgenc1_convert_color_space(gst_tiimgenc1_convert_attrs(VAR_OCOLORSPACE, imgenc1));
     imgenc1->dynParams.inputChromaFormat = imgenc1->iColor == NULL ?
                     imgenc1->dynParams.inputChromaFormat :
                     gst_tiimgenc1_convert_color_space(gst_tiimgenc1_convert_attrs(VAR_ICOLORSPACE, imgenc1));
+    /* Use the input color format if one was not specified on the
+     * command line
+     */
+    imgenc1->params.forceChromaFormat = imgenc1->oColor == NULL ?
+                    imgenc1->dynParams.inputChromaFormat :
+                    gst_tiimgenc1_convert_color_space(gst_tiimgenc1_convert_attrs(VAR_OCOLORSPACE, imgenc1));
 
     /* Set Resolution 
      *
@@ -1032,6 +1106,17 @@ static gboolean gst_tiimgenc1_set_codec_attrs(GstTIImgenc1 *imgenc1)
         GST_ERROR("input Color Format (%s) is not supported\n", imgenc1->iColor);
         return FALSE;
     }
+
+    /* Make the color human readable */
+    if (!imgenc1->oColor)
+        toColor = gst_tiimgenc1_codec_color_space_to_str(imgenc1->params.forceChromaFormat);
+    else
+        toColor = (char *)imgenc1->oColor;
+    
+    if (!imgenc1->iColor)
+        tiColor = gst_tiimgenc1_codec_color_space_to_str(imgenc1->dynParams.inputChromaFormat);
+    else
+        tiColor = (char *)imgenc1->iColor;
     
     GST_DEBUG("\nCodec Parameters:\n"
               "\tparams.maxWidth = %d\n"
@@ -1043,9 +1128,9 @@ static gboolean gst_tiimgenc1_set_codec_attrs(GstTIImgenc1 *imgenc1)
               "\tdynParams.inputChromaFormat = %d (%s)\n"
               "\tdynParams.qValue = %d\n",
               imgenc1->params.maxWidth, imgenc1->params.maxHeight,
-              imgenc1->params.forceChromaFormat, (char *)imgenc1->oColor,
+              imgenc1->params.forceChromaFormat, toColor,
               imgenc1->dynParams.inputWidth, imgenc1->dynParams.inputHeight,
-              imgenc1->dynParams.inputChromaFormat, imgenc1->iColor,
+              imgenc1->dynParams.inputChromaFormat, tiColor,
               imgenc1->dynParams.qValue);
     GST_LOG("Finish\n");
     return TRUE;
@@ -1133,7 +1218,7 @@ static gboolean gst_tiimgenc1_init_image(GstTIImgenc1 *imgenc1)
 
     /* Create codec output buffers */
     GST_LOG("creating output buffer table\n");
-    gfxAttrs.colorSpace     = gst_tiimgenc1_convert_attrs(VAR_ICOLORSPACE, imgenc1);
+    gfxAttrs.colorSpace     = imgenc1->params.forceChromaFormat;
     gfxAttrs.dim.width      = imgenc1->params.maxWidth;
     gfxAttrs.dim.height     = imgenc1->params.maxHeight;
     gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(
@@ -1442,7 +1527,7 @@ static void* gst_tiimgenc1_encode_thread(void *arg)
         dim.height = imgenc1->dynParams.inputHeight;
         BufferGfx_setDimensions(imgenc1->hInBuf, &dim);
         BufferGfx_setColorSpace(imgenc1->hInBuf,
-                     gst_tiimgenc1_convert_attrs(VAR_OCOLORSPACE, imgenc1)); 
+                     imgenc1->dynParams.inputChromaFormat); 
 
         /* Invoke the image encoder */
         GST_LOG("invoking the image encoder\n");

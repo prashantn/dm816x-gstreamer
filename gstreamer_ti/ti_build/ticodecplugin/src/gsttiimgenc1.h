@@ -68,7 +68,6 @@ struct _GstTIImgenc1
   const gchar*              engineName;
   const gchar*              codecName;
   gboolean                  displayBuffer;
-//CEM Do we need to worry about time stamps?
   gboolean                  genTimeStamps;
   gchar*                    iColor;
   gchar*                    oColor;
@@ -84,7 +83,6 @@ struct _GstTIImgenc1
   gboolean                  drainingEOS;
   pthread_mutex_t           threadStatusMutex;
   UInt32                    threadStatus;
-//CEM  gboolean                  firstFrame;
   gboolean                  capsSet;
 
   /* Codec Parameters */
