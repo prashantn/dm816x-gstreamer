@@ -85,8 +85,9 @@ GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize);
 gboolean         gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
                      GstBuffer *buf);
 gboolean         gst_ticircbuffer_data_consumed(GstTICircBuffer *circBuf,
-                     GstBuffer* buf, Int32 bytesConsumed,
-                     GstClockTime duration);
+                     GstBuffer* buf, Int32 bytesConsumed);
+gboolean         gst_ticircbuffer_time_consumed(
+                     GstTICircBuffer *circBuf, GstClockTime timeConsumed);
 GstBuffer*       gst_ticircbuffer_get_data(GstTICircBuffer *circBuf);
 void             gst_ticircbuffer_drain(GstTICircBuffer *circBuf,
                      gboolean status);

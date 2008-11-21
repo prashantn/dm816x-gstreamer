@@ -1128,7 +1128,7 @@ static void* gst_tividdec2_decode_thread(void *arg)
          * data was consumed.
          */
         ret = gst_ticircbuffer_data_consumed(viddec2->circBuf, encDataWindow,
-                  encDataConsumed, frameDuration);
+                  encDataConsumed);
         encDataWindow = NULL;
 
         if (!ret) {
@@ -1168,6 +1168,9 @@ static void* gst_tividdec2_decode_thread(void *arg)
             else {
                 GST_BUFFER_TIMESTAMP(outBuf) = GST_CLOCK_TIME_NONE;
             }
+
+            /* Tell circular buffer how much time we consumed */
+            gst_ticircbuffer_time_consumed(viddec2->circBuf, frameDuration);
 
             /* Push the transport buffer to the source pad */
             GST_LOG("pushing display buffer to source pad\n");
@@ -1209,7 +1212,7 @@ thread_failure:
      * consumed no data.
      */
     if (encDataWindow) {
-        gst_ticircbuffer_data_consumed(viddec2->circBuf, encDataWindow, 0, 0);
+        gst_ticircbuffer_data_consumed(viddec2->circBuf, encDataWindow, 0);
     }
 
     gst_tithread_set_status(viddec2, TIThread_DECODE_ABORTED);

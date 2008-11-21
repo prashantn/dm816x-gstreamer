@@ -307,8 +307,7 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
  * gst_ticircbuffer_data_consumed
  ******************************************************************************/
 gboolean gst_ticircbuffer_data_consumed(
-             GstTICircBuffer *circBuf, GstBuffer *buf, Int32 bytesConsumed,
-             GstClockTime duration)
+             GstTICircBuffer *circBuf, GstBuffer *buf, Int32 bytesConsumed)
 {
     /* Release the reference buffer */
     gst_buffer_unref(buf);
@@ -330,16 +329,25 @@ gboolean gst_ticircbuffer_data_consumed(
     /* Unblock the input buffer queue if there is room for more buffers. */
     gst_ticircbuffer_broadcast_consumer(circBuf);
 
-    /* Update the data timestamp and duration settings */
-    if (!GST_CLOCK_TIME_IS_VALID(duration)) {
+    return TRUE;
+}
+
+
+/*****************************************************************************
+ * gst_ticircbuffer_time_consumed
+ *****************************************************************************/
+gboolean gst_ticircbuffer_time_consumed(GstTICircBuffer *circBuf,
+             GstClockTime timeConsumed)
+{
+    if (!GST_CLOCK_TIME_IS_VALID(timeConsumed)) {
         circBuf->dataDuration = GST_CLOCK_TIME_NONE;
     }
     else {
-        circBuf->dataTimeStamp += duration;
+        circBuf->dataTimeStamp += timeConsumed;
     }
 
     if (GST_CLOCK_TIME_IS_VALID(circBuf->dataDuration)) {
-        circBuf->dataDuration  -= duration;
+        circBuf->dataDuration  -= timeConsumed;
     }
 
     return TRUE;
