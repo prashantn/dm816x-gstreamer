@@ -30,11 +30,11 @@ GstTICodec gst_ticodec_codecs[] = {
     /* Audio Codecs */
     {
         "AAC Audio Decoder",     /* String name of codec used by plugin      */
-        "aachedec",              /* String name of codec used by CE          */
+        "aachedec1",             /* String name of codec used by CE          */
         decodeEngine             /* Engine that contains this codec          */
     }, {
         "MPEG1L2 Audio Decoder", /* String name of codec used by plugin      */
-        "mp3dec1",                /* String name of codec used by CE          */
+        "mp3dec1",                /* String name of codec used by CE         */
         decodeEngine             /* Engine that contains this codec          */
     }, {
         "MPEG1L3 Audio Decoder", /* String name of codec used by plugin      */
@@ -42,18 +42,26 @@ GstTICodec gst_ticodec_codecs[] = {
         decodeEngine             /* Engine that contains this codec          */
     }, {
         "WMA Audio Decoder",     /* String name of codec used by plugin      */
-        "wmadec1",                /* String name of codec used by CE          */
+        "wmadec1",               /* String name of codec used by CE          */
         decodeEngine             /* Engine that contains this codec          */
     },
     
     /* Video Codecs */
     {
         "H.264 Video Decoder",   /* String name of codec used by plugin      */
-        "h264avcdec",            /* String name of codec used by CE          */
+        "h264dec2",              /* String name of codec used by CE          */
         decodeEngine             /* Engine that contains this codec          */
     }, {
         "MPEG4 Video Decoder",   /* String name of codec used by plugin      */
-        "mpeg4dec",              /* String name of codec used by CE          */
+        "mpeg4dec2",             /* String name of codec used by CE          */
+        decodeEngine             /* Engine that contains this codec          */
+    }, {
+        "MPEG2 Video Decoder",   /* String name of codec used by plugin      */
+        "mpeg2dec2",             /* String name of codec used by CE          */
+        decodeEngine             /* Engine that contains this codec          */
+    }, {
+        "JPEG Image Decoder",    /* String name of codec used by plugin      */
+        "jpegdec1",              /* String name of codec used by CE          */
         decodeEngine             /* Engine that contains this codec          */
     },
 

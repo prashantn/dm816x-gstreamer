@@ -104,7 +104,10 @@ This GStreamer plug-in has been built and tested on the following platforms:
 - DM6446
 - DM355
 - DM6467
-- OMAP35xx
+- OMAP35xx (*)
+
+* OMAP35xx support currently requires DVSDK 3.00.00.27, which is a TI internal
+  engineering release.
 
 Prerequisites
 =============
@@ -131,7 +134,8 @@ Prerequisites
 - The DVSDK is configured to use the Linux kernel provided by the LSP package
   associated with the DVSDK being used.
 - DMAI 1.16 or later is installed on the Linux host for DaVinci targets.
-  DMAI 1.20 or later is required for OMAP35xx targets.
+  DMAI 1.20 or later is required for OMAP35xx targets.  This DMAI version is
+  included with DVSDK 3.00.
 - For OMAP35xx platforms, the "zlib" library needs to be installed on the
   target filesystem.  To instal it, please cd to the root of the target
   filesystem and extract OMAP35x_SDK/bin/zlib-1.2.3.tar.gz.
