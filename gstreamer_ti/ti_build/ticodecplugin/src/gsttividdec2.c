@@ -310,7 +310,7 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     viddec2->engineName        = NULL;
     viddec2->codecName         = NULL;
     viddec2->displayBuffer     = FALSE;
-    viddec2->genTimeStamps     = FALSE;
+    viddec2->genTimeStamps     = TRUE;
 
     viddec2->hEngine           = NULL;
     viddec2->hVd               = NULL;
