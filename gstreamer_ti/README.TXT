@@ -177,32 +177,27 @@ the target, and some demonstration scripts will be installed to
 
 Board Set-Up
 ============
-In the "/opt/gstreamer_demo" target directory there is a shell script for board
-set-up named "loadmodules_<platform>.sh", and others that demonstrate how you
-can use the TI plugin via the gst-launch command.  Copy this directory to the
-target filesystem so you can access them on the target.
+After installation, there will be a target directory named
+"/opt/gstreamer_demo/<platform>", where <platform> is the name of your target
+(dm6446, dm355, etc.).  In this directory there is a script for board set-up
+named "loadmodules.sh".  Run this script once the board is running to
+initialize the relevant kernel modules for your platform.
 
-Once the board is running, run the "loadmodules_<platform>.sh" script to
-initialize the relevant kernel modules for your platform.  Substitute
-<platform> with the name of your target (dm6446, dm355, etc.).
+Other scripts are also available in this directory that demonstrate how you can
+use the TI plugin via the gst-launch command, and are explained below.
 
 Playing Clips
 =============
 Once the board is set up, you can use the provided example scripts to play
 multimedia files:
 
-./play_AVI.sh:    Play an AVI file
-./play_TS.sh:     Play a trasport stream
-./test_VIDDEC.sh: Play a video file
-./test_AUDDEC.sh: Play an audio file
-./test_AV.sh:     Play video and audio files at the same time
-./demux_AVI.sh:   Demux an AVI file into audio and video files.
-./demux_TS.sh:    Demux a transport stream into audio and video files.
+./decode_avi.sh:         Play an AVI file
+./decode_ts.sh:          Play a trasport stream
+./decode_elementary.sh:  Play an audio or video elementary stream
+./test_sink.sh           Test audio or video sink
 
-Note that these scripts may need minor adjustments depending on the streams
-in your clip and the type of file.  For example, play_AVI may be able to auto-
-detect the streams in the file, but you may need to modify test_VIDDEC to tell
-it what video codec to use.
+Note that you may need to specify command line arguments to some scripts for
+them to work properly.  Run a script with -h to see what options are available.
 
 Known Issues
 ============
