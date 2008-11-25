@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# target_gst.sh
+# encode_image.sh
 #
 # Copyright (C) $year Texas Instruments Incorporated - http://www.ti.com/
 #
@@ -13,20 +13,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # Lesser General Public License for more details.
 
-#-----------------------------------------------------------------------------
-# Set GStreamer attributes for this platform
-#-----------------------------------------------------------------------------
-PLATFORM=dm6467
-. ../shared/target_env.sh
+. ./target_gst.sh
+. ../shared/encode_image.sh
 
-# Audio / Video Decode defaults
-audio_plugin="mad"
-audiocodecName=""
-video_plugin="TIViddec"
-videocodeName=""
-soundStd="oss"
-dispStd="v4l2"
-dispDevice="/dev/video2"
-videoStd="720P_60"
-videoOut="COMPONENT"
-resizer="FALSE";

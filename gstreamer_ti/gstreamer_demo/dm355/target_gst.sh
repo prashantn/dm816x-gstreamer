@@ -19,17 +19,20 @@
 PLATFORM=dm355
 . ../shared/target_env.sh
 
+# Audio / Video Decode defaults
 audio_plugin="mad"
 audiocodecName=""
 video_plugin="TIViddec2"
 videocodeName="mpeg4dec"
-image_plugin="TIImgenc1"
-resolution="720x480"
-inputcolorSpace="UYVY"
-outputcolorSpace="UYVY"
 soundStd="oss"
 dispStd="fbdev"
 dispDevice=""
 videoStd="D1_NTSC"
 videoOut="COMPOSITE"
 resizer="FALSE";
+
+# Imaging defaults
+image_plugin="TIImgenc1"
+resolution="720x480"
+inputcolorSpace="UYVY"
+outputcolorSpace="UYVY"

@@ -19,6 +19,7 @@
 PLATFORM=omap3530
 . ../shared/target_env.sh
 
+# Audio / Video Decode defaults
 audio_plugin="TIAuddec1"
 audiocodecName=""
 video_plugin="TIViddec2"
@@ -31,3 +32,8 @@ videoOut="LCD"
 resizer="FALSE";
 rotation="90";
 
+# Imaging defaults
+image_plugin="TIImgenc1"
+resolution="720x480"
+inputcolorSpace="UYVY"
+outputcolorSpace="YUV422P"

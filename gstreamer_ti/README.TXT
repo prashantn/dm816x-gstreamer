@@ -85,7 +85,7 @@ TIViddec2
     xDM 1.2 Video Decoder
 
 TIImgenc1
-    xDM 1.0 Image Encoder (BETA!!!!)
+    xDM 1.0 Image Encoder
 
 TIAuddec
     xDM 0.9 Audio Decoder
@@ -194,6 +194,7 @@ multimedia files:
 ./decode_avi.sh:         Play an AVI file
 ./decode_ts.sh:          Play a trasport stream
 ./decode_elementary.sh:  Play an audio or video elementary stream
+./encode_image.sh:       Encode an image file
 ./test_sink.sh           Test audio or video sink
 
 Note that you may need to specify command line arguments to some scripts for
@@ -205,9 +206,6 @@ Known Issues
   mysterious run issue with libid3tag involving unresolved symbols.  The gperf
   package that comes with RHEL 4.6 is sufficient, but you need to make sure
   it is installed.
-- The TIImgenc1 plugin is still in a beta phase and is not fully operational.
-  As of now it requires that all options be set on the gst-launch command line.
-  This will be cleaned-up.  There is a list of things TODO in the Notes
-  section of the gsttiimgenc1.c header.  This plugin was successfully tested
-  using the frida_720x480.yuv file from the examples diretory of the DM355
-  DVSDK.  This plugin has only been tested on the DM355.
+- The JPEG image encoder on OMAP3530 doesn't support UYVY as an output color
+  format.  If you specify this color format, you will get an error message
+  indicating that the plugin failed to create the image encoder.

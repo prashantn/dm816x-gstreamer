@@ -23,11 +23,12 @@
 
 /* Declaration of the production engine and decoders shipped with the DVSDK */
 static Char decodeEngine[] = "decode";
+static Char encodeEngine[] = "encode";
 
 /* NULL terminated list of speech decoders in the engine to use in the demo */
 GstTICodec gst_ticodec_codecs[] = {
 
-    /* Audio Codecs */
+    /* Audio Decoders */
     {
         "AAC Audio Decoder",     /* String name of codec used by plugin      */
         "aachedec1",             /* String name of codec used by CE          */
@@ -46,7 +47,7 @@ GstTICodec gst_ticodec_codecs[] = {
         decodeEngine             /* Engine that contains this codec          */
     },
     
-    /* Video Codecs */
+    /* Video Decoders */
     {
         "H.264 Video Decoder",   /* String name of codec used by plugin      */
         "h264dec2",              /* String name of codec used by CE          */
@@ -59,10 +60,31 @@ GstTICodec gst_ticodec_codecs[] = {
         "MPEG2 Video Decoder",   /* String name of codec used by plugin      */
         "mpeg2dec2",             /* String name of codec used by CE          */
         decodeEngine             /* Engine that contains this codec          */
-    }, {
+    },
+
+    /* Image Decoders */
+    {
         "JPEG Image Decoder",    /* String name of codec used by plugin      */
         "jpegdec1",              /* String name of codec used by CE          */
         decodeEngine             /* Engine that contains this codec          */
+    },
+
+    /* Video Encoders */
+    {
+        "H.264 Video Encoder",   /* String name of codec used by plugin      */
+        "h264enc1",              /* String name of codec used by CE          */
+        encodeEngine             /* Engine that contains this codec          */
+    }, {
+        "MPEG4 Video Encoder",   /* String name of codec used by plugin      */
+        "mpeg4enc1",             /* String name of codec used by CE          */
+        encodeEngine             /* Engine that contains this codec          */
+    },
+
+    /* Image Encoders */
+    {
+        "JPEG Image Encoder",    /* String name of codec used by plugin      */
+        "jpegenc1",              /* String name of codec used by CE          */
+        encodeEngine             /* Engine that contains this codec          */
     },
 
     { NULL }
