@@ -48,7 +48,7 @@ execute ()
     fi
 }
 
-args=`getopt f:p:o:r:i:c:h $*`
+args=`getopt f:p:o:r:i:c:q:h $*`
 if test $? != 0 ; then
     help;
 fi
