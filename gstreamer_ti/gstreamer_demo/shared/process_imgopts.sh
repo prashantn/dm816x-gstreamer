@@ -26,9 +26,12 @@ help ()
     echo
     echo "Image options:"
     echo " -p  |   Image encoder plugin to use [Default:$image_plugin]"
+    echo " -r  |   Resolution of input and output image [Default:$resolution]"
+    echo 
+    echo "Encode options:"
+    echo " -q  |   qValue to be used during the encode [Default:$qValue]"
     echo " -i  |   Color space of input file (UYVY, YUV420P, YUV422P) [Default:$inputcolorSpace]"
     echo " -c  |   Color space of outpt file (UYVY, YUV420P, YUV422P) [Default:$outputcolorSpace]"
-    echo " -r  |   Resolution of input and output image [Default:$resolution]"
     exit 1;
 }
 
@@ -58,6 +61,7 @@ do
         -p) shift; image_plugin=$1; shift;;
         -o) shift; outputFile=$1; shift;;
         -r) shift; resolution=$1; shift;;
+	-q) shift; qValue=$1; shift;;
 	-i) shift; inputcolorSpace=$1; shift;;
 	-c) shift; outputcolorSpace=$1; shift;;
         -h) help;;
@@ -86,7 +90,7 @@ fi
 
 execute "$GSTINSPECT $image_plugin"
 
-image_plugin_args="resolution=$resolution iColorSpace=$inputcolorSpace oColorSpace=$outputcolorSpace"
+image_plugin_args="resolution=$resolution iColorSpace=$inputcolorSpace oColorSpace=$outputcolorSpace qValue=$qValue"
 
 echo "*********** Pipeline Settings *************"
 echo "platform               = ${PLATFORM}"
