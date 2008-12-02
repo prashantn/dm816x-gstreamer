@@ -22,11 +22,11 @@ PLATFORM=dm6467
 # Audio / Video Decode defaults
 audio_plugin="mad"
 audiocodecName=""
-video_plugin="TIViddec"
+video_plugin="TIViddec2"
 videocodeName=""
 soundStd="oss"
 dispStd="v4l2"
 dispDevice="/dev/video2"
-videoStd="720P_60"
+videoStd="1080P_30"
 videoOut="COMPONENT"
 resizer="FALSE";
