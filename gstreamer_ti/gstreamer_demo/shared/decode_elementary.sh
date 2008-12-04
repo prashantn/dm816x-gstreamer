@@ -29,6 +29,7 @@ cat /dev/zero > /dev/fb/2 2>/dev/null
 #DEBUG="--gst-debug-no-color --gst-debug=TIDmaiVideoSink:*"
 #DEBUG="--gst-debug-no-color --gst-debug=GST_PLUGIN_LOADING:*"
 #DEBUG=-v
+DEBUG="--gst-debug-no-color --gst-debug=TI*:2"
 
 #------------------------------------------------------------------------------
 # Execute the pipeline

@@ -19,6 +19,7 @@
 #DEBUG="--gst-debug-no-color --gst-debug=TIImgenc1:5"
 #DEBUG="--gst-debug-no-color --gst-debug=TIDmaiVideoSink:*"
 #DEBUG="--gst-debug-no-color --gst-debug=GST_PLUGIN_LOADING:*"
+DEBUG="--gst-debug-no-color --gst-debug=TI*:2"
 
 . ../shared/process_imgopts.sh
 . ../shared/run_pipe.sh
