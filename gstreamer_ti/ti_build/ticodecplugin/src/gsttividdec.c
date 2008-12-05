@@ -741,7 +741,8 @@ static gboolean gst_tividdec_init_video(GstTIViddec *viddec)
     }
 
     /* Create a circular input buffer */
-    viddec->circBuf = gst_ticircbuffer_new(Vdec_getInBufSize(viddec->hVd));
+    viddec->circBuf =
+        gst_ticircbuffer_new(Vdec_getInBufSize(viddec->hVd), 3);
 
     if (viddec->circBuf == NULL) {
         GST_ERROR("failed to create circular input buffer\n");

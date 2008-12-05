@@ -172,13 +172,15 @@ static void gst_ticircbuffer_init(GTypeInstance *instance,
 
 /******************************************************************************
  * gst_ticircbuffer_new
- *     Create a circular buffer to store an encoded input stream.
+ *     Create a circular buffer to store an encoded input stream.  Increasing
+ *     the number of windows stored in the buffer can help performance if
+ *     adequate memory is available.
  ******************************************************************************/
-GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize)
+GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize, Int32 numWindows)
 {
     GstTICircBuffer *circBuf;
-    Buffer_Attrs             bAttrs  = Buffer_Attrs_DEFAULT;
-    Int32                    bufSize;
+    Buffer_Attrs     bAttrs  = Buffer_Attrs_DEFAULT;
+    Int32            bufSize;
 
     GST_LOG("begin new");
 
@@ -187,15 +189,23 @@ GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize)
     g_return_val_if_fail(circBuf != NULL, NULL);
 
     GST_INFO("requested windowSize:  %ld\n", windowSize);
-    circBuf->windowSize    = windowSize;
+    circBuf->windowSize = windowSize;
 
-    /* Set the read ahead size to be 1/8 of a window */
+    /* Set the read ahead size to be 1/4 of a window */
     circBuf->readAheadSize = windowSize >> 2;
 
-    /* The size of the circular buffer needs to be at least
-     * 2 * (windowSize + readAheadSize), but can be increased if needed.
+    /* We need to have at least 2 windows allocated for us to be able
+     * to copy buffer data while the consumer is running.
      */
-    bufSize = (windowSize) + ((windowSize + circBuf->readAheadSize) << 1);
+    if (numWindows < 2) {
+        GST_ERROR("numWindows must be at least 2 to allow for "
+                    "multi-threaded buffer management\n");
+        return NULL;
+    }
+
+    /* Allocate the circular buffer */
+    bufSize = (numWindows * windowSize) + (circBuf->readAheadSize << 1);
+
     GST_LOG("creating circular input buffer of size %lu\n", bufSize);
     circBuf->hBuf = Buffer_create(bufSize, &bAttrs);
 

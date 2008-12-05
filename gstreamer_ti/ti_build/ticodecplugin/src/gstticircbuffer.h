@@ -81,7 +81,7 @@ struct _GstTICircBuffer {
 
 /* External function declarations */
 GType            gst_ticircbuffer_get_type(void);
-GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize);
+GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize, Int32 numWindows);
 gboolean         gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
                      GstBuffer *buf);
 gboolean         gst_ticircbuffer_data_consumed(GstTICircBuffer *circBuf,
