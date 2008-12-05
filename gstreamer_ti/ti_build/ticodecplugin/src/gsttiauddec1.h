@@ -1,5 +1,5 @@
 /*
- * gsttiAuddec1.h
+ * gsttiauddec1.h
  *
  * This file declares the "TIAuddec1" element, which decodes an xDM 1.x audio
  * stream.
@@ -19,8 +19,8 @@
  * Lesser General Public License for more details.
  */
 
-#ifndef __GST_TIAuddec1_H__
-#define __GST_TIAuddec1_H__
+#ifndef __GST_TIAUDDEC1_H__
+#define __GST_TIAUDDEC1_H__
 
 #include <pthread.h>
 
@@ -39,7 +39,7 @@
 
 G_BEGIN_DECLS
 
-/* Standard macros for maniuplating TIAuddec11 objects */
+/* Standard macros for maniuplating TIAuddec1 objects */
 #define GST_TYPE_TIAUDDEC1 \
   (gst_tiauddec1_get_type())
 #define GST_TIAUDDEC1(obj) \
@@ -105,7 +105,7 @@ GType gst_tiauddec1_get_type(void);
 
 G_END_DECLS
 
-#endif /* __GST_TIAuddec1_H__ */
+#endif /* __GST_TIAUDDEC1_H__ */
 
 
 /******************************************************************************
