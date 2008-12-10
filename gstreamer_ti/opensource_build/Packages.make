@@ -45,7 +45,7 @@ BASE_PACKAGES += $(PACKAGE_check_BUILD_TARGET)
 PACKAGE_gstreamer_BUILD_TARGET       = gstreamer
 PACKAGE_gstreamer_ARCHIVE_BASENAME   = gstreamer-0.10.20
 PACKAGE_gstreamer_PRECONFIG_PATCHES  = gstreamer1_0_10_20 gstreamer2_0_10_20
-PACKAGE_gstreamer_CONFIGURE_OPTS     = --disable-loadsave --disable-tests --with-checklibname=check --disable-valgrind CFLAGS=-I"$(TARGET_GSTREAMER_DIR)/include"
+PACKAGE_gstreamer_CONFIGURE_OPTS     = ac_cv_func_register_printf_function=no --disable-loadsave --disable-tests --with-checklibname=check --disable-valgrind CFLAGS=-I"$(TARGET_GSTREAMER_DIR)/include"
 PACKAGE_gstreamer_POSTCONFIG_PATCHES =
 PACKAGE_gstreamer_BUILD_DIRS         =
 PACKAGE_gstreamer_DESCRIPTION        = GStreamer library
