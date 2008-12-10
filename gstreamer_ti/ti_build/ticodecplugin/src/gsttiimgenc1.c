@@ -484,7 +484,7 @@ static void gst_tiimgenc1_set_property(GObject *object, guint prop_id,
             break;
         case PROP_NUM_OUTPUT_BUFS:
             imgenc1->numOutputBufs = g_value_get_int(value);
-            GST_LOG("setting \"numOutputBufs\" to \"%d\"\n",
+            GST_LOG("setting \"numOutputBufs\" to \"%ld\"\n",
                 imgenc1->numOutputBufs);
             break;
         case PROP_FRAMERATE:
@@ -498,7 +498,7 @@ static void gst_tiimgenc1_set_property(GObject *object, guint prop_id,
                 imgenc1->framerateDen = 1001;
             }
 
-            GST_LOG("setting \"frameRate\" to \"%2.2d\"\n",
+            GST_LOG("setting \"frameRate\" to \"%2.2lf\"\n",
                 (gdouble)imgenc1->framerateNum /
                 (gdouble)imgenc1->framerateDen);
             break;
@@ -1100,15 +1100,15 @@ static gboolean gst_tiimgenc1_set_codec_attrs(GstTIImgenc1 *imgenc1)
 
     /* Check for valid values (NOTE: minimum width and height are 64) */
     if (imgenc1->params.maxWidth < 64) {
-        GST_ERROR("The resolution width (%d) is too small.  Must be at least 64\n", imgenc1->params.maxWidth);
+        GST_ERROR("The resolution width (%ld) is too small.  Must be at least 64\n", imgenc1->params.maxWidth);
         return FALSE;
     }
     if (imgenc1->params.maxHeight < 64) {
-        GST_ERROR("The resolution height (%d) is too small.  Must be at least 64\n", imgenc1->params.maxHeight);
+        GST_ERROR("The resolution height (%ld) is too small.  Must be at least 64\n", imgenc1->params.maxHeight);
         return FALSE;
     }
     if ((imgenc1->dynParams.qValue < 0) || (imgenc1->dynParams.qValue > 100)) {
-        GST_ERROR("The qValue (%d) is not withing the range of 0-100\n", imgenc1->dynParams.qValue);
+        GST_ERROR("The qValue (%ld) is not withing the range of 0-100\n", imgenc1->dynParams.qValue);
         return FALSE;
     }
     if (imgenc1->params.forceChromaFormat == -1) {
@@ -1132,14 +1132,14 @@ static gboolean gst_tiimgenc1_set_codec_attrs(GstTIImgenc1 *imgenc1)
         tiColor = (char *)imgenc1->iColor;
     
     GST_DEBUG("\nCodec Parameters:\n"
-              "\tparams.maxWidth = %d\n"
-              "\tparams.maxHeight = %d\n"
-              "\tparams.forceChromaFormat = %d (%s)\n"
+              "\tparams.maxWidth = %ld\n"
+              "\tparams.maxHeight = %ld\n"
+              "\tparams.forceChromaFormat = %ld (%s)\n"
               "\nDynamic Parameters:\n"
-              "\tdynParams.inputWidth = %d\n"
-              "\tdynParams.inputHeight = %d\n"
-              "\tdynParams.inputChromaFormat = %d (%s)\n"
-              "\tdynParams.qValue = %d\n",
+              "\tdynParams.inputWidth = %ld\n"
+              "\tdynParams.inputHeight = %ld\n"
+              "\tdynParams.inputChromaFormat = %ld (%s)\n"
+              "\tdynParams.qValue = %ld\n",
               imgenc1->params.maxWidth, imgenc1->params.maxHeight,
               imgenc1->params.forceChromaFormat, toColor,
               imgenc1->dynParams.inputWidth, imgenc1->dynParams.inputHeight,

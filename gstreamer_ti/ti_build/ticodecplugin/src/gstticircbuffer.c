@@ -279,7 +279,7 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
     }
 
     /* Copy new data to the end of the buffer */
-    GST_LOG("queued %lu bytes of data\n", GST_BUFFER_SIZE(buf));
+    GST_LOG("queued %u bytes of data\n", GST_BUFFER_SIZE(buf));
         
     memcpy(circBuf->writePtr, GST_BUFFER_DATA(buf), GST_BUFFER_SIZE(buf));
     circBuf->writePtr += GST_BUFFER_SIZE(buf);

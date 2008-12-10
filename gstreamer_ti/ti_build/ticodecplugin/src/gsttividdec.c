@@ -359,7 +359,7 @@ static void gst_tividdec_set_property(GObject *object, guint prop_id,
             break;
         case PROP_NUM_OUTPUT_BUFS:
             viddec->numOutputBufs = g_value_get_int(value);
-            GST_LOG("setting \"numOutputBufs\" to \"%d\"\n",
+            GST_LOG("setting \"numOutputBufs\" to \"%ld\"\n",
                 viddec->numOutputBufs);
             break;
         case PROP_FRAMERATE:
@@ -373,7 +373,7 @@ static void gst_tividdec_set_property(GObject *object, guint prop_id,
                 viddec->framerateDen = 1001;
             }
 
-            GST_LOG("setting \"frameRate\" to \"%2.2d\"\n",
+            GST_LOG("setting \"frameRate\" to \"%2.2lf\"\n",
                 (gdouble)viddec->framerateNum / (gdouble)viddec->framerateDen);
             break;
         }

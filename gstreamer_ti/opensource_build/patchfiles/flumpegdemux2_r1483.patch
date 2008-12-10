@@ -1,0 +1,40 @@
+diff -c -r orig/gst-fluendo-mpegdemux-trunk.1483/src/gstmpegdemux.c gst-fluendo-mpegdemux-trunk.1483/src/gstmpegdemux.c
+*** orig/gst-fluendo-mpegdemux-trunk.1483/src/gstmpegdemux.c	2008-08-28 05:39:51.000000000 -0500
+--- gst-fluendo-mpegdemux-trunk.1483/src/gstmpegdemux.c	2008-12-10 16:15:19.000000000 -0600
+***************
+*** 1018,1024 ****
+      /* We keep the offset of this scr */
+      demux->last_scr_offset = demux->adapter_offset + 12;
+  
+!     GST_DEBUG_OBJECT (demux, "SCR: 0x%08x SCRE: 0x%08x", scr, scr_ext);
+  
+      if (scr_ext) {
+        scr = (scr * 300 + scr_ext % 300) / 300;
+--- 1018,1024 ----
+      /* We keep the offset of this scr */
+      demux->last_scr_offset = demux->adapter_offset + 12;
+  
+!     GST_DEBUG_OBJECT (demux, "SCR: 0x%08llx SCRE: 0x%08x", scr, scr_ext);
+  
+      if (scr_ext) {
+        scr = (scr * 300 + scr_ext % 300) / 300;
+diff -c -r orig/gst-fluendo-mpegdemux-trunk.1483/src/gstmpegtsdemux.c gst-fluendo-mpegdemux-trunk.1483/src/gstmpegtsdemux.c
+*** orig/gst-fluendo-mpegdemux-trunk.1483/src/gstmpegtsdemux.c	2008-08-27 06:28:55.000000000 -0500
+--- gst-fluendo-mpegdemux-trunk.1483/src/gstmpegtsdemux.c	2008-12-10 16:16:27.000000000 -0600
+***************
+*** 918,924 ****
+  
+    GST_LOG_OBJECT (demux, "setting PTS to (%" G_GUINT64_FORMAT ") time: %"
+        GST_TIME_FORMAT " on buffer 0x%x first buffer: %d base_time: %"
+!       GST_TIME_FORMAT, pts, GST_TIME_ARGS (time), buffer, first,
+        GST_TIME_ARGS (stream->base_time));
+  
+    GST_BUFFER_TIMESTAMP (buffer) = time;
+--- 918,924 ----
+  
+    GST_LOG_OBJECT (demux, "setting PTS to (%" G_GUINT64_FORMAT ") time: %"
+        GST_TIME_FORMAT " on buffer 0x%x first buffer: %d base_time: %"
+!       GST_TIME_FORMAT, pts, GST_TIME_ARGS (time), (unsigned int)buffer, first,
+        GST_TIME_ARGS (stream->base_time));
+  
+    GST_BUFFER_TIMESTAMP (buffer) = time;

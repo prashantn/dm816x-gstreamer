@@ -103,7 +103,7 @@ BASE_PACKAGES += $(PACKAGE_plugins_base_BUILD_TARGET)
 #------------------------------------------------------------------------------
 PACKAGE_flumpegdemux_BUILD_TARGET       = flumpegdemux
 PACKAGE_flumpegdemux_ARCHIVE_BASENAME   = gst-fluendo-mpegdemux-trunk.1483
-PACKAGE_flumpegdemux_PRECONFIG_PATCHES  = flumpegdemux1_r1483
+PACKAGE_flumpegdemux_PRECONFIG_PATCHES  = flumpegdemux1_r1483 flumpegdemux2_r1483
 PACKAGE_flumpegdemux_CONFIGURE_OPTS     =
 PACKAGE_flumpegdemux_POSTCONFIG_PATCHES =
 PACKAGE_flumpegdemux_BUILD_DIRS         =

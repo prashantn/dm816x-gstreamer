@@ -596,15 +596,15 @@ static VideoStd_Type gst_tidmaivideosink_find_videostd(
          */
         //CEM  I want to do some more checking of this function.
         GST_DEBUG("\nInput Attributes:\n"
-                  "\tsink input attrs width = %d\n"
-                  "\tsink input attrs height = %d\n"
+                  "\tsink input attrs width = %ld\n"
+                  "\tsink input attrs height = %ld\n"
                   "\tsink input attrs framerate = %d\n\n"
                   "Display Attributes:\n"
                   "\tdisplay width = %d\n"
                   "\tdisplay height = %d\n\n"
                   "Proposed Standard (%d) Attributes:\n"
-                  "\tstandard width = %d\n"
-                  "\tstandard height = %d\n"
+                  "\tstandard width = %ld\n"
+                  "\tstandard height = %ld\n"
                   "\tstandard framerate = %d\n",
                   sink->iattrs.width, sink->iattrs.height,
                   sink->iattrs.framerate, dwidth, dheight, i,
@@ -904,8 +904,8 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink)
 
     GST_DEBUG("VideoStd_Attrs:\n"
               "\tvideostd = %d\n"
-              "\twidth = %d\n"
-              "\theight = %d\n"
+              "\twidth = %ld\n"
+              "\theight = %ld\n"
               "\tframerate = %d\n",
               sink->oattrs.videostd, sink->oattrs.width,
               sink->oattrs.height, sink->oattrs.framerate);
@@ -1230,7 +1230,7 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
              */
             if (width > dim.width) {
                 GST_INFO("Input image width (%d) greater than display width"
-                         " (%d)\n Image cropped to fit screen\n",
+                         " (%ld)\n Image cropped to fit screen\n",
                          width, dim.width);
                 dim.x = 0;
             } else {
@@ -1240,7 +1240,7 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
 
             if (height > dim.height) {
                 GST_INFO("Input image height (%d) greater than display height"
-                         " (%d)\n Image cropped to fit screen\n",
+                         " (%ld)\n Image cropped to fit screen\n",
                          height, dim.height);
                 dim.y = 0;
             } else {
