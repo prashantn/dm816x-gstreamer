@@ -255,23 +255,29 @@ static void gst_tiauddec_class_init(GstTIAuddecClass *klass)
  ******************************************************************************/
 static void gst_tiauddec_init(GstTIAuddec *auddec, GstTIAuddecClass *gclass)
 {
-    /* Instantiate encoded audio sink pad */
+    /* Instantiate encoded audio sink pad.
+     *
+     * Fixate on our static template caps instead of writing a getcaps
+     * function, which is overkill for this element.
+     */
     auddec->sinkpad =
         gst_pad_new_from_static_template(&sink_factory, "encaudio");
     gst_pad_set_setcaps_function(
         auddec->sinkpad, GST_DEBUG_FUNCPTR(gst_tiauddec_set_sink_caps));
-    gst_pad_set_getcaps_function(
-        auddec->sinkpad, GST_DEBUG_FUNCPTR(gst_pad_proxy_getcaps));
     gst_pad_set_event_function(
         auddec->sinkpad, GST_DEBUG_FUNCPTR(gst_tiauddec_sink_event));
     gst_pad_set_chain_function(
         auddec->sinkpad, GST_DEBUG_FUNCPTR(gst_tiauddec_chain));
+    gst_pad_fixate_caps(auddec->sinkpad,
+        gst_caps_make_writable(
+            gst_caps_copy(gst_pad_get_pad_template_caps(auddec->sinkpad))));
 
     /* Instantiate deceoded audio source pad */
     auddec->srcpad =
         gst_pad_new_from_static_template(&src_factory, "decaudio");
-    gst_pad_set_getcaps_function(
-        auddec->srcpad, GST_DEBUG_FUNCPTR(gst_pad_proxy_getcaps));
+    gst_pad_fixate_caps(auddec->srcpad,
+        gst_caps_make_writable(
+            gst_caps_copy(gst_pad_get_pad_template_caps(auddec->srcpad))));
 
     /* Add pads to TIAuddec element */
     gst_element_add_pad(GST_ELEMENT(auddec), auddec->sinkpad);

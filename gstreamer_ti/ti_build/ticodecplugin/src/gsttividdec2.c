@@ -284,23 +284,33 @@ static void gst_tividdec2_class_init(GstTIViddec2Class *klass)
  ******************************************************************************/
 static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
 {
-    /* Instantiate encoded video sink pad */
+    /* Instantiate encoded video sink pad.
+     *
+     * Fixate on our static template caps instead of writing a getcaps
+     * function, which is overkill for this element.
+     */
     viddec2->sinkpad =
         gst_pad_new_from_static_template(&sink_factory, "encvideo");
     gst_pad_set_setcaps_function(
         viddec2->sinkpad, GST_DEBUG_FUNCPTR(gst_tividdec2_set_sink_caps));
-    gst_pad_set_getcaps_function(
-        viddec2->sinkpad, GST_DEBUG_FUNCPTR(gst_pad_proxy_getcaps));
     gst_pad_set_event_function(
         viddec2->sinkpad, GST_DEBUG_FUNCPTR(gst_tividdec2_sink_event));
     gst_pad_set_chain_function(
         viddec2->sinkpad, GST_DEBUG_FUNCPTR(gst_tividdec2_chain));
+    gst_pad_fixate_caps(viddec2->sinkpad,
+        gst_caps_make_writable(
+            gst_caps_copy(gst_pad_get_pad_template_caps(viddec2->sinkpad))));
 
-    /* Instantiate deceoded video source pad */
+    /* Instantiate deceoded video source pad.
+     *
+     * Fixate on our static template caps instead of writing a getcaps
+     * function, which is overkill for this element.
+     */
     viddec2->srcpad =
         gst_pad_new_from_static_template(&src_factory, "decvideo");
-    gst_pad_set_getcaps_function(
-        viddec2->srcpad, GST_DEBUG_FUNCPTR(gst_pad_proxy_getcaps));
+    gst_pad_fixate_caps(viddec2->srcpad,
+        gst_caps_make_writable(
+            gst_caps_copy(gst_pad_get_pad_template_caps(viddec2->srcpad))));
 
     /* Add pads to TIViddec2 element */
     gst_element_add_pad(GST_ELEMENT(viddec2), viddec2->sinkpad);
