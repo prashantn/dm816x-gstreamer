@@ -1,9 +1,9 @@
-diff -c -r orig/gstreamer-0.10.20/ChangeLog gstreamer-0.10.20/ChangeLog
-*** orig/gstreamer-0.10.20/ChangeLog	2008-06-18 04:56:04.000000000 -0500
---- gstreamer-0.10.20/ChangeLog	2008-10-16 10:32:23.000000000 -0500
+diff -c -r orig/gstreamer-0.10.21/ChangeLog gstreamer-0.10.21/ChangeLog
+*** orig/gstreamer-0.10.21/ChangeLog	2008-10-02 17:12:13.000000000 -0500
+--- gstreamer-0.10.21/ChangeLog	2008-12-10 19:00:16.000000000 -0600
 ***************
-*** 3707,3712 ****
---- 3707,3717 ----
+*** 5052,5057 ****
+--- 5052,5062 ----
   	API: gst_base_sink_get_last_buffer()
   	API: GstBaseSink::last-buffer
   
@@ -15,11 +15,11 @@ diff -c -r orig/gstreamer-0.10.20/ChangeLog gstreamer-0.10.20/ChangeLog
   2007-10-29  Stefan Kost  <ensonic@users.sf.net>
   
   	* docs/gst/running.xml:
-diff -c -r orig/gstreamer-0.10.20/libs/gst/base/gstbasesink.c gstreamer-0.10.20/libs/gst/base/gstbasesink.c
-*** orig/gstreamer-0.10.20/libs/gst/base/gstbasesink.c	2008-06-04 14:41:22.000000000 -0500
---- gstreamer-0.10.20/libs/gst/base/gstbasesink.c	2008-10-16 10:13:36.000000000 -0500
+diff -c -r orig/gstreamer-0.10.21/libs/gst/base/gstbasesink.c gstreamer-0.10.21/libs/gst/base/gstbasesink.c
+*** orig/gstreamer-0.10.21/libs/gst/base/gstbasesink.c	2008-09-10 04:17:01.000000000 -0500
+--- gstreamer-0.10.21/libs/gst/base/gstbasesink.c	2008-12-10 19:00:16.000000000 -0600
 ***************
-*** 819,851 ****
+*** 821,853 ****
   GstBuffer *
   gst_base_sink_get_last_buffer (GstBaseSink * sink)
   {
@@ -53,7 +53,7 @@ diff -c -r orig/gstreamer-0.10.20/libs/gst/base/gstbasesink.c gstreamer-0.10.20/
   }
   
   /**
---- 819,838 ----
+--- 821,840 ----
   GstBuffer *
   gst_base_sink_get_last_buffer (GstBaseSink * sink)
   {

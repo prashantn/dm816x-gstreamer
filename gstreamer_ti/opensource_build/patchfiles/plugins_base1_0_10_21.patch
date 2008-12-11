@@ -1,0 +1,22 @@
+diff -c -r orig/gst-plugins-base-0.10.21/docs/libs/Makefile.in gst-plugins-base-0.10.21/docs/libs/Makefile.in
+*** orig/gst-plugins-base-0.10.21/docs/libs/Makefile.in	2008-10-02 17:46:08.000000000 -0500
+--- gst-plugins-base-0.10.21/docs/libs/Makefile.in	2008-12-08 19:15:15.000000000 -0600
+***************
+*** 821,828 ****
+          	    $(INSTALL_DATA) $(srcdir)/html/$(DOC_MODULE).devhelp2 \
+  	           $(DESTDIR)$(TARGET_DIR)/$(DOC_MODULE)-@GST_MAJORMINOR@.devhelp2; \
+  	  fi; \
+! 	  which gtkdoc-rebase >/dev/null && \
+! 	    gtkdoc-rebase --relative --dest-dir=$(DESTDIR) --html-dir=$(DESTDIR)$(TARGET_DIR) ; \
+  	fi) 
+  uninstall-local:
+  	(installfiles=`echo ./html/*.html`; \
+--- 821,828 ----
+          	    $(INSTALL_DATA) $(srcdir)/html/$(DOC_MODULE).devhelp2 \
+  	           $(DESTDIR)$(TARGET_DIR)/$(DOC_MODULE)-@GST_MAJORMINOR@.devhelp2; \
+  	  fi; \
+! 	  (which gtkdoc-rebase >/dev/null && \
+! 	    gtkdoc-rebase --relative --dest-dir=$(DESTDIR) --html-dir=$(DESTDIR)$(TARGET_DIR)) || true; \
+  	fi) 
+  uninstall-local:
+  	(installfiles=`echo ./html/*.html`; \
