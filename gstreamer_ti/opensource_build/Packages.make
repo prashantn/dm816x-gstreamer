@@ -99,18 +99,6 @@ PACKAGE_plugins_base_DESCRIPTION        = GStreamer plugins base library
 BASE_PACKAGES += $(PACKAGE_plugins_base_BUILD_TARGET)
 
 #------------------------------------------------------------------------------
-# Package flumpegdemux
-#------------------------------------------------------------------------------
-PACKAGE_flumpegdemux_BUILD_TARGET       = flumpegdemux
-PACKAGE_flumpegdemux_ARCHIVE_BASENAME   = gst-fluendo-mpegdemux-trunk.1483
-PACKAGE_flumpegdemux_PRECONFIG_PATCHES  = flumpegdemux1_r1483 flumpegdemux2_r1483
-PACKAGE_flumpegdemux_CONFIGURE_OPTS     =
-PACKAGE_flumpegdemux_POSTCONFIG_PATCHES =
-PACKAGE_flumpegdemux_BUILD_DIRS         =
-PACKAGE_flumpegdemux_DESCRIPTION        = MPEG demuxers plugin
-PLUGIN_PACKAGES += $(PACKAGE_flumpegdemux_BUILD_TARGET)
-
-#------------------------------------------------------------------------------
 # Package plugins_good
 #------------------------------------------------------------------------------
 PACKAGE_plugins_good_BUILD_TARGET        = plugins_good
@@ -124,6 +112,19 @@ PACKAGE_plugins_good_BUILD_DIRS         += sys/oss
 PACKAGE_plugins_good_DESCRIPTION         = \
     Select plugins from GStreamer good-plugins (avi, oss)
 PLUGIN_PACKAGES += $(PACKAGE_plugins_good_BUILD_TARGET)
+
+#------------------------------------------------------------------------------
+# Package plugins_bad
+#------------------------------------------------------------------------------
+PACKAGE_plugins_bad_BUILD_TARGET        = plugins_bad
+PACKAGE_plugins_bad_ARCHIVE_BASENAME    = gst-plugins-bad-0.10.9
+PACKAGE_plugins_bad_PRECONFIG_PATCHES   = 
+PACKAGE_plugins_bad_CONFIGURE_OPTS      = ac_cv_openssldir=no
+PACKAGE_plugins_bad_POSTCONFIG_PATCHES  =
+PACKAGE_plugins_bad_BUILD_DIRS          = gst/mpegdemux
+PACKAGE_plugins_bad_DESCRIPTION         = \
+    Select plugins from GStreamer bad-plugins
+PLUGIN_PACKAGES += $(PACKAGE_plugins_bad_BUILD_TARGET)
 
 #-------------------------------------------------------------------------------
 # Package plugins_ugly

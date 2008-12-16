@@ -33,6 +33,6 @@ DEBUG="--gst-debug-no-color --gst-debug=TI*:2"
 #------------------------------------------------------------------------------
 # Execute the pipeline
 #------------------------------------------------------------------------------
-run_pipe "${GSTLAUNCH} ${DEBUG} filesrc location=$fileName ! typefind !  flutsdemux name=demux demux. ! audio/mpeg ! queue max-size-buffers=1200 max-size-time=0 max-size-bytes=0 ! typefind ! ${audio_plugin} ${audio_plugin_args} ! ${audio_sink} demux. ! video/x-h264 ! typefind ! ${video_plugin} ${video_plugin_args} ! ${video_sink} ${rotation_opts}"
+run_pipe "${GSTLAUNCH} ${DEBUG} filesrc location=$fileName ! typefind !  mpegtsdemux name=demux demux. ! audio/mpeg ! queue max-size-buffers=1200 max-size-time=0 max-size-bytes=0 ! typefind ! ${audio_plugin} ${audio_plugin_args} ! ${audio_sink} demux. ! video/x-h264 ! typefind ! ${video_plugin} ${video_plugin_args} ! ${video_sink} ${rotation_opts}"
 exit $?
 
