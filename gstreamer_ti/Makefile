@@ -54,10 +54,6 @@ gstreamer_demo:
 	    install $(DVSDK_INSTALL_DIR)/kernel_binaries/$(PLATFORM)/* $(TARGET_DEMO_DIR)/$(PLATFORM); \
 	fi
 	
-	$(CMD_PREFIX) if [ $(PLATFORM) = "omap3530" ]; then \
-	    install $(DVSDK_INSTALL_DIR)/kernel_binaries/* $(TARGET_DEMO_DIR)/$(PLATFORM); \
-	fi
-	
 	@echo copying mapdmaq if platform needs it
 	$(CMD_PREFIX) if [ $(PLATFORM) = "dm355" ]; then \
 	    install $(DVSDK_INSTALL_DIR)/mapdmaq/mapdmaq $(TARGET_DEMO_DIR)/$(PLATFORM); \
