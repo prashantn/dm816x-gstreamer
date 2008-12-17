@@ -193,6 +193,7 @@ multimedia files:
 
 ./decode_avi.sh:         Play an AVI file
 ./decode_ts.sh:          Play a trasport stream
+./decode_qt.sh:          Play a quicktime file (i.e *.mp4)
 ./decode_elementary.sh:  Play an audio or video elementary stream
 ./encode_image.sh:       Encode an image file
 ./test_sink.sh           Test audio or video sink
@@ -209,3 +210,7 @@ Known Issues
 - The JPEG image encoder on OMAP3530 doesn't support UYVY as an output color
   format.  If you specify this color format, you will get an error message
   indicating that the plugin failed to create the image encoder.
+- If clip size is smaller and dmaivideosink element reports "assertion" then
+  try disabling hw accelerated framecopy. This can be disabled with -c option
+  in scripts. Note: disabling hw accel framecopy will affect performance.
+

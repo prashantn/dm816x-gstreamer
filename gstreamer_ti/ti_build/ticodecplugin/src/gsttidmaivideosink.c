@@ -81,6 +81,7 @@ enum
   PROP_NUMBUFS,
   PROP_RESIZER,
   PROP_FRAMERATE,
+  PROP_ACCEL_FRAME_COPY,
   PROP_SYNC,
   PROP_SIGNAL_HANDOFFS,
   PROP_CAN_ACTIVATE_PUSH,
@@ -210,6 +211,10 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
             "Frame rate of the video expressed as an integer", -1, G_MAXINT,
             -1, G_PARAM_READWRITE));
 
+    g_object_class_install_property(gobject_class, PROP_ACCEL_FRAME_COPY,
+        g_param_spec_boolean("accelFrameCopy", "Accel frame copy",
+             "Use hardware accelerated framecopy", TRUE, G_PARAM_READWRITE));
+
     g_object_class_install_property(gobject_class, PROP_SYNC,
         g_param_spec_boolean("sync", "Sync audio video",
             "This determined whether A/V data is synced and video "
@@ -283,14 +288,15 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
      * Anything that has a NULL value will be initialized with DMAI defaults 
      * in the gst_tidmaivideosink_init_display function.
      */
-    dmaisink->displayStd    = NULL;
-    dmaisink->displayDevice = NULL;
-    dmaisink->videoStd      = NULL;
-    dmaisink->videoOutput   = NULL;
-    dmaisink->numBufs       = -1;
-    dmaisink->framerate     = -1;
-    dmaisink->rotation      = -1;
-    dmaisink->tempDmaiBuf   = NULL;
+    dmaisink->displayStd     = NULL;
+    dmaisink->displayDevice  = NULL;
+    dmaisink->videoStd       = NULL;
+    dmaisink->videoOutput    = NULL;
+    dmaisink->numBufs        = -1;
+    dmaisink->framerate      = -1;
+    dmaisink->rotation       = -1;
+    dmaisink->tempDmaiBuf    = NULL;
+    dmaisink->accelFrameCopy = TRUE;
 
 //  GST_BASE_SINK (dmaisink)->sync = DEFAULT_SYNC;
     dmaisink->signal_handoffs = DEFAULT_SIGNAL_HANDOFFS;
@@ -350,6 +356,9 @@ static void gst_tidmaivideosink_set_property(GObject * object, guint prop_id,
             break;
         case PROP_FRAMERATE:
             sink->framerate = g_value_get_int(value);
+            break;
+        case PROP_ACCEL_FRAME_COPY:
+            sink->accelFrameCopy = g_value_get_boolean(value);
             break;
         case PROP_SYNC:
             GST_BASE_SINK(sink)->sync = g_value_get_boolean(value);
@@ -412,6 +421,9 @@ static void gst_tidmaivideosink_get_property(GObject * object, guint prop_id,
             break;
         case PROP_SIGNAL_HANDOFFS:
             g_value_set_boolean(value, sink->signal_handoffs);
+            break;
+        case PROP_ACCEL_FRAME_COPY:
+            g_value_set_boolean(value, sink->accelFrameCopy);
             break;
         case PROP_CAN_ACTIVATE_PUSH:
             g_value_set_boolean(value, GST_BASE_SINK(sink)->can_activate_push);
@@ -1034,7 +1046,7 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
 
     /* Otherwise, use an accelerated frame copy */
     else {
-        fcAttrs.accel = TRUE;
+        fcAttrs.accel = sink->accelFrameCopy;
         sink->hFc = Framecopy_create(&fcAttrs);
 
         if (sink->hFc == NULL) {

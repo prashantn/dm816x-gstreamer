@@ -54,6 +54,7 @@
 #include "gsttidmaibuffertransport.h"
 #include "gstticodecs.h"
 #include "gsttithreadprops.h"
+#include "gsttiquicktime_h264.h"
 
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC (gst_tividdec2_debug);
@@ -342,6 +343,10 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     viddec2->numOutputBufs     = 0UL;
     viddec2->hOutBufTab        = NULL;
     viddec2->circBuf           = NULL;
+
+    viddec2->sps_pps_data      = NULL;
+    viddec2->nal_code_prefix   = NULL;
+    viddec2->nal_length        = 0;
 }
 
 
@@ -677,6 +682,15 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
             return GST_FLOW_UNEXPECTED;
         }
 
+        /* check if we have recieved buffer from qtdemuxer. To do this,
+         * we will verify if codec_data field has a valid avcC header.
+         */
+        if (gst_h264_valid_quicktime_header(buf)) {
+            viddec2->nal_length = gst_h264_get_nal_length(buf);
+            viddec2->sps_pps_data = gst_h264_get_sps_pps_data(buf);
+            viddec2->nal_code_prefix = gst_h264_get_nal_prefix_code();
+        }
+
         GST_TICIRCBUFFER_TIMESTAMP(viddec2->circBuf) =
             GST_CLOCK_TIME_IS_VALID(GST_BUFFER_TIMESTAMP(buf)) ?
             GST_BUFFER_TIMESTAMP(buf) : 0ULL;
@@ -690,10 +704,24 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
         gst_tividdec2_wait_on_queue_thread(viddec2, 400);
     }
 
-    /* Queue up the encoded data stream into a circular buffer */
-    if (Fifo_put(viddec2->hInFifo, buf) < 0) {
-        GST_ERROR("Failed to send buffer to queue thread\n");
-        return GST_FLOW_UNEXPECTED;
+    /* If demuxer has passed SPS and PPS NAL unit dump in codec_data field,
+     * then we have a packetized h264 stream. We need to transform this stream
+     * into byte-stream.
+     */
+    if (viddec2->sps_pps_data) {
+        if (gst_h264_parse_and_fifo_put(viddec2->hInFifo, buf, 
+                viddec2->sps_pps_data, viddec2->nal_code_prefix,
+                viddec2->nal_length) < 0) {
+            GST_ERROR("Failed to send buffer to queue thread\n");
+            return GST_FLOW_UNEXPECTED;
+        }
+    }
+    else {
+        /* Queue up the encoded data stream into a circular buffer */
+        if (Fifo_put(viddec2->hInFifo, buf) < 0) {
+            GST_ERROR("Failed to send buffer to queue thread\n");
+            return GST_FLOW_UNEXPECTED;
+        }
     }
 
     return GST_FLOW_OK;
@@ -986,6 +1014,23 @@ static gboolean gst_tividdec2_exit_video(GstTIViddec2 *viddec2)
         GST_LOG("freeing output buffers\n");
         BufTab_delete(viddec2->hOutBufTab);
         viddec2->hOutBufTab = NULL;
+    }
+
+    if (viddec2->sps_pps_data) {
+        GST_LOG("freeing sps_pps buffers\n");
+        gst_buffer_unref(viddec2->sps_pps_data);
+        viddec2->sps_pps_data = NULL;
+    }
+
+    if (viddec2->nal_code_prefix) {
+        GST_LOG("freeing nal code prefix buffers\n");
+        gst_buffer_unref(viddec2->nal_code_prefix);
+        viddec2->nal_code_prefix = NULL;
+    }
+
+    if (viddec2->nal_length) {
+        GST_LOG("reseting nal length to zero\n");
+        viddec2->nal_length = 0;
     }
 
     GST_LOG("end exit_video\n");

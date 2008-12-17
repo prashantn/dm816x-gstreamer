@@ -52,6 +52,7 @@
 #include "gsttidmaibuffertransport.h"
 #include "gstticodecs.h"
 #include "gsttithreadprops.h"
+#include "gsttiquicktime_aac.h"
 
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC (gst_tiauddec1_debug);
@@ -309,6 +310,8 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
 
     auddec1->hOutBufTab        = NULL;
     auddec1->circBuf           = NULL;
+
+    auddec1->aac_header_data   = NULL;
 }
 
 
@@ -397,6 +400,7 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
     GstStructure *capStruct;
     const gchar  *mime;
     GstTICodec   *codec = NULL;
+    gint rate;
 
     auddec1    = GST_TIAUDDEC1(gst_pad_get_parent(pad));
     capStruct = gst_caps_get_structure(caps, 0);
@@ -406,7 +410,6 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
 
     /* Generic Audio Properties */
     if (!strncmp(mime, "audio/", 6)) {
-        gint rate;
 
         if (!gst_structure_get_int(capStruct, "rate", &rate)) {
             rate = 0;
@@ -449,8 +452,10 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
         }
 
         /* Use AAC Decoder for MPEG4 */
-        else if (mpegversion == 4) {
+        else if (mpegversion == 4) { 
             codec = gst_ticodec_get_codec("AAC Audio Decoder");
+            auddec1->aac_header_data = gst_aac_header_create(rate, 
+                            auddec1->channels);
         }
 
         /* MPEG version not supported */
@@ -594,7 +599,6 @@ static gboolean gst_tiauddec1_sink_event(GstPad *pad, GstEvent *event)
 
 }
 
-
 /******************************************************************************
  * gst_tiauddec1_chain
  *    This is the main processing routine.  This function receives a buffer
@@ -622,6 +626,26 @@ static GstFlowReturn gst_tiauddec1_chain(GstPad * pad, GstBuffer * buf)
         if (!gst_tiauddec1_init_audio(auddec1)) {
             GST_ERROR("unable to initialize audio\n");
             return GST_FLOW_UNEXPECTED;
+        }
+
+        /* If we are decoding aac stream, then check whether stream has valid 
+         * ADIF or ADTS header. If not, then add ADIF header. This header is 
+         * created by reading parsing codec_data field passed via demuxer.
+         *
+         * Note: This is used when qtdemuxer is used for playing mp4 files.
+         */
+        if (auddec1->aac_header_data) {
+
+            if (!gst_aac_valid_header(GST_BUFFER_DATA(buf))) {
+
+                GST_LOG("Adding auto-generated ADIF header.\n");
+
+                /* Queue up the aac header data into a circular buffer */
+                if (Fifo_put(auddec1->hInFifo, auddec1->aac_header_data) < 0) {
+                    GST_ERROR("Failed to send buffer to queue thread\n");
+                    return GST_FLOW_UNEXPECTED;
+                }
+            }
         }
 
         GST_TICIRCBUFFER_TIMESTAMP(auddec1->circBuf) =

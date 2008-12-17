@@ -36,6 +36,7 @@ help ()
     echo " -y  |   Video standard to use [Default:$videoStd]"
     echo " -o  |   Video output to use [Default:$videoOut]"
     echo " -x  |   Enable resizer [Default:$resizer]"
+    echo " -c  |   Disable accel frame copy [Default:$accelFrameCopy]"
     if [ "${PLATFORM}" = "omap3530" ]; then
         echo " -r  |   Rotation angle [Default:$rotation] "
     fi
@@ -56,7 +57,7 @@ execute ()
     fi
 }
 
-args=`getopt f:a:s:v:z:d:y:o:p:n:r:x $*`
+args=`getopt f:a:s:v:z:d:y:o:p:n:r:xc $*`
 if test $? != 0 ; then
     help;
 fi
@@ -77,6 +78,7 @@ do
         -p) shift; videocodecName=$1; shift;;
         -x) shift; resizer=TRUE;;
         -r) shift; rotation=$1; shift;;
+        -c) shift; accelFrameCopy=FALSE;;
         -h) help;;
     esac
 done
@@ -118,14 +120,14 @@ fi
 
 case "$dispStd" in
     fbdev)
-	if [ "$dispDevice" = "" ]; then
-	    dispDevice="/dev/fb/3"
-	fi
+    if [ "$dispDevice" = "" ]; then
+        dispDevice="/dev/fb/3"
+    fi
         ;;
     v4l2)
-	if [ "$dispDevice" = "" ]; then
-	    dispDevice="/dev/video2"
-	fi
+    if [ "$dispDevice" = "" ]; then
+        dispDevice="/dev/video2"
+    fi
         ;;
     *)
         echo "ERROR: Invalid display standard !"
@@ -136,7 +138,7 @@ if [ "${videocodecName}" != "" ]; then
     video_plugin_args="engineName=decode codecName=${videocodecName}"
 fi
 
-video_sink="TIDmaiVideoSink displayStd=$dispStd displayDevice=$dispDevice videoStd=$videoStd videoOutput=$videoOut resizer=$resizer"
+video_sink="TIDmaiVideoSink displayStd=$dispStd displayDevice=$dispDevice videoStd=$videoStd videoOutput=$videoOut resizer=$resizer accelFrameCopy=$accelFrameCopy"
 
 echo "*********** Pipeline Settings *************"
 echo "platform               = ${PLATFORM}"
@@ -150,6 +152,7 @@ echo "dispDevice             = $dispDevice"
 echo "videoStd               = $videoStd"
 echo "videoOutput            = $videoOut"
 echo "resizer                = $resizer"
+echo "accelFrameCopy         = $accelFrameCopy"
 if [ "${PLATFORM}" = "omap3530" ]; then
 echo "rotation               = $rotation"
 fi

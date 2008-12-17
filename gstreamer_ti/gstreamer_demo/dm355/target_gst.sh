@@ -30,6 +30,7 @@ dispDevice=""
 videoStd="D1_NTSC"
 videoOut="COMPOSITE"
 resizer="FALSE";
+accelFrameCopy="TRUE"
 
 # Imaging defaults
 image_plugin="TIImgenc1"

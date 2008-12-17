@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# target_gst.sh
+# decode_qt.sh
 #
 # Copyright (C) $year Texas Instruments Incorporated - http://www.ti.com/
 #
@@ -13,21 +13,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # Lesser General Public License for more details.
 
-#-----------------------------------------------------------------------------
-# Set GStreamer attributes for this platform
-#-----------------------------------------------------------------------------
-PLATFORM=dm6446
-. ../shared/target_env.sh
+. ./target_gst.sh
+. ../shared/decode_qt.sh
 
-# Audio / Video Decode defaults
-audio_plugin="TIAuddec"
-audiocodecName=""
-video_plugin="TIViddec"
-videocodeName=""
-soundStd="oss"
-dispStd="fbdev"
-dispDevice=""
-videoStd="D1_NTSC"
-videoOut="COMPOSITE"
-resizer="FALSE";
-accelFrameCopy="TRUE"

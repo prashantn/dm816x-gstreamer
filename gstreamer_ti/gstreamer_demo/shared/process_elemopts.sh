@@ -36,7 +36,8 @@ help ()
     echo " -d  |   Display device [Default:$dispDevice]"
     echo " -y  |   Video standard [Default:$videoStd]"
     echo " -o  |   Display output [Default:$videoOut]"
-    echo " -x  |   Use resizer to scale image[Default:$resizer] "
+    echo " -x  |   Enable resizer to scale image[Default:$resizer] "
+    echo " -c  |   Disable accel frame copy [Default:$accelFrameCopy]"
     if [ "${PLATFORM}" = "omap3530" ]; then
         echo " -r  |   Rotation angle [Default:$rotation] "
     fi
@@ -55,9 +56,9 @@ execute ()
 }
 
 if [ "${PLATFORM}" = "omap3530" ]; then
-    args=`getopt f:p:n:s:d:y:o:r:xav $*`
+    args=`getopt f:p:n:s:d:y:o:r:xavc $*`
 else
-    args=`getopt f:p:n:s:d:y:o:xav $*`
+    args=`getopt f:p:n:s:d:y:o:xavc $*`
 fi
 
 if test $? != 0 ; then
@@ -80,6 +81,7 @@ do
         -o) shift; videoOut=$1; shift ;;
         -x) shift; resizer=TRUE ;;
         -r) shift; rotation=$1; shift;;
+        -c) shift; accelFrameCopy=FALSE ;;
         -h) shift; help ;;
     esac
 done
@@ -129,14 +131,14 @@ case "$streamType" in
         test -z $std || dispStd=$std
         case "$dispStd" in
             fbdev)
-		if [ "$dispDevice" = "" ]; then
-		    dispDevice="/dev/fb/3"
-		fi
+        if [ "$dispDevice" = "" ]; then
+            dispDevice="/dev/fb/3"
+        fi
                 ;;     
             v4l2) 
-		if [ "$dispDevice" = "" ]; then
-		    dispDevice="/dev/video2"
-		fi
+        if [ "$dispDevice" = "" ]; then
+            dispDevice="/dev/video2"
+        fi
                 ;;
             *)
                 echo "ERROR: Invalid display standard"
@@ -147,18 +149,19 @@ case "$streamType" in
         test -z $codecname ||videocodecName=$codecname
         test -z $videocodecName ||plugin_option="engineName=decode codecName=$videocodecName"
         echo "*********** Video stream ************"
-        echo "plugin        = $plugin"
-        echo "plugin_option = $plugin_option"
-        echo "dispStd       = $dispStd"
-        echo "dispDevice    = $dispDevice"
-        echo "videoStd      = $videoStd"
-        echo "videoOut      = $videoOut"
-        echo "resizer       = $resizer"
+        echo "plugin         = $plugin"
+        echo "plugin_option  = $plugin_option"
+        echo "dispStd        = $dispStd"
+        echo "dispDevice     = $dispDevice"
+        echo "videoStd       = $videoStd"
+        echo "videoOut       = $videoOut"
+        echo "resizer        = $resizer"
+        echo "accelFrameCopy = $accelFrameCopy"
         if [ "${PLATFORM}" = "omap3530" ]; then
             rotation_opts="rotation=$rotation"
         fi
 
-        sink="TIDmaiVideoSink displayStd=$dispStd displayDevice=$dispDevice videoStd=$videoStd videoOutput=$videoOut resizer=$resizer ${rotation_opts}"  
+        sink="TIDmaiVideoSink displayStd=$dispStd displayDevice=$dispDevice videoStd=$videoStd videoOutput=$videoOut resizer=$resizer ${rotation_opts} accelFrameCopy=$accelFrameCopy"  
         ;;
     *)
         help;

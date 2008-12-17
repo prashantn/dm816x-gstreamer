@@ -61,9 +61,9 @@ do
         -p) shift; image_plugin=$1; shift;;
         -o) shift; outputFile=$1; shift;;
         -r) shift; resolution=$1; shift;;
-	-q) shift; qValue=$1; shift;;
-	-i) shift; inputcolorSpace=$1; shift;;
-	-c) shift; outputcolorSpace=$1; shift;;
+    -q) shift; qValue=$1; shift;;
+    -i) shift; inputcolorSpace=$1; shift;;
+    -c) shift; outputcolorSpace=$1; shift;;
         -h) help;;
     esac
 done

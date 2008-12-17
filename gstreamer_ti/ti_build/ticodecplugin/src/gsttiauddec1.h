@@ -92,6 +92,9 @@ struct _GstTIAuddec1
   /* Buffer management */
   BufTab_Handle    hOutBufTab;
   GstTICircBuffer *circBuf;
+
+  /* AAC header (qtdemuxer) */
+  GstBuffer       *aac_header_data;
 };
 
 /* _GstTIAuddec1Class object */

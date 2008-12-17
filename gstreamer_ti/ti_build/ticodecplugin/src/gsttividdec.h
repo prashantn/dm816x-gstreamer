@@ -97,6 +97,11 @@ struct _GstTIViddec
   UInt32           numOutputBufs;
   BufTab_Handle    hOutBufTab;
   GstTICircBuffer *circBuf;
+
+  /* Quicktime h264 header  */
+  GstBuffer       *sps_pps_data;
+  GstBuffer       *nal_code_prefix;
+  guint           nal_length;
 };
 
 /* _GstTIViddecClass object */

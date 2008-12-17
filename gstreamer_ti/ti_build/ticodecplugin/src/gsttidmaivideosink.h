@@ -102,6 +102,9 @@ struct _GstTIDmaiVideoSink {
    */
   int           framerepeat;
   gboolean      signal_handoffs;
+
+  /* Hardware accelerated copy */
+  gboolean      accelFrameCopy;
 };
 
 struct _GstTIDmaiVideoSinkClass {

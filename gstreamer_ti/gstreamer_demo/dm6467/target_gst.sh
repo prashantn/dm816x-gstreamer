@@ -30,3 +30,4 @@ dispDevice="/dev/video2"
 videoStd="1080P_30"
 videoOut="COMPONENT"
 resizer="FALSE";
+accelFrameCopy="TRUE"

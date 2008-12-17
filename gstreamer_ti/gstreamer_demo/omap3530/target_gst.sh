@@ -31,6 +31,7 @@ videoStd="VGA"
 videoOut="LCD"
 resizer="FALSE";
 rotation="90";
+accelFrameCopy="TRUE"
 
 # Imaging defaults
 image_plugin="TIImgenc1"
