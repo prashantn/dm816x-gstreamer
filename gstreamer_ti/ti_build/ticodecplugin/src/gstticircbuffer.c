@@ -228,6 +228,9 @@ GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize, Int32 numWindows)
 gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
              GstBuffer *buf)
 {
+    /* Reset our mutex condition so a call to wait_on_consumer will block */
+    Rendezvous_reset(circBuf->waitOnConsumer);
+
     /* If the consumer aborted, abort the buffer queuing.  We don't want to
      * queue buffers that no one will read.
      */
@@ -258,6 +261,9 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
         GST_LOG("blocking input until processing thread catches up\n");
         gst_ticircbuffer_wait_on_consumer(circBuf, GST_BUFFER_SIZE(buf));
         GST_LOG("unblocking input\n");
+
+        /* Reset our mutex condition so calling wait_on_consumer will block */
+        Rendezvous_reset(circBuf->waitOnConsumer);
 
         /* If the consumer aborted, abort the buffer queuing.  We don't want to
          * queue buffers that no one will read.
@@ -374,6 +380,9 @@ GstBuffer* gst_ticircbuffer_get_data(GstTICircBuffer *circBuf)
     GstBuffer     *result;
     Int32          bufSize;
 
+    /* Reset our mutex condition so calling wait_on_consumer will block */
+    Rendezvous_reset(circBuf->waitOnProducer);
+
     /* Reset the read pointer to the beginning of the buffer when we're
      * approaching the buffer's end (see function definition for reset
      * conditions).
@@ -387,6 +396,9 @@ GstBuffer* gst_ticircbuffer_get_data(GstTICircBuffer *circBuf)
         gst_ticircbuffer_wait_on_producer(circBuf);
         GST_LOG("unblocking output\n");
         gst_ticircbuffer_reset_read_pointer(circBuf);
+
+        /* Reset our mutex condition so calling wait_on_consumer will block */
+        Rendezvous_reset(circBuf->waitOnProducer);
     }
 
     /* Set the size of the buffer to be no larger than the window size.  Some
@@ -437,7 +449,7 @@ static void gst_ticircbuffer_wait_on_producer(GstTICircBuffer *circBuf)
 static void gst_ticircbuffer_broadcast_producer(GstTICircBuffer *circBuf)
 {
     GST_LOG("broadcast_producer: output unblocked\n");
-    Rendezvous_forceAndReset(circBuf->waitOnProducer);
+    Rendezvous_force(circBuf->waitOnProducer);
 }
 
 
@@ -478,7 +490,7 @@ static void gst_ticircbuffer_broadcast_consumer(GstTICircBuffer *circBuf)
 
     if (canUnblock) {
         GST_LOG("broadcast_consumer: input unblocked\n");
-        Rendezvous_forceAndReset(circBuf->waitOnConsumer);
+        Rendezvous_force(circBuf->waitOnConsumer);
     }
 }
 
@@ -523,14 +535,17 @@ static Int32 gst_ticircbuffer_shift_data(GstTICircBuffer *circBuf)
 
     if (gst_ticircbuffer_first_window_free(circBuf) &&
         circBuf->writePtr >= circBuf->readPtr       &&
-        circBuf->writePtr >  lastWindow)
+        circBuf->writePtr >= lastWindow)
     {
 
         bytesToCopy = circBuf->writePtr - lastWindow;
 
         GST_LOG("shifting %lu bytes of data from %lu to 0\n", bytesToCopy,
             (UInt32)(lastWindow - firstWindow));
-        memcpy(firstWindow, lastWindow, bytesToCopy);
+
+        if (bytesToCopy > 0) {
+            memcpy(firstWindow, lastWindow, bytesToCopy);
+        }
 
         GST_LOG("resetting write pointer (%lu->%lu)\n",
             (UInt32)(circBuf->writePtr - firstWindow),
@@ -567,9 +582,9 @@ static Int32 gst_ticircbuffer_reset_read_pointer(GstTICircBuffer *circBuf)
     Int8  *lastWindow    = circBufStart + lastWinOffset;
     Int32  resetDelta    = lastWindow - circBufStart;
 
-    if (!circBuf->contiguousData                          &&
-         circBuf->readPtr              > lastWindow       &&
-         circBuf->readPtr - resetDelta < circBuf->writePtr) {
+    if (!circBuf->contiguousData                           &&
+         circBuf->readPtr              >  lastWindow       &&
+         circBuf->readPtr - resetDelta <= circBuf->writePtr) {
 
         GST_LOG("resetting read pointer (%lu->%lu)\n",
             (UInt32)(circBuf->readPtr - circBufStart),
