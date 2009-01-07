@@ -21,7 +21,11 @@
  * Original Author:
  *     Don Darling, Texas Instruments, Inc.
  *
+ * Contributions by:
+ *     Diego Dompe, RidgeRun
+ *
  * Copyright (C) $year Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2009 RidgeRun
  *
  * This program is free software; you can redistribute it and/or modify 
  * it under the terms of the GNU Lesser General Public License as

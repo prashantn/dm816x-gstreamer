@@ -21,7 +21,11 @@
  * Original Author:
  *     Brijesh Singh, Texas Instruments, Inc.
  *
+ * Contributions by:
+ *     Diego Dompe, RidgeRun
+ *
  * Copyright (C) $year Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2009 RidgeRun
  *
  * This program is free software; you can redistribute it and/or modify 
  * it under the terms of the GNU Lesser General Public License as
@@ -64,6 +68,7 @@ enum
   PROP_0,
   PROP_ENGINE_NAME,     /* engineName     (string)  */
   PROP_CODEC_NAME,      /* codecName      (string)  */
+  PROP_NUM_OUTPUT_BUFS, /* numOutputBufs  (int)     */
   PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
   PROP_GEN_TIMESTAMPS   /* genTimeStamps  (boolean) */
 };
@@ -237,6 +242,12 @@ static void gst_tiauddec1_class_init(GstTIAuddec1Class *klass)
         g_param_spec_string("codecName", "Codec Name", "Name of audio codec",
             "unspecified", G_PARAM_READWRITE));
 
+    g_object_class_install_property(gobject_class, PROP_NUM_OUTPUT_BUFS,
+        g_param_spec_int("numOutputBufs",
+            "Number of Ouput Buffers",
+            "Number of output buffers to allocate for codec",
+            2, G_MAXINT32, 2, G_PARAM_WRITABLE));
+
     g_object_class_install_property(gobject_class, PROP_DISPLAY_BUFFER,
         g_param_spec_boolean("displayBuffer", "Display Buffer",
             "Display circular buffer status while processing",
@@ -308,6 +319,7 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
     auddec1->waitOnQueueThread = NULL;
     auddec1->waitQueueSize     = 0;
 
+    auddec1->numOutputBufs     = 0UL;
     auddec1->hOutBufTab        = NULL;
     auddec1->circBuf           = NULL;
 
@@ -344,6 +356,11 @@ static void gst_tiauddec1_set_property(GObject *object, guint prop_id,
                 (gchar*)g_malloc(strlen(g_value_get_string(value)) + 1);
             strcpy((gchar*)auddec1->codecName, g_value_get_string(value));
             GST_LOG("setting \"codecName\" to \"%s\"\n", auddec1->codecName);
+            break;
+        case PROP_NUM_OUTPUT_BUFS:
+            auddec1->numOutputBufs = g_value_get_int(value);
+            GST_LOG("setting \"numOutputBufs\" to \"%ld\"\n",
+                auddec1->numOutputBufs);
             break;
         case PROP_DISPLAY_BUFFER:
             auddec1->displayBuffer = g_value_get_boolean(value);
@@ -740,17 +757,22 @@ static gboolean gst_tiauddec1_init_audio(GstTIAuddec1 * auddec1)
     /* Display buffer contents if displayBuffer=TRUE was specified */
     gst_ticircbuffer_set_display(auddec1->circBuf, auddec1->displayBuffer);
 
-    /* Create codec output buffer.  It is important that we use a BufTab here
-     * even though we only need one buffer.  If it is not part of a BufTab,
-     * downstream elements will destroy it and we won't be able to reuse it
-     * one we push it to the source pad.
-     */
-    GST_LOG("creating output buffer\n");
+    /* Define the number of display buffers to allocate.  This number must be
+     * at least 2, If this has not been set via set_property(), default to the
+     * minimal value.
+      */
+    if (auddec1->numOutputBufs == 0) {
+        auddec1->numOutputBufs = 2;
+    }
 
+    /* Create codec output buffers.  
+     */
+    GST_LOG("creating output buffers\n");
+      
     bAttrs.useMask = gst_tidmaibuffertransport_GST_FREE;
 
     auddec1->hOutBufTab =
-        BufTab_create(1, Adec1_getOutBufSize(auddec1->hAd), &bAttrs);
+        BufTab_create(auddec1->numOutputBufs, Adec1_getOutBufSize(auddec1->hAd), &bAttrs);
 
     if (auddec1->hOutBufTab == NULL) {
         GST_ERROR("failed to create output buffer\n");

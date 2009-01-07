@@ -1,3 +1,8 @@
+2009-01-07  Diego Dompe <diego.dompe@ridgerun.com>
+	* src/{gsttiauddec.{c,h},gsttiauddec1.{c,h}}: Add multiple buffer 
+	support to audio decoders, and a property to set the desired 
+	value. Default number of buffers for audio decoders will be 2.
+
 ????-??-??  Don Darling, Texas Instruments, Inc.
 
   	* initial creation 
