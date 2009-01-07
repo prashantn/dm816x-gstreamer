@@ -756,7 +756,6 @@ static gboolean gst_tiimgenc1_set_source_caps(
     }
     caps =
         gst_caps_new_simple("video/x-jpeg",
-            "format",    GST_TYPE_FOURCC,   format,
             "framerate", GST_TYPE_FRACTION, imgenc1->framerateNum,
                                             imgenc1->framerateDen,
             "width",     G_TYPE_INT,        dim.width,
@@ -1037,6 +1036,33 @@ static int gst_tiimgenc1_codec_color_space_to_fourcc(int cspace) {
 }
 
 /*******************************************************************************
+ * gst_tiimgenc1_codec_color_space_to_dmai
+ *      Convert the codec color space type to the corresponding color space
+ *      used by DMAI.
+*******************************************************************************/
+static int gst_tiimgenc1_codec_color_space_to_dmai(int cspace) {
+    GST_LOG("Begin");
+    switch (cspace) {
+        case XDM_YUV_422ILE:
+            GST_LOG("Finish");
+            return ColorSpace_UYVY;
+            break;
+        case XDM_YUV_420P:
+            GST_LOG("Finish");
+            return ColorSpace_YUV420P;
+            break;
+        case XDM_YUV_422P:
+            GST_LOG("Finish");
+            return ColorSpace_YUV422P;
+            break;
+        default:
+            GST_ERROR("Unsupported Color Space\n");
+            GST_LOG("Finish");
+            return -1;
+    }
+}
+
+/*******************************************************************************
  * gst_tiimgenc1_convert_color_space
  *      Convert the DMAI color space type to the corresponding color space
  *      used by the codec.
@@ -1239,10 +1265,9 @@ static gboolean gst_tiimgenc1_init_image(GstTIImgenc1 *imgenc1)
     if (imgenc1->numOutputBufs == 0) {
         imgenc1->numOutputBufs = 1;
     }
-
     /* Create codec output buffers */
     GST_LOG("creating output buffer table\n");
-    gfxAttrs.colorSpace     = imgenc1->params.forceChromaFormat;
+    gfxAttrs.colorSpace     = gst_tiimgenc1_codec_color_space_to_dmai(imgenc1->params.forceChromaFormat);
     gfxAttrs.dim.width      = imgenc1->params.maxWidth;
     gfxAttrs.dim.height     = imgenc1->params.maxHeight;
     gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(
@@ -1475,7 +1500,6 @@ static GstStateChangeReturn gst_tiimgenc1_change_state(GstElement *element,
     return ret;
 }
 
-
 /******************************************************************************
  * gst_tiimgenc1_encode_thread
  *     Call the image codec to process a full input buffer
@@ -1486,7 +1510,6 @@ static void* gst_tiimgenc1_encode_thread(void *arg)
     GstBuffer              *encDataWindow  = NULL;
     gboolean               codecFlushed    = FALSE;
     void                   *threadRet      = GstTIThreadSuccess;
-    Buffer_Handle          hDummyInputBuf  = NULL;
     BufferGfx_Attrs        gfxAttrs        = BufferGfx_Attrs_DEFAULT;
     Buffer_Handle          hDstBuf;
     Int32                  encDataConsumed;
@@ -1520,7 +1543,6 @@ static void* gst_tiimgenc1_encode_thread(void *arg)
                 goto thread_failure;
             }
 
-            Buffer_delete(hDummyInputBuf);
             goto thread_exit;
         }
 
