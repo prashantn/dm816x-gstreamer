@@ -91,6 +91,7 @@ struct _GstTIAuddec
   Int32              waitQueueSize;
 
   /* Buffer management */
+  UInt32           numOutputBufs;
   BufTab_Handle    hOutBufTab;
   GstTICircBuffer *circBuf;
   GstBuffer       *adif_data;
