@@ -47,6 +47,11 @@ GstTICodec gst_ticodec_codecs[] = {
         "jpegenc",
         encodeEngine
     },
+    {
+        "JPEG Image Decoder",
+        "jpegdec",
+        decodeEngine
+    },
 
     { NULL }
 };

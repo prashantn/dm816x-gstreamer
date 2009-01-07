@@ -65,7 +65,7 @@ GstTICodec gst_ticodec_codecs[] = {
     /* Image Decoders */
     {
         "JPEG Image Decoder",    /* String name of codec used by plugin      */
-        "jpegdec",               /* String name of codec used by CE          */
+        "jpegdec1",               /* String name of codec used by CE          */
         decodeEngine             /* Engine that contains this codec          */
     },
 
@@ -83,7 +83,7 @@ GstTICodec gst_ticodec_codecs[] = {
     /* Image Encoders */
     {
         "JPEG Image Encoder",    /* String name of codec used by plugin      */
-        "jpegenc",               /* String name of codec used by CE          */
+        "jpegenc1",               /* String name of codec used by CE          */
         encodeEngine             /* Engine that contains this codec          */
     },
 

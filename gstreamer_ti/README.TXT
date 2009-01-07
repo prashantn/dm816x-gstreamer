@@ -87,6 +87,9 @@ TIViddec2
 TIImgenc1
     xDM 1.0 Image Encoder
 
+TIImgdec1
+    xDM 1.0 Image Decoder
+
 TIAuddec
     xDM 0.9 Audio Decoder
 

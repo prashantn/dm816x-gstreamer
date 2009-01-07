@@ -48,6 +48,8 @@ execute ()
     fi
 }
 
+image_plugin=""
+
 args=`getopt f:p:o:r:i:c:q:h $*`
 if test $? != 0 ; then
     help;
@@ -88,9 +90,23 @@ if [ "$resolution" = "" ]; then
     help;
 fi
 
-execute "$GSTINSPECT $image_plugin"
+echo $0 | grep "encode" > /dev/null
+if [ "$?" == "0" ]
+then
+  image_plugin_args="resolution=$resolution iColorSpace=$inputcolorSpace oColorSpace=$outputcolorSpace qValue=$qValue"
+  if [ "$image_plugin" == "" ]
+  then
+    image_plugin=$encode_image_plugin
+  fi
+else
+  image_plugin_args="resolution=$resolution"
+  if [ "$image_plugin" == "" ]
+  then
+    image_plugin=$decode_image_plugin
+  fi
+fi
 
-image_plugin_args="resolution=$resolution iColorSpace=$inputcolorSpace oColorSpace=$outputcolorSpace qValue=$qValue"
+execute "$GSTINSPECT $image_plugin"
 
 echo "*********** Pipeline Settings *************"
 echo "platform               = ${PLATFORM}"

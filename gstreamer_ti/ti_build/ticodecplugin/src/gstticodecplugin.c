@@ -37,6 +37,7 @@
 #include "gsttividdec.h"
 #include "gsttividdec2.h"
 #include "gsttiimgenc1.h"
+#include "gsttiimgdec1.h"
 #include "gsttidmaivideosink.h"
 
 /* entry point to initialize the plug-in
@@ -65,6 +66,11 @@ TICodecPlugin_init (GstPlugin * TICodecPlugin)
     if (!gst_element_register(
         TICodecPlugin, "TIImgenc1", GST_RANK_PRIMARY,
         GST_TYPE_TIIMGENC1))
+        return FALSE;
+
+    if (!gst_element_register(
+        TICodecPlugin, "TIImgdec1", GST_RANK_PRIMARY,
+        GST_TYPE_TIIMGDEC1))
         return FALSE;
 
     if (!gst_element_register(

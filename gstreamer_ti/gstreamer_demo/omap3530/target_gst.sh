@@ -34,7 +34,8 @@ rotation="90";
 accelFrameCopy="TRUE"
 
 # Imaging defaults
-image_plugin="TIImgenc1"
+encode_image_plugin="TIImgenc1"
+decode_image_plugin="TIImgdec1"
 resolution="720x480"
 inputcolorSpace="UYVY"
 outputcolorSpace="YUV422P"
