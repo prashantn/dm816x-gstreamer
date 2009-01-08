@@ -1,0 +1,41 @@
+diff -uNr orig/gst-plugins-good-0.10.10/sys/v4l2/gstv4l2src.c gst-plugins-good-0.10.10/sys/v4l2/gstv4l2src.c
+--- orig/gst-plugins-good-0.10.10/sys/v4l2/gstv4l2src.c	2008-07-19 08:16:03.000000000 -0500
++++ gst-plugins-good-0.10.10/sys/v4l2/gstv4l2src.c	2009-01-07 18:51:11.000000000 -0600
+@@ -133,6 +133,9 @@
+ #ifdef V4L2_PIX_FMT_PWC2
+   V4L2_PIX_FMT_PWC2,
+ #endif
++#ifdef V4L2_PIX_FMT_YUV422UVP
++  V4L2_PIX_FMT_YUV422UVP
++#endif
+ };
+ 
+ #define GST_V4L2_FORMAT_COUNT (G_N_ELEMENTS (gst_v4l2_formats))
+@@ -751,6 +754,15 @@
+     case V4L2_PIX_FMT_SBGGR8:
+       structure = gst_structure_new ("video/x-raw-bayer", NULL);
+       break;
++    #ifdef V4L2_PIX_FMT_YUV422UVP
++    case V4L2_PIX_FMT_YUV422UVP: {
++      guint32 fcc = 0;
++      fcc = GST_MAKE_FOURCC ('Y', '8', 'C', '8');
++      structure = gst_structure_new ("video/x-raw-yuv",
++            "format", GST_TYPE_FOURCC, fcc, NULL);
++      break;
++    }
++    #endif
+     default:
+       GST_DEBUG ("Unknown fourcc 0x%08x %" GST_FOURCC_FORMAT,
+           fourcc, GST_FOURCC_ARGS (fourcc));
+@@ -957,6 +969,11 @@
+         outsize = GST_ROUND_UP_4 (*w) * GST_ROUND_UP_2 (*h);
+         outsize += (GST_ROUND_UP_4 (*w) * *h) / 2;
+         break;
++      #ifdef V4L2_PIX_FMT_YUV422UVP
++      case GST_MAKE_FOURCC ('Y', '8', 'C', '8'):
++        fourcc = V4L2_PIX_FMT_YUV422UVP;
++        outsize = (*w) * (*h) * 2;
++      #endif
+     }
+   } else if (!strcmp (mimetype, "video/x-raw-rgb")) {
+     gint depth, endianness, r_mask;
