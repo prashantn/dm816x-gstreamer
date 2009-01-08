@@ -1,0 +1,29 @@
+diff -uNr orig/gst-plugins-good-0.10.10/sys/v4l2/v4l2src_calls.c gst-plugins-good-0.10.10/sys/v4l2/v4l2src_calls.c
+--- orig/gst-plugins-good-0.10.10/sys/v4l2/v4l2src_calls.c      2008-07-19 08:16:03.000000000 -0500
++++ gst-plugins-good-0.10.10/sys/v4l2/v4l2src_calls.c   2009-01-07 18:58:18.000000000 -0600
+@@ -873,7 +873,11 @@
+
+     /* This code is for Linux < 2.6.19 */
+     min_w = min_h = 1;
++    #ifdef DAVINCI_LSP_WORKAROUND
++    max_w = max_h = 1;
++    #else
+     max_w = max_h = GST_V4L2_MAX_SIZE;
++    #endif
+     if (!gst_v4l2src_get_nearest_size (v4l2src, pixelformat, &min_w, &min_h)) {
+       GST_WARNING_OBJECT (v4l2src,
+           "Could not probe minimum capture size for pixelformat %"
+@@ -1036,8 +1040,12 @@
+   g_mutex_unlock (v4l2src->pool->lock);
+
+   /* this can change at every frame, esp. with jpeg */
++  #ifdef DAVINCI_LSP_WORKAROUND
++  GST_BUFFER_SIZE (pool_buffer) = v4l2src->frame_byte_size;
++  #else
+   GST_BUFFER_SIZE (pool_buffer) = buffer.bytesused;
+-
++  #endif
++
+   GST_BUFFER_OFFSET (pool_buffer) = v4l2src->offset++;
+   GST_BUFFER_OFFSET_END (pool_buffer) = v4l2src->offset;
+
