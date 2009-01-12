@@ -80,6 +80,10 @@ GstBuffer* gst_h264_get_nal_prefix_code (void);
 int gst_h264_parse_and_fifo_put (Fifo_Handle fifoFd, GstBuffer *buf, 
     GstBuffer *sps_pps_data, GstBuffer *nal_code_prefix, guint8 nal_length );
 
+/* Function to check if we are using h264 decoder */
+gboolean gst_is_h264_decoder (const gchar *name);
+
+
 #endif /* __GST_TIQUICKTIME_H264_H__ */
 
 

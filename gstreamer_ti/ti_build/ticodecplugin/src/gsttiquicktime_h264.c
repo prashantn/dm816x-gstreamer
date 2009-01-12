@@ -31,6 +31,7 @@
 #include <ti/sdo/dmai/Fifo.h>
 
 #include "gsttiquicktime_h264.h"
+#include "gstticodecs.h"
 
 /* NAL start code length (in byte) */
 #define NAL_START_CODE_LENGTH 4
@@ -41,6 +42,22 @@ static unsigned int NAL_START_CODE=0x1000000;
 /* Local function declaration */
 static int gst_h264_sps_pps_calBufSize(GstBuffer *codec_data);
 static GstBuffer* gst_h264_get_avcc_header (GstBuffer *buf);
+
+/******************************************************************************
+ * gst_is_h264_decoder
+ *****************************************************************************/
+gboolean gst_is_h264_decoder (const gchar *name)
+{
+    GstTICodec *h264Codec;
+
+    h264Codec  =  gst_ticodec_get_codec("H.264 Video Decoder");
+
+    if (h264Codec && !strcmp(h264Codec->CE_CodecName, name)) {
+        return TRUE;
+    }
+
+    return FALSE;
+}
 
 /******************************************************************************
  * gst_h264_get_sps_pps_data - This function returns SPS and PPS NAL unit

@@ -685,7 +685,8 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
         /* check if we have recieved buffer from qtdemuxer. To do this,
          * we will verify if codec_data field has a valid avcC header.
          */
-        if (gst_h264_valid_quicktime_header(buf)) {
+        if (gst_is_h264_decoder(viddec2->codecName) && 
+                gst_h264_valid_quicktime_header(buf)) {
             viddec2->nal_length = gst_h264_get_nal_length(buf);
             viddec2->sps_pps_data = gst_h264_get_sps_pps_data(buf);
             viddec2->nal_code_prefix = gst_h264_get_nal_prefix_code();
