@@ -669,6 +669,7 @@ static GstFlowReturn gst_tiauddec_chain(GstPad * pad, GstBuffer * buf)
      * without consuming them we'll run out of memory.  Once we reach a
      * threshold, block until the queue thread removes some buffers.
      */
+    Rendezvous_reset(auddec->waitOnQueueThread);
     if (Fifo_getNumEntries(auddec->hInFifo) > 2000) {
         gst_tiauddec_wait_on_queue_thread(auddec, 1800);
     }
@@ -1214,7 +1215,7 @@ static void gst_tiauddec_broadcast_queue_thread(GstTIAuddec *auddec)
     if (auddec->waitQueueSize < Fifo_getNumEntries(auddec->hInFifo)) {
           return;
     } 
-    Rendezvous_forceAndReset(auddec->waitOnQueueThread);
+    Rendezvous_force(auddec->waitOnQueueThread);
 }
 
 

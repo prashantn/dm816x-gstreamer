@@ -743,6 +743,7 @@ static GstFlowReturn gst_tiimgdec1_chain(GstPad * pad, GstBuffer * buf)
      * without consuming them we'll run out of memory.  Once we reach a
      * threshold, block until the queue thread removes some buffers.
      */
+    Rendezvous_reset(imgdec1->waitOnQueueThread);
     if (Fifo_getNumEntries(imgdec1->hInFifo) > 500) {
         gst_tiimgdec1_wait_on_queue_thread(imgdec1, 400);
     }
@@ -1482,7 +1483,7 @@ static void gst_tiimgdec1_broadcast_queue_thread(GstTIImgdec1 *imgdec1)
     if (imgdec1->waitQueueSize < Fifo_getNumEntries(imgdec1->hInFifo)) {
           return;
     } 
-    Rendezvous_forceAndReset(imgdec1->waitOnQueueThread);
+    Rendezvous_force(imgdec1->waitOnQueueThread);
     GST_LOG("Finish\n");
 }
 

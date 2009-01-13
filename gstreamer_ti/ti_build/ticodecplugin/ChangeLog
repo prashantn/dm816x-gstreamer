@@ -1,3 +1,8 @@
+2008-01-12  Don Darling, Texas Instruments, Inc.
+	* src/{gsttiauddec.c,gsttiauddec1.c,gsttiimgdec1.c,gsttiimgenc1.c,
+	gsttividdec.c,gsttividdec2.c}:
+	Fix potential deadlock issue with the queue Fifo object on all elements.
+
 2009-01-12  Don Darling, Texas Instruments, Inc.
 	* src/gstticircbuffer.{c,h}:
 	Optimize circular buffer for encoding with support for fixed-sized

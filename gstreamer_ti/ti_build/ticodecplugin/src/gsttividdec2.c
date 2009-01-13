@@ -701,6 +701,7 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
      * without consuming them we'll run out of memory.  Once we reach a
      * threshold, block until the queue thread removes some buffers.
      */
+    Rendezvous_reset(viddec2->waitOnQueueThread);
     if (Fifo_getNumEntries(viddec2->hInFifo) > 500) {
         gst_tividdec2_wait_on_queue_thread(viddec2, 400);
     }
@@ -1370,7 +1371,7 @@ static void gst_tividdec2_broadcast_queue_thread(GstTIViddec2 *viddec2)
     if (viddec2->waitQueueSize < Fifo_getNumEntries(viddec2->hInFifo)) {
           return;
     } 
-    Rendezvous_forceAndReset(viddec2->waitOnQueueThread);
+    Rendezvous_force(viddec2->waitOnQueueThread);
 }
 
 
