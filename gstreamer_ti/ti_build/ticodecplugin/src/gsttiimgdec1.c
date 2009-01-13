@@ -955,7 +955,8 @@ static gboolean gst_tiimgdec1_init_image(GstTIImgdec1 *imgdec1)
     }
 
     /* Create a circular input buffer */
-    imgdec1->circBuf = gst_ticircbuffer_new(Idec1_getInBufSize(imgdec1->hIe), 2);
+    imgdec1->circBuf = gst_ticircbuffer_new(
+                           Idec1_getInBufSize(imgdec1->hIe), 3, FALSE);
 
     if (imgdec1->circBuf == NULL) {
         GST_ERROR("failed to create circular input buffer\n");

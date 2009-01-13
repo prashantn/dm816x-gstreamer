@@ -49,6 +49,7 @@ static Int32     gst_ticircbuffer_shift_data(GstTICircBuffer *circBuf);
 static Int32     gst_ticircbuffer_reset_read_pointer(GstTICircBuffer *circBuf);
 static gboolean  gst_ticircbuffer_window_available(GstTICircBuffer *circBuf);
 static Int32     gst_ticircbuffer_data_available(GstTICircBuffer *circBuf);
+static Int32     gst_ticircbuffer_data_size(GstTICircBuffer *circBuf);
 static Int32     gst_ticircbuffer_write_space(GstTICircBuffer *circBuf);
 static Int32     gst_ticircbuffer_is_empty(GstTICircBuffer *circBuf);
 static void      gst_ticircbuffer_display(GstTICircBuffer *circBuf);
@@ -164,6 +165,7 @@ static void gst_ticircbuffer_init(GTypeInstance *instance,
     circBuf->maxConsumed     = 0UL;
     circBuf->displayBuffer   = FALSE;
     circBuf->contiguousData  = TRUE;
+    circBuf->fixedBlockSize  = FALSE;
     circBuf->consumerAborted = FALSE;
 
     GST_LOG("end init");
@@ -176,7 +178,8 @@ static void gst_ticircbuffer_init(GTypeInstance *instance,
  *     the number of windows stored in the buffer can help performance if
  *     adequate memory is available.
  ******************************************************************************/
-GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize, Int32 numWindows)
+GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize, Int32 numWindows,
+                     Bool fixedBlockSize)
 {
     GstTICircBuffer *circBuf;
     Buffer_Attrs     bAttrs  = Buffer_Attrs_DEFAULT;
@@ -191,17 +194,19 @@ GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize, Int32 numWindows)
     GST_INFO("requested windowSize:  %ld\n", windowSize);
     circBuf->windowSize = windowSize;
 
-    /* Set the read ahead size to be 1/4 of a window */
-    circBuf->readAheadSize = windowSize >> 2;
+    GST_INFO("fixed block size is %s\n", fixedBlockSize ? "ON" : "OFF");
+    circBuf->fixedBlockSize = fixedBlockSize;
 
     /* We need to have at least 2 windows allocated for us to be able
      * to copy buffer data while the consumer is running.
      */
-    if (numWindows < 2) {
-        GST_ERROR("numWindows must be at least 2 to allow for "
-                    "multi-threaded buffer management\n");
+    if (numWindows < 3 && circBuf->fixedBlockSize != TRUE) {
+        GST_ERROR("numWindows must be at least 3 when fixedBlockSize=FALSE");
         return NULL;
     }
+
+    /* Set the read ahead size to be 1/4 of a window */
+    circBuf->readAheadSize = (fixedBlockSize) ? 0 : windowSize >> 2;
 
     /* Allocate the circular buffer */
     bufSize = (numWindows * windowSize) + (circBuf->readAheadSize << 1);
@@ -222,7 +227,7 @@ GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize, Int32 numWindows)
 
 
 /******************************************************************************
- * gst_ticircbuffer_queue_encdata
+ * gst_ticircbuffer_queue_data
  *     Append received encoded data to end of circular buffer
  ******************************************************************************/
 gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
@@ -238,10 +243,44 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
         return FALSE;
     }
 
+    /* When in fixedBlockSize mode, we cannot block if the input buffer is
+     * too big to fit in the remaining space, as that may keep us from
+     * populating a window for consumption (and we may have only one window).
+     * In this case, make two recursive calls to this function -- one
+     * to place the first half of the buffer so the circular buffer is filled
+     * as much as possible, and one to place the second half.  The second call
+     * may block until the consumer catches up.
+     */
+     if (circBuf->fixedBlockSize                   && 
+         gst_ticircbuffer_write_space(circBuf) > 0 &&
+         gst_ticircbuffer_write_space(circBuf) < GST_BUFFER_SIZE(buf)) {
+
+         gboolean   result     = TRUE;
+         Int32      bytesAvail = gst_ticircbuffer_write_space(circBuf);
+         GstBuffer* subBuf;
+
+         GST_LOG("splitting input buffer of size %u into two pieces of sizes "
+                 "%lu and %lu\n",  GST_BUFFER_SIZE(buf), bytesAvail,
+                 GST_BUFFER_SIZE(buf) - bytesAvail);
+         subBuf = gst_buffer_create_sub(buf, 0, bytesAvail);
+         if (!gst_ticircbuffer_queue_data(circBuf, subBuf)) {
+             result = FALSE;
+         }
+
+         subBuf = gst_buffer_create_sub(buf, bytesAvail,
+                                        GST_BUFFER_SIZE(buf) - bytesAvail);
+         if (!gst_ticircbuffer_queue_data(circBuf, subBuf)) {
+             result = FALSE;
+         }
+
+         gst_buffer_unref(buf);
+         return result;
+     }
+
     /* If we run out of space, we need to move the data from the last buffer
      * window to the first window and continue queuing new data in the second
      * window.  If the consumer isn't done with the first window yet, we need
-     * do block intil it is.
+     * to block until it is.
      */
     while (gst_ticircbuffer_write_space(circBuf) < GST_BUFFER_SIZE(buf)) {
 
@@ -310,7 +349,7 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
      * for more data.  If there is at least a window and our specified read
      * ahead available in the buffer, unblock any threads.
      */
-    if (gst_ticircbuffer_data_available(circBuf) >=
+    if (gst_ticircbuffer_data_size(circBuf) >=
         circBuf->windowSize + circBuf->readAheadSize) {
         gst_ticircbuffer_broadcast_producer(circBuf);
     }
@@ -331,6 +370,15 @@ gboolean gst_ticircbuffer_data_consumed(
     /* Update the read pointer */
     GST_LOG("%ld bytes consumed\n", bytesConsumed);
     circBuf->readPtr  += bytesConsumed;
+
+    /* In fixedBlockSize mode, ensure that we always consume exactly one
+     *  window.
+     */
+    if (circBuf->fixedBlockSize && bytesConsumed != circBuf->windowSize) {
+        GST_ERROR("when circular buffer is created with fixedBlockSize=TRUE "
+           "consumers must always consume an entire window at a time");
+        return FALSE;
+    }
 
     /* Update the max bytes consumed statistic */
     if (bytesConsumed > circBuf->maxConsumed) {
@@ -533,6 +581,22 @@ static Int32 gst_ticircbuffer_shift_data(GstTICircBuffer *circBuf)
     Int8* lastWindow    = firstWindow + lastWinOffset;
     Int32 bytesToCopy   = 0;
 
+    /* In fixedBlockSize mode, just wait until the write poitner reaches the
+     * end of the buffer and then reset it to the beginning (no copying).
+     */
+    if (circBuf->fixedBlockSize && circBuf->writePtr >= circBuf->readPtr) {
+        if (circBuf->writePtr == firstWindow + Buffer_getSize(circBuf->hBuf)) {
+            GST_LOG("resetting write pointer (%lu->0)\n",
+                (UInt32)(circBuf->writePtr - firstWindow));
+            circBuf->writePtr       = Buffer_getUserPtr(circBuf->hBuf);
+            circBuf->contiguousData = FALSE;
+        }
+        return 0;
+    }
+
+    /* Otherwise copy unconsumed data from the last window to the first one
+     * and reset the write pointer back to the first window.
+     */
     if (gst_ticircbuffer_first_window_free(circBuf) &&
         circBuf->writePtr >= circBuf->readPtr       &&
         circBuf->writePtr >= lastWindow)
@@ -570,9 +634,7 @@ static Int32 gst_ticircbuffer_shift_data(GstTICircBuffer *circBuf)
 
 /******************************************************************************
  * gst_ticircbuffer_reset_read_pointer
- *    Reset the read pointer back to the beginning of the buffer if we've
- *    reached the last window and data has been copied back to the beginning
- *    of the buffer.
+ *    Reset the read pointer back to the beginning of the buffer.
  ******************************************************************************/
 static Int32 gst_ticircbuffer_reset_read_pointer(GstTICircBuffer *circBuf)
 {
@@ -582,6 +644,22 @@ static Int32 gst_ticircbuffer_reset_read_pointer(GstTICircBuffer *circBuf)
     Int8  *lastWindow    = circBufStart + lastWinOffset;
     Int32  resetDelta    = lastWindow - circBufStart;
 
+    /* In fixedBlockSize mode, just wait until the read poitner reaches the
+     * end of the buffer and then reset it to the beginning.
+     */
+    if (circBuf->fixedBlockSize && !circBuf->contiguousData) {
+        if (circBuf->readPtr == circBufStart + Buffer_getSize(circBuf->hBuf)) {
+            GST_LOG("resetting read pointer (%lu->0)\n",
+                (UInt32)(circBuf->readPtr - circBufStart));
+            circBuf->readPtr        = Buffer_getUserPtr(circBuf->hBuf);
+            circBuf->contiguousData = TRUE;
+        }
+        return 0;
+    }
+
+    /* Otherwise, reset it when the read pointer reaches the last window and
+     * the last window has already been copied back to the first window.
+     */
     if (!circBuf->contiguousData                           &&
          circBuf->readPtr              >  lastWindow       &&
          circBuf->readPtr - resetDelta <= circBuf->writePtr) {
@@ -621,6 +699,7 @@ static gboolean gst_ticircbuffer_window_available(GstTICircBuffer *circBuf)
 
 /******************************************************************************
  * gst_ticircbuffer_data_available
+ *    Return how much contiguous data is available at the read pointer.
  ******************************************************************************/
 static Int32 gst_ticircbuffer_data_available(GstTICircBuffer *circBuf)
 {
@@ -645,6 +724,23 @@ static Int32 gst_ticircbuffer_data_available(GstTICircBuffer *circBuf)
     }
 
     return 0;
+}
+
+
+/******************************************************************************
+ * gst_ticircbuffer_data_size
+ *    Return the total amount of data currently in the buffer (may not all be
+ *    contiguous in memory).
+ ******************************************************************************/
+static Int32 gst_ticircbuffer_data_size(GstTICircBuffer *circBuf)
+{
+    if (gst_ticircbuffer_is_empty(circBuf)) {
+        return 0;
+    }
+
+    return (circBuf->contiguousData) ?
+        (circBuf->writePtr - circBuf->readPtr) :
+        Buffer_getSize(circBuf->hBuf) - (circBuf->readPtr - circBuf->writePtr);
 }
 
 
@@ -694,9 +790,9 @@ static Int32 gst_ticircbuffer_is_empty(GstTICircBuffer *circBuf)
  *         - = active data when there is less than a window in the buffer
  *
  *     Examples:
- *        Write pointer after read pointer:
+ *        Write pointer after read pointer (contiguousData == TRUE):
  *            [  R=====================|==================================W   ]
- *        Read pointer after write pointer:
+ *        Read pointer after write pointer (contiguousData == FALSE):
  *            [==============================W  R=====================|=======]
  *
  ******************************************************************************/
@@ -719,6 +815,16 @@ static void gst_ticircbuffer_display(GstTICircBuffer *circBuf)
                                         DISP_SIZE) + 1;
     Char          dataChar          = '=';
     Int           i;
+
+    /* If the read or write pointers are past the end of the buffer, make sure
+     * they get printed in the last position.
+     */
+    if (readBufOffset == DISP_SIZE+1) {
+        readBufOffset--;
+    }
+    if (writeBufOffset == DISP_SIZE+1) {
+        writeBufOffset--;
+    }
 
     /* Don't print anything out if the buffer hasn't changed significantly */
     if (lastReadBufOffset > -1) {

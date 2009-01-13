@@ -1,9 +1,23 @@
+2009-01-12  Don Darling, Texas Instruments, Inc.
+	* src/gstticircbuffer.{c,h}:
+	Optimize circular buffer for encoding with support for fixed-sized
+	blocks.
+
+	* src/{gsttiauddec.{c,h},gsttiauddec1.{c,h},gsttiimgdec1.c,gsttiimgenc1.c,
+	gsttividdec.c,gsttividdec2.c}:
+	Update calls to gst_ticircbuffer_new to pass the correct value for
+	the new fixedBlockSize parameter.
+
+	* src/gsttiimgdec1.c:
+	Use three windows in the circular buffer for image decoder to match the
+	video decoder.
+
 2009-01-07  Diego Dompe <diego.dompe@ridgerun.com>
-	* src/{gsttiauddec.{c,h},gsttiauddec1.{c,h}}: Add multiple buffer 
-	support to audio decoders, and a property to set the desired 
+	* src/{gsttiauddec.{c,h},gsttiauddec1.{c,h}}: Add multiple buffer
+	support to audio decoders, and a property to set the desired
 	value. Default number of buffers for audio decoders will be 2.
 
-????-??-??  Don Darling, Texas Instruments, Inc.
+2008-11-17  Don Darling, Texas Instruments, Inc.
 
-  	* initial creation 
+	Initial creation.
 
