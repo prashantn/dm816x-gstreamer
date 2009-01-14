@@ -28,6 +28,7 @@ help ()
     echo " -p  |   Audio plugin to use [Default:$audio_plugin]"
     echo " -n  |   Audio codec name to use [Default:$audiocodecName]"
     echo " -s  |   Linux sound standard to use [Default:$soundStd]"
+    echo " -t  |   Generate time stamps on buffers [Default:$genTimeStamps]"
     echo
     echo "Video stream options:"
     echo " -p  |   Video plugin to use [Default:$video_plugin]"
@@ -38,6 +39,7 @@ help ()
     echo " -o  |   Display output [Default:$videoOut]"
     echo " -x  |   Enable resizer to scale image[Default:$resizer] "
     echo " -c  |   Disable accel frame copy [Default:$accelFrameCopy]"
+    echo " -t  |   Generate time stamps on buffers [Default:FALSE]"
     if [ "${PLATFORM}" = "omap3530" ]; then
         echo " -r  |   Rotation angle [Default:$rotation] "
     fi
@@ -56,10 +58,12 @@ execute ()
 }
 
 if [ "${PLATFORM}" = "omap3530" ]; then
-    args=`getopt f:p:n:s:d:y:o:r:xavc $*`
+    args=`getopt f:p:n:s:d:y:o:r:xavct $*`
 else
-    args=`getopt f:p:n:s:d:y:o:xavc $*`
+    args=`getopt f:p:n:s:d:y:o:xavct $*`
 fi
+
+genTimeStamps="FALSE"
 
 if test $? != 0 ; then
     help
@@ -82,6 +86,7 @@ do
         -x) shift; resizer=TRUE ;;
         -r) shift; rotation=$1; shift;;
         -c) shift; accelFrameCopy=FALSE ;;
+	-t) shift; genTimeStamps=TRUE ;;
         -h) shift; help ;;
     esac
 done
@@ -121,7 +126,19 @@ case "$streamType" in
         test -z $plugin || audio_plugin=$plugin
         plugin=$audio_plugin
         test -z $codecname || audiocodecName=$codecname
-        test -z $audiocodecName || plugin_option="genTimeStamps=FALSE engineName=decode codecName=$audiocodecName"
+
+	echo "$plugin" | grep "TI" > /dev/null
+	if [ $? == 0 ]
+	then
+            test -z $audiocodecName || plugin_option="genTimeStamps=$genTimeStamps engineName=decode codecName=$audiocodecName"
+	    if [ "$genTimeStamps" == "TRUE" ]
+	    then
+		echo "WARNING: setting genTimeStamps to TRUE (-t) may cause errors during audio playback"
+	    fi
+	else
+            test -z $audiocodecName || plugin_option="engineName=decode codecName=$audiocodecName"
+	fi
+
         echo "******* Audio stream *********"
         echo "soundStd       = $soundStd"
         echo "plugin         = $plugin"       
@@ -147,7 +164,14 @@ case "$streamType" in
         test -z $plugin || video_plugin=$plugin
         plugin="$video_plugin"
         test -z $codecname ||videocodecName=$codecname
-        test -z $videocodecName ||plugin_option="engineName=decode codecName=$videocodecName"
+
+	echo "$plugin" | grep "TI" > /dev/null
+	if [ $? == 0 ]
+	then
+            test -z $videocodecName ||plugin_option="genTimeStamps=$genTimeStamps engineName=decode codecName=$videocodecName"
+	else
+            test -z $videocodecName ||plugin_option="engineName=decode codecName=$videocodecName"
+	fi
         echo "*********** Video stream ************"
         echo "plugin         = $plugin"
         echo "plugin_option  = $plugin_option"

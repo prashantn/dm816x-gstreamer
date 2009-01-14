@@ -20,7 +20,7 @@ PLATFORM=dm6467
 . ../shared/target_env.sh
 
 # Audio / Video Decode defaults
-audio_plugin="mad"
+audio_plugin="TIAuddec"
 audiocodecName=""
 video_plugin="TIViddec2"
 videocodeName=""
