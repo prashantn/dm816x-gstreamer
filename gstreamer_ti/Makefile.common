@@ -169,9 +169,9 @@ TARGET_GSTREAMER_DIR = $(TARGET_ROOT_DIR)/$(GSTREAMER_DIR)
 # Configure command set up to do a cross-compile and install into the target
 # filesystem.
 #------------------------------------------------------------------------------
-CC_CONFIGURE_OPTS      = --build=i686-linux --host=arm-linux \
-                         --prefix=$(TARGET_GSTREAMER_DIR)
-export CC              = $(MVTOOL_PREFIX)gcc
-export LD_LIBRARY_PATH = $(TARGET_GSTREAMER_DIR)/lib
-export PKG_CONFIG_PATH = $(LD_LIBRARY_PATH)/pkgconfig
-
+CC_CONFIGURE_OPTS        = --build=i686-linux --host=arm-linux \
+                           --prefix=$(TARGET_GSTREAMER_DIR)
+export CC                = $(MVTOOL_PREFIX)gcc
+export LD_LIBRARY_PATH   = $(TARGET_GSTREAMER_DIR)/lib
+export PKG_CONFIG_PATH   = $(LD_LIBRARY_PATH)/pkgconfig
+export PKG_CONFIG_LIBDIR = $(PKG_CONFIG_PATH)
