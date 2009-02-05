@@ -597,12 +597,6 @@ static gboolean gst_tiimgenc1_set_sink_caps_helper(GstPad *pad, GstCaps *caps)
     imgenc1->params = Ienc1_Params_DEFAULT;
     imgenc1->dynParams = Ienc1_DynamicParams_DEFAULT;
 
-    #if defined(Platform_omap3530)
-    if (device == Cpu_Device_OMAP3530) {
-        imgenc1->params.dataEndianness = XDM_LE_32;
-    }
-    #endif
-
     /* Set codec to JPEG Encoder */
     codec = gst_ticodec_get_codec("JPEG Image Encoder");
 
