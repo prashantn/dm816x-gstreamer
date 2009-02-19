@@ -1,0 +1,33 @@
+How to build TI GStreamer plug-ins with an external (non-DVSDK) build
+system 
+=====================================================================
+
+Since there are multiple build systems supported by DMAI and this TI
+GStreamer plug-in, the project ships a simple build system to build the
+minimal required libraries using a DVSDK appropiate for the platform
+(DM6467, OMAP3, etc) of interest.
+
+You can also build the TI GStreamer plug-in in whatever build system you
+are using.  The file Makefile.external is a good reference for building
+with an external build system.  Other build systems, like RidgeRun SDK
+and OpenEmbedded, already provide this type of integration.
+
+The Makefile.external can be called with 'make -f Makefile.external" and
+you need to provide the following environment variables to make it work:
+
+- Standard environment variables for locating the compiler, linker and
+flags for your compiler or cross-compiler (CC, LD, CFLAGS, LDFLAGS). 
+
+- Environment variable PKG_CONFIG_LIBDIR setup to the location of the
+pkg-config definitions for the gstreamer packages used in your build
+system.
+
+- Environment variable DVSDK_PATH for the location of your DVSDK. The
+DVSDK should have been built already.
+
+- If your DVSDK doesn't include DMAI, then set the DMAI_INSTALL_DIR
+variable to the location of the DMAI package you want to use for
+building the plug-ins. The DMAI should have been built already.
+
+If you find any trouble, please use the forums at http://gstreamer.ti.com
+

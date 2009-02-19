@@ -1,0 +1,84 @@
+# Example makefile showing how to provide all the required environment
+# variables for building the TI GStreamer plug-ins.
+#
+# The only customization required below is defining the DVSDK_PATH
+# and, if your DVSDK doesn't include DMAI, the set DMAI_INSTALL_DIR variable
+# appropriately.  If your DVSDK does include DMAI, then delete the line
+# setting the DMAI_INSTALL_DIR variable below.
+#
+# Copyright (C) 2009 Ridgerun 
+#
+
+.PHONY: default dm6446 omap3530 dm355 dm6467
+
+DVSDK_PATH=undefined
+DMAI_INSTALL_DIR=undefined
+
+ifeq ($(DVSDK_PATH),undefined)
+$(error You need to define the environment variable DVSDK_PATH)
+endif
+ifeq ($(DMAI_INSTALL_DIR),undefined)
+$(error You need to define the environment variable DMAI_INSTALL_DIR)
+endif
+
+default:
+	@echo "Please specify the target: dm6446, omap3530, dm355, dm6467"
+
+include $(DVSDK_PATH)/Rules.make
+export PLATFORM=$(MAKECMDGOALS)
+export BIOS_INSTALL_DIR
+export CE_INSTALL_DIR
+export CMEM_INSTALL_DIR
+export CODEC_INSTALL_DIR
+export DMAI_INSTALL_DIR
+export FC_INSTALL_DIR
+export LINK_INSTALL_DIR
+export LINUXKERNEL_INSTALL_DIR
+export LPM_INSTALL_DIR
+export MVTOOL_DIR
+export MVTOOL_PREFIX
+export XDAIS_INSTALL_DIR
+export XDC_INSTALL_DIR
+
+ifeq ($(PLATFORM), dm355)
+    export XDC_TARGET   = gnu.targets.MVArm9
+    export XDC_PLATFORM = ti.platforms.evmDM355
+endif
+
+ifeq ($(PLATFORM), dm6446)
+    export XDC_TARGET   = gnu.targets.MVArm9
+    export XDC_PLATFORM = ti.platforms.evmDM6446
+endif
+
+ifeq ($(PLATFORM), dm6467)
+    export XDC_TARGET   = gnu.targets.MVArm9
+    export XDC_PLATFORM = ti.platforms.evmDM6467
+endif
+
+ifeq ($(PLATFORM), omap3530)
+    export XDC_TARGET    = gnu.targets.arm.GCArmv5T
+    export XDC_PLATFORM  = ti.platforms.evm3530
+    export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
+    export MVTOOL_DIR    = $(CSTOOL_DIR)
+endif
+
+CPPFLAGS=-DPlatform_$(PLATFORM) 
+
+configure:
+	./autogen.sh --noconfigure
+
+Makefile: configure
+	./configure CPPFLAGS="$(CPPFLAGS)" --host=arm-none-linux-gnueabi
+
+omap3530: Makefile
+	$(MAKE) -f Makefile
+
+dm6446: Makefile
+	$(MAKE) -f Makefile
+
+dm6467: Makefile
+	$(MAKE) -f Makefile
+
+dm355: Makefile
+	$(MAKE) -f Makefile
+
