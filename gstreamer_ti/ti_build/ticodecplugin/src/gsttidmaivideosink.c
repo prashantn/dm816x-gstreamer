@@ -80,6 +80,7 @@ enum
   PROP_ROTATION,
   PROP_NUMBUFS,
   PROP_RESIZER,
+  PROP_AUTOSELECT,
   PROP_FRAMERATE,
   PROP_ACCEL_FRAME_COPY,
   PROP_SYNC,
@@ -197,6 +198,13 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
             "Enable hardware resizer to resize the image", FALSE,
             G_PARAM_READWRITE));
 
+    g_object_class_install_property(gobject_class, PROP_AUTOSELECT,
+        g_param_spec_boolean("autoselect", "Auto Select the VideoStd",
+            "Automatically select the Video Standard to use based on "
+            "the video input.  This only works when the upstream element "
+            "sets the video size attributes in the buffer", FALSE,
+            G_PARAM_READWRITE));
+
     g_object_class_install_property(gobject_class, PROP_NUMBUFS,
         g_param_spec_int("numBufs", "Number of Video Buffers",
             "Number of video buffers allocated by the driver",
@@ -297,8 +305,9 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     dmaisink->rotation       = -1;
     dmaisink->tempDmaiBuf    = NULL;
     dmaisink->accelFrameCopy = TRUE;
+    dmaisink->autoselect     = FALSE;
+    dmaisink->prevVideoStd   = 0;
 
-//  GST_BASE_SINK (dmaisink)->sync = DEFAULT_SYNC;
     dmaisink->signal_handoffs = DEFAULT_SIGNAL_HANDOFFS;
 }
 
@@ -347,6 +356,9 @@ static void gst_tidmaivideosink_set_property(GObject * object, guint prop_id,
             break;
         case PROP_RESIZER:
             sink->resizer = g_value_get_boolean(value);
+            break;
+        case PROP_AUTOSELECT:
+            sink->autoselect = g_value_get_boolean(value);
             break;
         case PROP_NUMBUFS:
             sink->numBufs = g_value_get_int(value);
@@ -406,6 +418,9 @@ static void gst_tidmaivideosink_get_property(GObject * object, guint prop_id,
             break;
         case PROP_RESIZER:
             g_value_set_int(value, sink->resizer);
+            break;
+        case PROP_AUTOSELECT:
+            g_value_set_int(value, sink->autoselect);
             break;
         case PROP_ROTATION:
             g_value_set_int(value, sink->rotation);
@@ -548,11 +563,16 @@ static int gst_tidmaivideosink_videostd_get_attrs(VideoStd_Type videoStd,
  * gst_tidmaivideosink_find_videostd
  *
  *    This function will take in a VideoStd_Attrs structure and find the
- *    smaller video standard large enough to fit the input standard.  It
+ *    smallest video standard large enough to fit the input standard.  It
  *    also checks for the closest frame rate match.  The selected video
  *    standard is returned.  If no videostd is found that can match the size
  *    of the input requested and be at least a multiple of the frame rate
  *    then a negative value is returned.
+ *
+ *    The function begins searching the video standards at the value of
+ *    prevVideoStd which is initialized to 1.  In this was if a video
+ *    standard is found but the display cannot be created using that standard
+ *    we can resume the search from the last standard used.
  * 
 *******************************************************************************/
 static VideoStd_Type gst_tidmaivideosink_find_videostd(
@@ -568,27 +588,14 @@ static VideoStd_Type gst_tidmaivideosink_find_videostd(
 
     GST_DEBUG("Begin\n");
 
-    /* Initialize the width and height deltas to the initial input width
-     * and height.  If the resolution we are checking against has
-     * deltas smaller than this then it is a better fit.
+    /* Initialize the width and height deltas to a large value.
+     * If the videoStd we are checking has smaller deltas than it
+     * is a better fit.
      */
-    ret =
-        gst_tidmaivideosink_videostd_get_attrs(sink->dAttrs.videoStd, &tattrs);
+    dwidth = dheight = 999999;
 
-    if (ret < 0) {
-        GST_ERROR("Failed to get videostd attrs for input videostd %d\n",
-                  sink->dAttrs.videoStd);
-        return -1;
-    }
-
-    dwidth  = tattrs.width;
-    dheight = tattrs.height;
-
-    /* Start from the beginning and check for which window size fits best.
-     * NOTE:  We start at i=1 because the first videostd is AUTO which has
-     *        no resolution associated with it.
-     */
-    for (i = 1; i < VideoStd_COUNT; i++) {
+    /* Start from prevVideoStd + 1 and check for which window size fits best. */
+    for (i = sink->prevVideoStd + 1; i < VideoStd_COUNT; i++) {
         ret = gst_tidmaivideosink_videostd_get_attrs(i, &tattrs);
         if (ret < 0) {
             GST_ERROR("Failed to get videostd attrs for videostd %d\n", i);
@@ -606,7 +613,6 @@ static VideoStd_Type gst_tidmaivideosink_find_videostd(
          * resolution.  If so we will look at the frame rate to help decide
          * if it is a compatible videostd.
          */
-        //CEM  I want to do some more checking of this function.
         GST_DEBUG("\nInput Attributes:\n"
                   "\tsink input attrs width = %ld\n"
                   "\tsink input attrs height = %ld\n"
@@ -624,9 +630,6 @@ static VideoStd_Type gst_tidmaivideosink_find_videostd(
 
         if (((tattrs.width - sink->iattrs.width) <= dwidth) &&
             ((tattrs.height - sink->iattrs.height) <= dheight)) {
-            /* Set new width and height deltas */
-            dwidth = tattrs.width - sink->iattrs.width;
-            dheight = tattrs.height - sink->iattrs.height;
             /* Check if the frame rate is an exact match, if not check if
              * it is a multiple of the input frame rate.  If neither case
              * is true then this is not a compatable videostd.
@@ -635,8 +638,17 @@ static VideoStd_Type gst_tidmaivideosink_find_videostd(
                 bestmatch = i;
             else if (!(tattrs.framerate % sink->iattrs.framerate)) {
                 okmatch = i;
-            } else
+            } else {
                 continue;
+            }
+
+            /* Set new width and height deltas.  These are set after we
+             * check if the framerates match so that a standard with an
+             * incompatible frame rate does not get selected and prevent
+             * a standard with a compatible frame rate from being selected
+             */
+            dwidth = tattrs.width - sink->iattrs.width;
+            dheight = tattrs.height - sink->iattrs.height;
         }
     }
     /* If we didn't find a best match check if we found one that was ok */
@@ -857,12 +869,15 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink)
         sink->dAttrs.displayStd :
         gst_tidmaivideosink_convert_attrs(VAR_DISPLAYSTD, sink);
 
-    /* Here if the user didn't specify a videoStd then it will be set 
-     * to the best fit based on the input stream size
+    /* If the user set a videoStd on the command line use that, else
+     * if they set the autoselect option then detect the proper
+     * video standard.  If neither value was set use the default value.
      */
     sink->dAttrs.videoStd = sink->videoStd == NULL ?
-        gst_tidmaivideosink_find_videostd(sink) :
+        (sink->autoselect == TRUE ? gst_tidmaivideosink_find_videostd(sink) :
+        sink->dAttrs.videoStd) :
         gst_tidmaivideosink_convert_attrs(VAR_VIDEOSTD, sink);
+
     sink->dAttrs.videoOutput = sink->videoOutput == NULL ?
         sink->dAttrs.videoOutput :
         gst_tidmaivideosink_convert_attrs(VAR_VIDEOOUTPUT, sink);
@@ -911,8 +926,10 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink)
 
     ret = gst_tidmaivideosink_videostd_get_attrs(sink->dAttrs.videoStd,
                                                  &sink->oattrs);
-    if (ret < 0)
+    if (ret < 0) {
         GST_ERROR("Error getting videostd attrs ret = %d\n", ret);
+        return FALSE;
+    }
 
     GST_DEBUG("VideoStd_Attrs:\n"
               "\tvideostd = %d\n"
@@ -996,6 +1013,7 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
     Resize_Attrs rAttrs = Resize_Attrs_DEFAULT;
     Ccv_Attrs ccvAttrs = Ccv_Attrs_DEFAULT;
     Framecopy_Attrs fcAttrs = Framecopy_Attrs_DEFAULT;
+    
 
     GST_DEBUG("Begin\n");
 
@@ -1003,14 +1021,32 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
     if (sink->hDisplay != NULL)
         return TRUE;
 
-    if (!gst_tidmaivideosink_set_display_attrs(sink)) {
-        GST_ERROR("Error while trying to set the display attributes\n");
-        return FALSE;
-    }
+    /* This loop will exit if one of the following conditions occurs:
+     * 1.  The display was created
+     * 2.  The display standard specified by the user was invalid
+     * 3.  autoselect was enabled and no working standard could be found
+     */
+    while (TRUE) {
+        if (!gst_tidmaivideosink_set_display_attrs(sink)) {
+            GST_ERROR("Error while trying to set the display attributes\n");
+            return FALSE;
+        }
 
+        /* Create the display device using the attributes set above */
+        sink->hDisplay = Display_create(NULL, &sink->dAttrs);
 
-    /* Create the display device using the attributes set above */
-    sink->hDisplay = Display_create(NULL, &sink->dAttrs);
+        if ((sink->hDisplay == NULL) && (sink->autoselect == TRUE)) {
+            GST_DEBUG("Could not create display with videoStd %d.  Searching for next valid standard.\n", 
+            sink->dAttrs.videoStd);
+            sink->prevVideoStd = sink->dAttrs.videoStd;
+            continue;
+        } else {
+            /* If the display was created, or failed to be created and
+             * autoselect was not set break out of the loop.
+             */
+            break;
+        }
+    } 
 
     if (sink->hDisplay == NULL) {
         GST_ERROR("Failed to open display device\n");

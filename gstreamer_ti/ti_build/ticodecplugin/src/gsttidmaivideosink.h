@@ -83,6 +83,7 @@ struct _GstTIDmaiVideoSink {
   gint          numBufs;
   gint          rotation;
   gboolean      resizer;
+  gboolean      autoselect;
 
   Display_Handle    hDisplay;
   Display_Attrs     dAttrs;
@@ -91,6 +92,12 @@ struct _GstTIDmaiVideoSink {
   Ccv_Handle        hCcv;
   Cpu_Device        cpu_dev;
   Buffer_Handle     tempDmaiBuf;
+
+  /* prevVideoStd is used as part of the autoselect functionality.  If the
+   * selected videoStd is not supported by the device then we look for
+   * the next videoStd starting from the previous one.
+   */
+  int           prevVideoStd;
 
   /* iattrs are the video attributes of the input.
    * oattrs are the video attributes of the display/output.
