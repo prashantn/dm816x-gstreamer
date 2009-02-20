@@ -416,6 +416,7 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
     GstTIAuddec1  *auddec1;
     GstStructure *capStruct;
     const gchar  *mime;
+    char         *string;
     GstTICodec   *codec = NULL;
     gint rate;
 
@@ -423,7 +424,9 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
     capStruct = gst_caps_get_structure(caps, 0);
     mime      = gst_structure_get_name(capStruct);
 
-    GST_INFO("requested sink caps:  %s", gst_caps_to_string(caps));
+    string = gst_caps_to_string(caps);
+    GST_INFO("requested sink caps:  %s", string);
+    g_free(string);
 
     /* Generic Audio Properties */
     if (!strncmp(mime, "audio/", 6)) {
@@ -528,6 +531,7 @@ static gboolean gst_tiauddec1_set_source_caps(GstPad *pad, gint sampleRate)
 {
     GstCaps  *caps;
     gboolean  ret;
+    char     *string;
 
     caps =
         gst_caps_new_simple ("audio/x-raw-int",
@@ -540,7 +544,9 @@ static gboolean gst_tiauddec1_set_source_caps(GstPad *pad, gint sampleRate)
             NULL);
 
     /* Set the source pad caps */
-    GST_LOG("setting source caps to RAW:  %s", gst_caps_to_string(caps));
+    string = gst_caps_to_string(caps);
+    GST_LOG("setting source caps to RAW:  %s", string);
+    g_free(string);
 
     if (!gst_pad_set_caps(pad, caps)) {
         ret = FALSE;
@@ -642,6 +648,7 @@ static GstFlowReturn gst_tiauddec1_chain(GstPad * pad, GstBuffer * buf)
     if (auddec1->hEngine == NULL) {
         if (!gst_tiauddec1_init_audio(auddec1)) {
             GST_ERROR("unable to initialize audio\n");
+            gst_buffer_unref(buf);
             return GST_FLOW_UNEXPECTED;
         }
 
@@ -660,6 +667,7 @@ static GstFlowReturn gst_tiauddec1_chain(GstPad * pad, GstBuffer * buf)
                 /* Queue up the aac header data into a circular buffer */
                 if (Fifo_put(auddec1->hInFifo, auddec1->aac_header_data) < 0) {
                     GST_ERROR("Failed to send buffer to queue thread\n");
+                    gst_buffer_unref(buf);
                     return GST_FLOW_UNEXPECTED;
                 }
             }
@@ -682,6 +690,7 @@ static GstFlowReturn gst_tiauddec1_chain(GstPad * pad, GstBuffer * buf)
     /* Queue up the encoded data stream into a circular buffer */
     if (Fifo_put(auddec1->hInFifo, buf) < 0) {
         GST_ERROR("Failed to send buffer to queue thread\n");
+        gst_buffer_unref(buf);
         return GST_FLOW_UNEXPECTED;
     }
 

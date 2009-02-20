@@ -561,6 +561,7 @@ static gboolean gst_tividdec2_set_source_caps(
     GstCaps              *caps;
     gboolean              ret;
     GstPad               *pad;
+    char                 *string;
 
     pad = viddec2->srcpad;
 
@@ -577,7 +578,9 @@ static gboolean gst_tividdec2_set_source_caps(
             NULL);
 
     /* Set the source pad caps */
-    GST_LOG("setting source caps to UYVY:  %s", gst_caps_to_string(caps));
+    string = gst_caps_to_string(caps);
+    GST_LOG("setting source caps to UYVY:  %s", string);
+    g_free(string);
     ret = gst_pad_set_caps(pad, caps);
     gst_caps_unref(caps);
 
@@ -679,6 +682,7 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
     if (viddec2->hEngine == NULL) {
         if (!gst_tividdec2_init_video(viddec2)) {
             GST_ERROR("unable to initialize video\n");
+            gst_buffer_unref(buf);
             return GST_FLOW_UNEXPECTED;
         }
 
@@ -715,6 +719,7 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
                 viddec2->sps_pps_data, viddec2->nal_code_prefix,
                 viddec2->nal_length) < 0) {
             GST_ERROR("Failed to send buffer to queue thread\n");
+            gst_buffer_unref(buf);
             return GST_FLOW_UNEXPECTED;
         }
     }
@@ -722,6 +727,7 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
         /* Queue up the encoded data stream into a circular buffer */
         if (Fifo_put(viddec2->hInFifo, buf) < 0) {
             GST_ERROR("Failed to send buffer to queue thread\n");
+            gst_buffer_unref(buf);
             return GST_FLOW_UNEXPECTED;
         }
     }
