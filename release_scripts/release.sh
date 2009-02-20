@@ -15,8 +15,7 @@ shift
 
 REL_US=`echo $REL | sed s#[.]#_#g`
 
-echo $REL
-echo $REL_US
+echo "Creating release ${REL} from TAG_RELEASE_${REL_US}"
 
 FULL_NAME="gst-ti-plugin-full-${REL}"
 MIN_NAME="gst-ti-plugin-minimal-${REL}"
