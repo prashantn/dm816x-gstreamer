@@ -140,7 +140,10 @@ static void
  gst_tiauddec_wait_on_queue_thread(GstTIAuddec *auddec, Int32 waitQueueSize);
 static void
  gst_tiauddec_drain_pipeline(GstTIAuddec *auddec);
-
+static gboolean 
+    gst_tiauddec_codec_start (GstTIAuddec  *auddec);
+static gboolean 
+    gst_tiauddec_codec_stop (GstTIAuddec  *auddec);
 
 /******************************************************************************
  * gst_tiauddec_class_init_trampoline
@@ -296,30 +299,33 @@ static void gst_tiauddec_init(GstTIAuddec *auddec, GstTIAuddecClass *gclass)
     gst_element_add_pad(GST_ELEMENT(auddec), auddec->srcpad);
 
     /* Initialize TIAuddec state */
-    auddec->engineName        = NULL;
-    auddec->codecName         = NULL;
-    auddec->displayBuffer     = FALSE;
-    auddec->genTimeStamps     = TRUE;
+    auddec->engineName          = NULL;
+    auddec->codecName           = NULL;
+    auddec->displayBuffer       = FALSE;
+    auddec->genTimeStamps       = TRUE;
 
-    auddec->hEngine           = NULL;
-    auddec->hAd               = NULL;
-    auddec->channels          = 0;
-    auddec->drainingEOS       = FALSE;
-    auddec->threadStatus      = 0UL;
+    auddec->hEngine             = NULL;
+    auddec->hAd                 = NULL;
+    auddec->channels            = 0;
+    auddec->drainingEOS         = FALSE;
+    auddec->threadStatus        = 0UL;
 
-    auddec->decodeDrained     = FALSE;
-    auddec->waitOnDecodeDrain = NULL;
+    auddec->decodeDrained       = FALSE;
+    auddec->waitOnDecodeDrain   = NULL;
 
-    auddec->hInFifo           = NULL;
+    auddec->hInFifo             = NULL;
 
-    auddec->waitOnQueueThread = NULL;
-    auddec->waitQueueSize     = 0;
+    auddec->waitOnQueueThread   = NULL;
+    auddec->waitQueueSize       = 0;
 
-    auddec->numOutputBufs     = 0UL;
-    auddec->hOutBufTab        = NULL;
-    auddec->circBuf           = NULL;
+    auddec->waitOnDecodeThread  = NULL;
 
-    auddec->aac_header_data   = NULL;
+    auddec->waitQueueSize       = 0;
+    auddec->numOutputBufs       = 0UL;
+    auddec->hOutBufTab          = NULL;
+    auddec->circBuf             = NULL;
+
+    auddec->aac_header_data     = NULL;
 }
 
 
@@ -699,15 +705,252 @@ static GstFlowReturn gst_tiauddec_chain(GstPad * pad, GstBuffer * buf)
  ******************************************************************************/
 static gboolean gst_tiauddec_init_audio(GstTIAuddec * auddec)
 {
-    AUDDEC_Params         params    = Adec_Params_DEFAULT;
-    AUDDEC_DynamicParams  dynParams = Adec_DynamicParams_DEFAULT;
-    Buffer_Attrs          bAttrs    = Buffer_Attrs_DEFAULT;
     Rendezvous_Attrs      rzvAttrs  = Rendezvous_Attrs_DEFAULT;
-    Fifo_Attrs            fAttrs    = Fifo_Attrs_DEFAULT;
     struct sched_param    schedParam;
     pthread_attr_t        attr;
 
     GST_LOG("begin init_audio\n");
+
+    /* Initialize thread status management */
+    auddec->threadStatus = 0UL;
+    pthread_mutex_init(&auddec->threadStatusMutex, NULL);
+
+    /* Initialize rendezvous objects for making threads wait on conditions */
+    auddec->waitOnDecodeDrain   = Rendezvous_create(100, &rzvAttrs);
+    auddec->waitOnQueueThread   = Rendezvous_create(100, &rzvAttrs);
+    auddec->waitOnDecodeThread  = Rendezvous_create(100, &rzvAttrs);
+    auddec->drainingEOS         = FALSE;
+
+    /* Initialize the custom thread attributes */
+    if (pthread_attr_init(&attr)) {
+        GST_WARNING("failed to initialize thread attrs\n");
+        gst_tiauddec_exit_audio(auddec);
+        return FALSE;
+    }
+
+    /* Force the thread to use the system scope */
+    if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM)) {
+        GST_WARNING("failed to set scope attribute\n");
+        gst_tiauddec_exit_audio(auddec);
+        return FALSE;
+    }
+
+    /* Force the thread to use custom scheduling attributes */
+    if (pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED)) {
+        GST_WARNING("failed to set schedule inheritance attribute\n");
+        gst_tiauddec_exit_audio(auddec);
+        return FALSE;
+    }
+
+    /* Set the thread to be fifo real time scheduled */
+    if (pthread_attr_setschedpolicy(&attr, SCHED_FIFO)) {
+        GST_WARNING("failed to set FIFO scheduling policy\n");
+        gst_tiauddec_exit_audio(auddec);
+        return FALSE;
+    }
+
+    /* Set the display thread priority */
+    schedParam.sched_priority = GstTIAudioThreadPriority;
+    if (pthread_attr_setschedparam(&attr, &schedParam)) {
+        GST_WARNING("failed to set scheduler parameters\n");
+        return FALSE;
+    }
+
+    /* Create decoder thread */
+    if (pthread_create(&auddec->decodeThread, &attr,
+            gst_tiauddec_decode_thread, (void*)auddec)) {
+        GST_ERROR("failed to create decode thread\n");
+        gst_tiauddec_exit_audio(auddec);
+        return FALSE;
+    }
+    gst_tithread_set_status(auddec, TIThread_DECODE_CREATED);
+
+    /* Wait for decoder thread to finish initilization before creating queue
+     * thread.
+     */
+    Rendezvous_meet(auddec->waitOnDecodeThread);
+
+    /* Create queue thread */
+    if (pthread_create(&auddec->queueThread, NULL,
+            gst_tiauddec_queue_thread, (void*)auddec)) {
+        GST_ERROR("failed to create queue thread\n");
+        gst_tiauddec_exit_audio(auddec);
+        return FALSE;
+    }
+    gst_tithread_set_status(auddec, TIThread_QUEUE_CREATED);
+
+    GST_LOG("end init_audio\n");
+    return TRUE;
+}
+
+
+/******************************************************************************
+ * gst_tiauddec_exit_audio
+ *    Shut down any running audio decoder, and reset the element state.
+ ******************************************************************************/
+static gboolean gst_tiauddec_exit_audio(GstTIAuddec *auddec)
+{
+    gboolean checkResult;
+    void*    thread_ret;
+
+    GST_LOG("begin exit_audio\n");
+
+    /* Drain the pipeline if it hasn't already been drained */
+    if (!auddec->drainingEOS) {
+       gst_tiauddec_drain_pipeline(auddec);
+     }
+
+    /* Shut down the decode thread */
+    if (gst_tithread_check_status(
+            auddec, TIThread_DECODE_CREATED, checkResult)) {
+        GST_LOG("shutting down decode thread\n");
+
+        /* Wait for decoder thread to shut-down */
+        Rendezvous_meet(auddec->waitOnDecodeThread);
+
+        if (pthread_join(auddec->decodeThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
+                GST_DEBUG("decode thread exited with an error condition\n");
+            }
+        }
+    }
+
+    /* Shut down the queue thread */
+    if (gst_tithread_check_status(
+            auddec, TIThread_QUEUE_CREATED, checkResult)) {
+        GST_LOG("shutting down queue thread\n");
+
+        /* Unstop the queue thread if needed, and wait for it to finish */
+        Fifo_flush(auddec->hInFifo);
+
+        if (pthread_join(auddec->queueThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
+                GST_DEBUG("queue thread exited with an error condition\n");
+            }
+        }
+    }
+
+    /* Shut down thread status management */
+    auddec->threadStatus = 0UL;
+    pthread_mutex_destroy(&auddec->threadStatusMutex);
+
+    /* Shut down any remaining items */
+    if (auddec->hInFifo) {
+        Fifo_delete(auddec->hInFifo);
+        auddec->hInFifo = NULL;
+    }
+
+    if (auddec->waitOnQueueThread) {
+        Rendezvous_delete(auddec->waitOnQueueThread);
+        auddec->waitOnQueueThread = NULL;
+    }
+
+    if (auddec->waitOnDecodeThread) {
+        Rendezvous_delete(auddec->waitOnDecodeThread);
+        auddec->waitOnDecodeThread = NULL;
+    }
+
+    if (auddec->waitOnDecodeDrain) {
+        Rendezvous_delete(auddec->waitOnDecodeDrain);
+        auddec->waitOnDecodeDrain = NULL;
+    }
+
+    if (auddec->circBuf) {
+        GST_LOG("freeing cicrular input buffer\n");
+        gst_ticircbuffer_unref(auddec->circBuf);
+        auddec->circBuf       = NULL;
+    }
+
+    if (auddec->hOutBufTab) {
+        GST_LOG("freeing output buffer\n");
+        BufTab_delete(auddec->hOutBufTab);
+        auddec->hOutBufTab = NULL;
+    }
+
+    GST_LOG("end exit_audio\n");
+    return TRUE;
+}
+
+
+/******************************************************************************
+ * gst_tiauddec_change_state
+ *     Manage state changes for the audio stream.  The gStreamer documentation
+ *     states that state changes must be handled in this manner:
+ *        1) Handle ramp-up states
+ *        2) Pass state change to base class
+ *        3) Handle ramp-down states
+ ******************************************************************************/
+static GstStateChangeReturn gst_tiauddec_change_state(GstElement *element,
+                                GstStateChange transition)
+{
+    GstStateChangeReturn  ret    = GST_STATE_CHANGE_SUCCESS;
+    GstTIAuddec          *auddec = GST_TIAUDDEC(element);
+
+    GST_LOG("begin change_state (%d)\n", transition);
+
+    /* Handle ramp-up state changes */
+    switch (transition) {
+        case GST_STATE_CHANGE_NULL_TO_READY:
+            break;
+        default:
+            break;
+    }
+
+    /* Pass state changes to base class */
+    ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
+    if (ret == GST_STATE_CHANGE_FAILURE)
+        return ret;
+
+    /* Handle ramp-down state changes */
+    switch (transition) {
+        case GST_STATE_CHANGE_READY_TO_NULL:
+            /* Shut down any running audio decoder */
+            if (!gst_tiauddec_exit_audio(auddec)) {
+                return GST_STATE_CHANGE_FAILURE;
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    GST_LOG("end change_state\n");
+    return ret;
+}
+
+
+/******************************************************************************
+ * gst_tiauddec_codec_stop
+ *     Release codec engine resources
+ *****************************************************************************/
+static gboolean gst_tiauddec_codec_stop (GstTIAuddec  *auddec)
+{
+    if (auddec->hAd) {
+        GST_LOG("closing audio decoder\n");
+        Adec_delete(auddec->hAd);
+        auddec->hAd = NULL;
+    }
+
+    if (auddec->hEngine) {
+        GST_LOG("closing codec engine\n");
+        Engine_close(auddec->hEngine);
+        auddec->hEngine = NULL;
+    }
+
+    return TRUE;
+}
+
+
+/******************************************************************************
+ * gst_tiauddec_codec_start
+ *     Initialize codec engine
+ *****************************************************************************/
+static gboolean gst_tiauddec_codec_start (GstTIAuddec  *auddec)
+{
+    AUDDEC_Params         params    = Adec_Params_DEFAULT;
+    AUDDEC_DynamicParams  dynParams = Adec_DynamicParams_DEFAULT;
+    Buffer_Attrs          bAttrs    = Buffer_Attrs_DEFAULT;
+    Fifo_Attrs            fAttrs    = Fifo_Attrs_DEFAULT;
 
     /* If audio has already been initialized, shut down previous decoder */
     if (auddec->hEngine) {
@@ -776,7 +1019,8 @@ static gboolean gst_tiauddec_init_audio(GstTIAuddec * auddec)
     bAttrs.useMask = gst_tidmaibuffertransport_GST_FREE;
 
     auddec->hOutBufTab =
-        BufTab_create(auddec->numOutputBufs, Adec_getOutBufSize(auddec->hAd), &bAttrs);
+        BufTab_create(auddec->numOutputBufs, Adec_getOutBufSize(auddec->hAd), 
+            &bAttrs);
 
     if (auddec->hOutBufTab == NULL) {
         GST_ERROR("failed to create output buffer\n");
@@ -784,214 +1028,11 @@ static gboolean gst_tiauddec_init_audio(GstTIAuddec * auddec)
         return FALSE;
     }
 
-    /* Initialize thread status management */
-    auddec->threadStatus = 0UL;
-    pthread_mutex_init(&auddec->threadStatusMutex, NULL);
-
     /* Set up the queue fifo */
     auddec->hInFifo = Fifo_create(&fAttrs);
 
-    /* Create queue thread */
-    if (pthread_create(&auddec->queueThread, NULL,
-            gst_tiauddec_queue_thread, (void*)auddec)) {
-        GST_ERROR("failed to create queue thread\n");
-        gst_tiauddec_exit_audio(auddec);
-        return FALSE;
-    }
-    gst_tithread_set_status(auddec, TIThread_QUEUE_CREATED);
-
-    /* Initialize the custom thread attributes */
-    if (pthread_attr_init(&attr)) {
-        GST_WARNING("failed to initialize thread attrs\n");
-        gst_tiauddec_exit_audio(auddec);
-        return FALSE;
-    }
-
-    /* Force the thread to use the system scope */
-    if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM)) {
-        GST_WARNING("failed to set scope attribute\n");
-        gst_tiauddec_exit_audio(auddec);
-        return FALSE;
-    }
-
-    /* Force the thread to use custom scheduling attributes */
-    if (pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED)) {
-        GST_WARNING("failed to set schedule inheritance attribute\n");
-        gst_tiauddec_exit_audio(auddec);
-        return FALSE;
-    }
-
-    /* Set the thread to be fifo real time scheduled */
-    if (pthread_attr_setschedpolicy(&attr, SCHED_FIFO)) {
-        GST_WARNING("failed to set FIFO scheduling policy\n");
-        gst_tiauddec_exit_audio(auddec);
-        return FALSE;
-    }
-
-    /* Set the display thread priority */
-    schedParam.sched_priority = GstTIAudioThreadPriority;
-    if (pthread_attr_setschedparam(&attr, &schedParam)) {
-        GST_WARNING("failed to set scheduler parameters\n");
-        return FALSE;
-    }
-
-    /* Create decoder thread */
-    if (pthread_create(&auddec->decodeThread, &attr,
-            gst_tiauddec_decode_thread, (void*)auddec)) {
-        GST_ERROR("failed to create decode thread\n");
-        gst_tiauddec_exit_audio(auddec);
-        return FALSE;
-    }
-    gst_tithread_set_status(auddec, TIThread_DECODE_CREATED);
-
-    /* Initialize rendezvous objects for making threads wait on conditions */
-    auddec->waitOnDecodeDrain = Rendezvous_create(100, &rzvAttrs);
-    auddec->waitOnQueueThread = Rendezvous_create(100, &rzvAttrs);
-    auddec->drainingEOS       = FALSE;
-
-    GST_LOG("end init_audio\n");
     return TRUE;
 }
-
-
-/******************************************************************************
- * gst_tiauddec_exit_audio
- *    Shut down any running audio decoder, and reset the element state.
- ******************************************************************************/
-static gboolean gst_tiauddec_exit_audio(GstTIAuddec *auddec)
-{
-    gboolean checkResult;
-    void*    thread_ret;
-
-    GST_LOG("begin exit_audio\n");
-
-    /* Drain the pipeline if it hasn't already been drained */
-    if (!auddec->drainingEOS) {
-       gst_tiauddec_drain_pipeline(auddec);
-     }
-
-    /* Shut down the queue thread */
-    if (gst_tithread_check_status(
-            auddec, TIThread_QUEUE_CREATED, checkResult)) {
-        GST_LOG("shutting down queue thread\n");
-
-        /* Unstop the queue thread if needed, and wait for it to finish */
-        Fifo_flush(auddec->hInFifo);
-
-        if (pthread_join(auddec->queueThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("queue thread exited with an error condition\n");
-            }
-        }
-    }
-
-    if (auddec->hInFifo) {
-        Fifo_delete(auddec->hInFifo);
-        auddec->hInFifo = NULL;
-    }
-
-    if (auddec->waitOnQueueThread) {
-        Rendezvous_delete(auddec->waitOnQueueThread);
-        auddec->waitOnQueueThread = NULL;
-    }
-
-    /* Shut down the decode thread */
-    if (gst_tithread_check_status(
-            auddec, TIThread_DECODE_CREATED, checkResult)) {
-        GST_LOG("shutting down decode thread\n");
-
-        if (pthread_join(auddec->decodeThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("decode thread exited with an error condition\n");
-            }
-        }
-    }
-
-    if (auddec->waitOnDecodeDrain) {
-        Rendezvous_delete(auddec->waitOnDecodeDrain);
-        auddec->waitOnDecodeDrain = NULL;
-    }
-
-    /* Shut down thread status management */
-    auddec->threadStatus = 0UL;
-    pthread_mutex_destroy(&auddec->threadStatusMutex);
-
-    /* Shut down remaining items */
-    if (auddec->hAd) {
-        GST_LOG("closing audio decoder\n");
-        Adec_delete(auddec->hAd);
-        auddec->hAd = NULL;
-    }
-
-    if (auddec->hEngine) {
-        GST_LOG("closing codec engine\n");
-        Engine_close(auddec->hEngine);
-        auddec->hEngine = NULL;
-    }
-
-    if (auddec->circBuf) {
-        GST_LOG("freeing cicrular input buffer\n");
-        gst_ticircbuffer_unref(auddec->circBuf);
-        auddec->circBuf       = NULL;
-    }
-
-    if (auddec->hOutBufTab) {
-        GST_LOG("freeing output buffer\n");
-        BufTab_delete(auddec->hOutBufTab);
-        auddec->hOutBufTab = NULL;
-    }
-
-    GST_LOG("end exit_audio\n");
-    return TRUE;
-}
-
-
-/******************************************************************************
- * gst_tiauddec_change_state
- *     Manage state changes for the audio stream.  The gStreamer documentation
- *     states that state changes must be handled in this manner:
- *        1) Handle ramp-up states
- *        2) Pass state change to base class
- *        3) Handle ramp-down states
- ******************************************************************************/
-static GstStateChangeReturn gst_tiauddec_change_state(GstElement *element,
-                                GstStateChange transition)
-{
-    GstStateChangeReturn  ret    = GST_STATE_CHANGE_SUCCESS;
-    GstTIAuddec          *auddec = GST_TIAUDDEC(element);
-
-    GST_LOG("begin change_state (%d)\n", transition);
-
-    /* Handle ramp-up state changes */
-    switch (transition) {
-        case GST_STATE_CHANGE_NULL_TO_READY:
-            break;
-        default:
-            break;
-    }
-
-    /* Pass state changes to base class */
-    ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
-    if (ret == GST_STATE_CHANGE_FAILURE)
-        return ret;
-
-    /* Handle ramp-down state changes */
-    switch (transition) {
-        case GST_STATE_CHANGE_READY_TO_NULL:
-            /* Shut down any running audio decoder */
-            if (!gst_tiauddec_exit_audio(auddec)) {
-                return GST_STATE_CHANGE_FAILURE;
-            }
-            break;
-
-        default:
-            break;
-    }
-
-    GST_LOG("end change_state\n");
-    return ret;
-}
-
 
 /******************************************************************************
  * gst_tiauddec_decode_thread
@@ -1011,6 +1052,17 @@ static void* gst_tiauddec_decode_thread(void *arg)
     guint          sampleDataSize;
     GstClockTime   sampleDuration;
     guint          sampleRate;
+
+    GST_LOG("starting auddec decode thread\n");
+
+    /* Initialize codec engine */
+    if (gst_tiauddec_codec_start(auddec) < 0) {
+        GST_ERROR("failed to start codec\n");
+        goto thread_exit;
+    }
+
+    /* Notify main thread if it is waiting create queue thread */
+    Rendezvous_forceAndReset(auddec->waitOnDecodeThread);
 
     while (TRUE) {
 
@@ -1135,8 +1187,15 @@ thread_failure:
 
 thread_exit:
  
+    /* Stop codec engine */
+    if (gst_tiauddec_codec_stop(auddec) < 0) {
+        GST_ERROR("failed to stop codec\n");
+    }
+
+    /* Notify main thread if it is waiting on decode thread shut-down */
     auddec->decodeDrained = TRUE;
     Rendezvous_force(auddec->waitOnDecodeDrain);
+    Rendezvous_force(auddec->waitOnDecodeThread);
 
     gst_object_unref(auddec);
 

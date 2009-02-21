@@ -90,6 +90,9 @@ struct _GstTIViddec2
   Rendezvous_Handle  waitOnQueueThread;
   Int32              waitQueueSize;
 
+  /* Blocking Condition for creating queue thread */
+  Rendezvous_Handle  waitOnDecodeThread;
+
   /* Framerate (Num/Den) */
   gint               framerateNum;
   gint               framerateDen;

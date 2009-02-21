@@ -138,7 +138,10 @@ static char *
  gst_tiimgdec1_codec_color_space_to_str(int cspace);
 static int 
  gst_tiimgdec1_codec_color_space_to_fourcc(int cspace);
-
+static gboolean 
+    gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1);
+static gboolean 
+    gst_tiimgdec1_codec_stop (GstTIImgdec1  *imgdec1);
 
 /******************************************************************************
  * gst_tiimgdec1_class_init_trampoline
@@ -334,33 +337,35 @@ static void gst_tiimgdec1_init(GstTIImgdec1 *imgdec1, GstTIImgdec1Class *gclass)
     gst_element_add_pad(GST_ELEMENT(imgdec1), imgdec1->srcpad);
 
     /* Initialize TIImgdec1 state */
-    imgdec1->engineName        = NULL;
-    imgdec1->codecName         = NULL;
-    imgdec1->displayBuffer     = FALSE;
-    imgdec1->genTimeStamps     = FALSE;
-    imgdec1->width             = 0;
-    imgdec1->height            = 0;
+    imgdec1->engineName         = NULL;
+    imgdec1->codecName          = NULL;
+    imgdec1->displayBuffer      = FALSE;
+    imgdec1->genTimeStamps      = FALSE;
+    imgdec1->width              = 0;
+    imgdec1->height             = 0;
 
-    imgdec1->hEngine           = NULL;
-    imgdec1->hIe               = NULL;
-    imgdec1->drainingEOS       = FALSE;
-    imgdec1->threadStatus      = 0UL;
-    imgdec1->capsSet           = FALSE;
+    imgdec1->hEngine            = NULL;
+    imgdec1->hIe                = NULL;
+    imgdec1->drainingEOS        = FALSE;
+    imgdec1->threadStatus       = 0UL;
+    imgdec1->capsSet            = FALSE;
 
-    imgdec1->decodeDrained     = FALSE;
-    imgdec1->waitOnDecodeDrain = NULL;
+    imgdec1->decodeDrained      = FALSE;
+    imgdec1->waitOnDecodeDrain  = NULL;
 
-    imgdec1->hInFifo           = NULL;
+    imgdec1->waitOnDecodeThread = NULL;
 
-    imgdec1->waitOnQueueThread = NULL;
-    imgdec1->waitQueueSize     = 0;
+    imgdec1->hInFifo            = NULL;
 
-    imgdec1->framerateNum      = 0;
-    imgdec1->framerateDen      = 0;
+    imgdec1->waitOnQueueThread  = NULL;
+    imgdec1->waitQueueSize      = 0;
 
-    imgdec1->numOutputBufs     = 0UL;
-    imgdec1->hOutBufTab        = NULL;
-    imgdec1->circBuf           = NULL;
+    imgdec1->framerateNum       = 0;
+    imgdec1->framerateDen       = 0;
+
+    imgdec1->numOutputBufs      = 0UL;
+    imgdec1->hOutBufTab         = NULL;
+    imgdec1->circBuf            = NULL;
 
     GST_LOG("Finish\n");
 }
@@ -902,13 +907,255 @@ static int gst_tiimgenc1_codec_color_space_to_dmai(int cspace) {
  ******************************************************************************/
 static gboolean gst_tiimgdec1_init_image(GstTIImgdec1 *imgdec1)
 {
-    BufferGfx_Attrs        gfxAttrs  = BufferGfx_Attrs_DEFAULT;
     Rendezvous_Attrs       rzvAttrs  = Rendezvous_Attrs_DEFAULT;
-    Fifo_Attrs             fAttrs    = Fifo_Attrs_DEFAULT;
     struct sched_param     schedParam;
     pthread_attr_t         attr;
 
     GST_LOG("Begin\n");
+
+
+    /* Initialize thread status management */
+    imgdec1->threadStatus = 0UL;
+    pthread_mutex_init(&imgdec1->threadStatusMutex, NULL);
+
+    /* Initialize rendezvous objects for making threads wait on conditions */
+    imgdec1->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
+    imgdec1->waitOnQueueThread  = Rendezvous_create(100, &rzvAttrs);
+    imgdec1->waitOnDecodeThread = Rendezvous_create(100, &rzvAttrs);
+    imgdec1->drainingEOS        = FALSE;
+
+    /* Initialize custom thread attributes */
+    if (pthread_attr_init(&attr)) {
+        GST_WARNING("failed to initialize thread attrs\n");
+        gst_tiimgdec1_exit_image(imgdec1);
+        return FALSE;
+    }
+
+    /* Force the thread to use the system scope */
+    if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM)) {
+        GST_WARNING("failed to set scope attribute\n");
+        gst_tiimgdec1_exit_image(imgdec1);
+        return FALSE;
+    }
+
+    /* Force the thread to use custom scheduling attributes */
+    if (pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED)) {
+        GST_WARNING("failed to set schedule inheritance attribute\n");
+        gst_tiimgdec1_exit_image(imgdec1);
+        return FALSE;
+    }
+
+    /* Set the thread to be fifo real time scheduled */
+    if (pthread_attr_setschedpolicy(&attr, SCHED_FIFO)) {
+        GST_WARNING("failed to set FIFO scheduling policy\n");
+        gst_tiimgdec1_exit_image(imgdec1);
+        return FALSE;
+    }
+
+    /* Set the display thread priority */
+    schedParam.sched_priority = GstTIVideoThreadPriority;
+    if (pthread_attr_setschedparam(&attr, &schedParam)) {
+        GST_WARNING("failed to set scheduler parameters\n");
+        return FALSE;
+    }
+
+    /* Create decoder thread */
+    if (pthread_create(&imgdec1->decodeThread, &attr,
+            gst_tiimgdec1_decode_thread, (void*)imgdec1)) {
+        GST_ERROR("failed to create decode thread\n");
+        gst_tiimgdec1_exit_image(imgdec1);
+        return FALSE;
+    }
+    gst_tithread_set_status(imgdec1, TIThread_DECODE_CREATED);
+
+    /* Wait for decoder thread to finish initilization before creating queue
+     * thread.
+     */
+    Rendezvous_meet(imgdec1->waitOnDecodeThread);
+
+    /* Create queue thread */
+    if (pthread_create(&imgdec1->queueThread, NULL,
+            gst_tiimgdec1_queue_thread, (void*)imgdec1)) {
+        GST_ERROR("failed to create queue thread\n");
+        gst_tiimgdec1_exit_image(imgdec1);
+        return FALSE;
+    }
+    gst_tithread_set_status(imgdec1, TIThread_QUEUE_CREATED);
+
+
+    GST_LOG("Finish\n");
+    return TRUE;
+}
+
+
+/******************************************************************************
+ * gst_tiimgdec1_exit_image
+ *    Shut down any running image decoder, and reset the element state.
+ ******************************************************************************/
+static gboolean gst_tiimgdec1_exit_image(GstTIImgdec1 *imgdec1)
+{
+    void*    thread_ret;
+    gboolean checkResult;
+
+    GST_LOG("Begin\n");
+
+    /* Drain the pipeline if it hasn't already been drained */
+    if (!imgdec1->drainingEOS) {
+       gst_tiimgdec1_drain_pipeline(imgdec1);
+     }
+
+    /* Shut down the decode thread */
+    if (gst_tithread_check_status(
+            imgdec1, TIThread_DECODE_CREATED, checkResult)) {
+        GST_LOG("shutting down decode thread\n");
+
+        /* Wait for decoder thread to shut-down */
+        Rendezvous_meet(imgdec1->waitOnDecodeThread);
+
+        if (pthread_join(imgdec1->decodeThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
+                GST_DEBUG("decode thread exited with an error condition\n");
+            }
+        }
+    }
+
+    /* Shut down the queue thread */
+    if (gst_tithread_check_status(
+            imgdec1, TIThread_QUEUE_CREATED, checkResult)) {
+        GST_LOG("shutting down queue thread\n");
+
+        /* Unstop the queue thread if needed, and wait for it to finish */
+        Fifo_flush(imgdec1->hInFifo);
+
+        if (pthread_join(imgdec1->queueThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
+                GST_DEBUG("queue thread exited with an error condition\n");
+            }
+        }
+    }
+
+    if (imgdec1->hInFifo) {
+        Fifo_delete(imgdec1->hInFifo);
+        imgdec1->hInFifo = NULL;
+    }
+
+    if (imgdec1->waitOnQueueThread) {
+        Rendezvous_delete(imgdec1->waitOnQueueThread);
+        imgdec1->waitOnQueueThread = NULL;
+    }
+
+    if (imgdec1->waitOnDecodeDrain) {
+        Rendezvous_delete(imgdec1->waitOnDecodeDrain);
+        imgdec1->waitOnDecodeDrain = NULL;
+    }
+
+    if (imgdec1->waitOnDecodeThread) {
+        Rendezvous_delete(imgdec1->waitOnDecodeThread);
+        imgdec1->waitOnDecodeThread = NULL;
+    }
+
+    /* Shut down thread status management */
+    imgdec1->threadStatus = 0UL;
+    pthread_mutex_destroy(&imgdec1->threadStatusMutex);
+
+    /* Shut down remaining items */
+    if (imgdec1->circBuf) {
+        GST_LOG("freeing cicrular input buffer\n");
+        gst_ticircbuffer_unref(imgdec1->circBuf);
+        imgdec1->circBuf      = NULL;
+        imgdec1->framerateNum = 0;
+        imgdec1->framerateDen = 0;
+    }
+
+    if (imgdec1->hOutBufTab) {
+        GST_LOG("freeing output buffers\n");
+        BufTab_delete(imgdec1->hOutBufTab);
+        imgdec1->hOutBufTab = NULL;
+    }
+
+    GST_LOG("Finish\n");
+    return TRUE;
+}
+
+
+/******************************************************************************
+ * gst_tiimgdec1_change_state
+ *     Manage state changes for the image stream.  The gStreamer documentation
+ *     states that state changes must be handled in this manner:
+ *        1) Handle ramp-up states
+ *        2) Pass state change to base class
+ *        3) Handle ramp-down states
+ ******************************************************************************/
+static GstStateChangeReturn gst_tiimgdec1_change_state(GstElement *element,
+                                GstStateChange transition)
+{
+    GstStateChangeReturn  ret    = GST_STATE_CHANGE_SUCCESS;
+    GstTIImgdec1          *imgdec1 = GST_TIIMGDEC1(element);
+
+    GST_LOG("Begin change_state (%d)\n", transition);
+
+    /* Handle ramp-up state changes */
+    switch (transition) {
+        case GST_STATE_CHANGE_NULL_TO_READY:
+            break;
+        default:
+            break;
+    }
+
+    /* Pass state changes to base class */
+    ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
+    if (ret == GST_STATE_CHANGE_FAILURE)
+        return ret;
+
+    /* Handle ramp-down state changes */
+    switch (transition) {
+        case GST_STATE_CHANGE_READY_TO_NULL:
+            GST_LOG("State changed from READY to NULL.  Shutting down any"
+                    "running image decoders\n");
+            /* Shut down any running image decoder */
+            if (!gst_tiimgdec1_exit_image(imgdec1)) {
+                return GST_STATE_CHANGE_FAILURE;
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    GST_LOG("Finish change_state\n");
+    return ret;
+}
+
+/******************************************************************************
+ * gst_tiimgdec1_codec_stop
+ *     Stop codec engine
+ *****************************************************************************/
+static gboolean gst_tiimgdec1_codec_stop (GstTIImgdec1  *imgdec1)
+{
+    if (imgdec1->hIe) {
+        GST_LOG("closing image decoder\n");
+        Idec1_delete(imgdec1->hIe);
+        imgdec1->hIe = NULL;
+    }
+
+    if (imgdec1->hEngine) {
+        GST_LOG("closing codec engine\n");
+        Engine_close(imgdec1->hEngine);
+        imgdec1->hEngine = NULL;
+    }
+
+    return TRUE;
+}
+
+
+/******************************************************************************
+ * gst_tiimgdec1_codec_start
+ *     Initialize codec engine
+ *****************************************************************************/
+static gboolean gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1)
+{
+    BufferGfx_Attrs        gfxAttrs  = BufferGfx_Attrs_DEFAULT;
+    Fifo_Attrs             fAttrs    = Fifo_Attrs_DEFAULT;
 
     /* If image has already been initialized, shut down previous decoder */
     if (imgdec1->hEngine) {
@@ -1000,217 +1247,12 @@ static gboolean gst_tiimgdec1_init_image(GstTIImgdec1 *imgdec1)
         return FALSE;
     }
 
-    /* Initialize thread status management */
-    imgdec1->threadStatus = 0UL;
-    pthread_mutex_init(&imgdec1->threadStatusMutex, NULL);
-
     /* Set up the queue fifo */
     imgdec1->hInFifo = Fifo_create(&fAttrs);
 
-    /* Create queue thread */
-    if (pthread_create(&imgdec1->queueThread, NULL,
-            gst_tiimgdec1_queue_thread, (void*)imgdec1)) {
-        GST_ERROR("failed to create queue thread\n");
-        gst_tiimgdec1_exit_image(imgdec1);
-        return FALSE;
-    }
-    gst_tithread_set_status(imgdec1, TIThread_QUEUE_CREATED);
-
-    /* Initialize custom thread attributes */
-    if (pthread_attr_init(&attr)) {
-        GST_WARNING("failed to initialize thread attrs\n");
-        gst_tiimgdec1_exit_image(imgdec1);
-        return FALSE;
-    }
-
-    /* Force the thread to use the system scope */
-    if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM)) {
-        GST_WARNING("failed to set scope attribute\n");
-        gst_tiimgdec1_exit_image(imgdec1);
-        return FALSE;
-    }
-
-    /* Force the thread to use custom scheduling attributes */
-    if (pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED)) {
-        GST_WARNING("failed to set schedule inheritance attribute\n");
-        gst_tiimgdec1_exit_image(imgdec1);
-        return FALSE;
-    }
-
-    /* Set the thread to be fifo real time scheduled */
-    if (pthread_attr_setschedpolicy(&attr, SCHED_FIFO)) {
-        GST_WARNING("failed to set FIFO scheduling policy\n");
-        gst_tiimgdec1_exit_image(imgdec1);
-        return FALSE;
-    }
-
-    /* Set the display thread priority */
-    schedParam.sched_priority = GstTIVideoThreadPriority;
-    if (pthread_attr_setschedparam(&attr, &schedParam)) {
-        GST_WARNING("failed to set scheduler parameters\n");
-        return FALSE;
-    }
-
-    /* Create decoder thread */
-    if (pthread_create(&imgdec1->decodeThread, &attr,
-            gst_tiimgdec1_decode_thread, (void*)imgdec1)) {
-        GST_ERROR("failed to create decode thread\n");
-        gst_tiimgdec1_exit_image(imgdec1);
-        return FALSE;
-    }
-    gst_tithread_set_status(imgdec1, TIThread_DECODE_CREATED);
-
-    /* Initialize rendezvous objects for making threads wait on conditions */
-    imgdec1->waitOnDecodeDrain = Rendezvous_create(100, &rzvAttrs);
-    imgdec1->waitOnQueueThread = Rendezvous_create(100, &rzvAttrs);
-    imgdec1->drainingEOS       = FALSE;
-
-    GST_LOG("Finish\n");
     return TRUE;
 }
 
-
-/******************************************************************************
- * gst_tiimgdec1_exit_image
- *    Shut down any running image decoder, and reset the element state.
- ******************************************************************************/
-static gboolean gst_tiimgdec1_exit_image(GstTIImgdec1 *imgdec1)
-{
-    void*    thread_ret;
-    gboolean checkResult;
-
-    GST_LOG("Begin\n");
-
-    /* Drain the pipeline if it hasn't already been drained */
-    if (!imgdec1->drainingEOS) {
-       gst_tiimgdec1_drain_pipeline(imgdec1);
-     }
-
-    /* Shut down the queue thread */
-    if (gst_tithread_check_status(
-            imgdec1, TIThread_QUEUE_CREATED, checkResult)) {
-        GST_LOG("shutting down queue thread\n");
-
-        /* Unstop the queue thread if needed, and wait for it to finish */
-        Fifo_flush(imgdec1->hInFifo);
-
-        if (pthread_join(imgdec1->queueThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("queue thread exited with an error condition\n");
-            }
-        }
-    }
-
-    if (imgdec1->hInFifo) {
-        Fifo_delete(imgdec1->hInFifo);
-        imgdec1->hInFifo = NULL;
-    }
-
-    if (imgdec1->waitOnQueueThread) {
-        Rendezvous_delete(imgdec1->waitOnQueueThread);
-        imgdec1->waitOnQueueThread = NULL;
-    }
-
-    /* Shut down the decode thread */
-    if (gst_tithread_check_status(
-            imgdec1, TIThread_DECODE_CREATED, checkResult)) {
-        GST_LOG("shutting down decode thread\n");
-
-        if (pthread_join(imgdec1->decodeThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("decode thread exited with an error condition\n");
-            }
-        }
-    }
-
-    if (imgdec1->waitOnDecodeDrain) {
-        Rendezvous_delete(imgdec1->waitOnDecodeDrain);
-        imgdec1->waitOnDecodeDrain = NULL;
-    }
-
-    /* Shut down thread status management */
-    imgdec1->threadStatus = 0UL;
-    pthread_mutex_destroy(&imgdec1->threadStatusMutex);
-
-    /* Shut down remaining items */
-    if (imgdec1->hIe) {
-        GST_LOG("closing image decoder\n");
-        Idec1_delete(imgdec1->hIe);
-        imgdec1->hIe = NULL;
-    }
-
-    if (imgdec1->hEngine) {
-        GST_LOG("closing codec engine\n");
-        Engine_close(imgdec1->hEngine);
-        imgdec1->hEngine = NULL;
-    }
-
-    if (imgdec1->circBuf) {
-        GST_LOG("freeing cicrular input buffer\n");
-        gst_ticircbuffer_unref(imgdec1->circBuf);
-        imgdec1->circBuf      = NULL;
-        imgdec1->framerateNum = 0;
-        imgdec1->framerateDen = 0;
-    }
-
-    if (imgdec1->hOutBufTab) {
-        GST_LOG("freeing output buffers\n");
-        BufTab_delete(imgdec1->hOutBufTab);
-        imgdec1->hOutBufTab = NULL;
-    }
-
-    GST_LOG("Finish\n");
-    return TRUE;
-}
-
-
-/******************************************************************************
- * gst_tiimgdec1_change_state
- *     Manage state changes for the image stream.  The gStreamer documentation
- *     states that state changes must be handled in this manner:
- *        1) Handle ramp-up states
- *        2) Pass state change to base class
- *        3) Handle ramp-down states
- ******************************************************************************/
-static GstStateChangeReturn gst_tiimgdec1_change_state(GstElement *element,
-                                GstStateChange transition)
-{
-    GstStateChangeReturn  ret    = GST_STATE_CHANGE_SUCCESS;
-    GstTIImgdec1          *imgdec1 = GST_TIIMGDEC1(element);
-
-    GST_LOG("Begin change_state (%d)\n", transition);
-
-    /* Handle ramp-up state changes */
-    switch (transition) {
-        case GST_STATE_CHANGE_NULL_TO_READY:
-            break;
-        default:
-            break;
-    }
-
-    /* Pass state changes to base class */
-    ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
-    if (ret == GST_STATE_CHANGE_FAILURE)
-        return ret;
-
-    /* Handle ramp-down state changes */
-    switch (transition) {
-        case GST_STATE_CHANGE_READY_TO_NULL:
-            GST_LOG("State changed from READY to NULL.  Shutting down any"
-                    "running image decoders\n");
-            /* Shut down any running image decoder */
-            if (!gst_tiimgdec1_exit_image(imgdec1)) {
-                return GST_STATE_CHANGE_FAILURE;
-            }
-            break;
-
-        default:
-            break;
-    }
-
-    GST_LOG("Finish change_state\n");
-    return ret;
-}
 
 /******************************************************************************
  * gst_tiimgdec1_decode_thread
@@ -1236,6 +1278,15 @@ static void* gst_tiimgdec1_decode_thread(void *arg)
     GST_LOG("Begin\n");
     /* Calculate the duration of a single frame in this stream */
     frameDuration = gst_tiimgdec1_frame_duration(imgdec1);
+
+    /* Initialize codec engine */
+    if (gst_tiimgdec1_codec_start(imgdec1) < 0) {
+        GST_ERROR("failed to start codec\n");
+        goto thread_exit;
+    }
+
+    /* Notify main thread if it is waiting create queue thread */
+    Rendezvous_forceAndReset(imgdec1->waitOnDecodeThread);
 
     /* Main thread loop */
     while (TRUE) {
@@ -1387,8 +1438,14 @@ thread_failure:
 
 thread_exit:
  
+    /* Stop codec engine */
+    if (gst_tiimgdec1_codec_stop(imgdec1) < 0) {
+        GST_ERROR("failed to stop codec\n");
+    }
+
     imgdec1->decodeDrained = TRUE;
     Rendezvous_force(imgdec1->waitOnDecodeDrain);
+    Rendezvous_force(imgdec1->waitOnDecodeThread);
 
     gst_object_unref(imgdec1);
 

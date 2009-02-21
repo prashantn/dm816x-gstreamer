@@ -89,10 +89,13 @@ struct _GstTIAuddec1
   Rendezvous_Handle  waitOnQueueThread;
   Int32              waitQueueSize;
 
+  /* Blocking Conditions for decode thread */
+  Rendezvous_Handle  waitOnDecodeThread;
+  
   /* Buffer management */
-  UInt32	   numOutputBufs;
-  BufTab_Handle    hOutBufTab;
-  GstTICircBuffer *circBuf;
+  UInt32            numOutputBufs;
+  BufTab_Handle     hOutBufTab;
+  GstTICircBuffer   *circBuf;
 
   /* AAC header (qtdemuxer) */
   GstBuffer       *aac_header_data;

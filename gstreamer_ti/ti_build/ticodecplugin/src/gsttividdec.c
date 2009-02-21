@@ -143,7 +143,10 @@ static void
  gst_tividdec_drain_pipeline(GstTIViddec *viddec);
 static GstClockTime
  gst_tividdec_frame_duration(GstTIViddec *viddec);
-
+static gboolean 
+    gst_tividdec_codec_start (GstTIViddec  *viddec);
+static gboolean 
+    gst_tividdec_codec_stop (GstTIViddec  *viddec);
 
 /******************************************************************************
  * gst_tividdec_class_init_trampoline
@@ -311,35 +314,35 @@ static void gst_tividdec_init(GstTIViddec *viddec, GstTIViddecClass *gclass)
     gst_element_add_pad(GST_ELEMENT(viddec), viddec->srcpad);
 
     /* Initialize TIViddec state */
-    viddec->engineName        = NULL;
-    viddec->codecName         = NULL;
-    viddec->displayBuffer     = FALSE;
-    viddec->genTimeStamps     = TRUE;
+    viddec->engineName          = NULL;
+    viddec->codecName           = NULL;
+    viddec->displayBuffer       = FALSE;
+    viddec->genTimeStamps       = TRUE;
 
-    viddec->hEngine           = NULL;
-    viddec->hVd               = NULL;
-    viddec->drainingEOS       = FALSE;
-    viddec->threadStatus      = 0UL;
+    viddec->hEngine             = NULL;
+    viddec->hVd                 = NULL;
+    viddec->drainingEOS         = FALSE;
+    viddec->threadStatus        = 0UL;
 
-    viddec->decodeDrained     = FALSE;
-    viddec->waitOnDecodeDrain = NULL;
+    viddec->decodeDrained       = FALSE;
+    viddec->waitOnDecodeDrain   = NULL;
+    viddec->waitOnDecodeThread  = NULL;
 
-    viddec->hInFifo           = NULL;
+    viddec->hInFifo             = NULL;
 
-    viddec->waitOnQueueThread = NULL;
-    viddec->waitQueueSize     = 0;
+    viddec->waitOnQueueThread   = NULL;
+    viddec->waitQueueSize       = 0;
 
-    viddec->framerateNum      = 0;
-    viddec->framerateDen      = 0;
+    viddec->framerateNum        = 0;
+    viddec->framerateDen        = 0;
 
-    viddec->numOutputBufs     = 0UL;
-    viddec->hOutBufTab        = NULL;
-    viddec->circBuf           = NULL;
+    viddec->numOutputBufs       = 0UL;
+    viddec->hOutBufTab          = NULL;
+    viddec->circBuf             = NULL;
 
-    viddec->sps_pps_data      = NULL;
-    viddec->nal_code_prefix   = NULL;
-    viddec->nal_length        = 0;
-
+    viddec->sps_pps_data        = NULL;
+    viddec->nal_code_prefix     = NULL;
+    viddec->nal_length          = 0;
 }
 
 
@@ -646,7 +649,6 @@ static gboolean gst_tividdec_sink_event(GstPad *pad, GstEvent *event)
 
 }
 
-
 /******************************************************************************
  * gst_tividdec_chain
  *    This is the main processing routine.  This function receives a buffer
@@ -732,15 +734,248 @@ static GstFlowReturn gst_tividdec_chain(GstPad * pad, GstBuffer * buf)
  ******************************************************************************/
 static gboolean gst_tividdec_init_video(GstTIViddec *viddec)
 {
-    VIDDEC_Params         params    = Vdec_Params_DEFAULT;
-    VIDDEC_DynamicParams  dynParams = Vdec_DynamicParams_DEFAULT;
-    BufferGfx_Attrs       gfxAttrs  = BufferGfx_Attrs_DEFAULT;
     Rendezvous_Attrs      rzvAttrs  = Rendezvous_Attrs_DEFAULT;
-    Fifo_Attrs            fAttrs    = Fifo_Attrs_DEFAULT;
     struct sched_param    schedParam;
     pthread_attr_t        attr;
 
     GST_LOG("begin init_video\n");
+
+    /* Initialize thread status management */
+    viddec->threadStatus = 0UL;
+    pthread_mutex_init(&viddec->threadStatusMutex, NULL);
+
+    /* Initialize rendezvous objects for making threads wait on conditions */
+    viddec->waitOnDecodeDrain   = Rendezvous_create(100, &rzvAttrs);
+    viddec->waitOnQueueThread   = Rendezvous_create(100, &rzvAttrs);
+    viddec->waitOnDecodeThread  = Rendezvous_create(100, &rzvAttrs);
+    viddec->drainingEOS         = FALSE;
+
+    /* Initialize custom thread attributes */
+    if (pthread_attr_init(&attr)) {
+        GST_WARNING("failed to initialize thread attrs\n");
+        gst_tividdec_exit_video(viddec);
+        return FALSE;
+    }
+
+    /* Force the thread to use the system scope */
+    if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM)) {
+        GST_WARNING("failed to set scope attribute\n");
+        gst_tividdec_exit_video(viddec);
+        return FALSE;
+    }
+
+    /* Force the thread to use custom scheduling attributes */
+    if (pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED)) {
+        GST_WARNING("failed to set schedule inheritance attribute\n");
+        gst_tividdec_exit_video(viddec);
+        return FALSE;
+    }
+
+    /* Set the thread to be fifo real time scheduled */
+    if (pthread_attr_setschedpolicy(&attr, SCHED_FIFO)) {
+        GST_WARNING("failed to set FIFO scheduling policy\n");
+        gst_tividdec_exit_video(viddec);
+        return FALSE;
+    }
+
+    /* Set the display thread priority */
+    schedParam.sched_priority = GstTIVideoThreadPriority;
+    if (pthread_attr_setschedparam(&attr, &schedParam)) {
+        GST_WARNING("failed to set scheduler parameters\n");
+        return FALSE;
+    }
+
+    /* Create decoder thread */
+    if (pthread_create(&viddec->decodeThread, &attr,
+            gst_tividdec_decode_thread, (void*)viddec)) {
+        GST_ERROR("failed to create decode thread\n");
+        gst_tividdec_exit_video(viddec);
+        return FALSE;
+    }
+    gst_tithread_set_status(viddec, TIThread_DECODE_CREATED);
+
+    /* Wait for decoder thread to finish initilization before creating queue
+     * thread.
+     */
+    Rendezvous_meet(viddec->waitOnDecodeThread);
+
+    /* Create queue thread */
+    if (pthread_create(&viddec->queueThread, NULL,
+            gst_tividdec_queue_thread, (void*)viddec)) {
+        GST_ERROR("failed to create queue thread\n");
+        gst_tividdec_exit_video(viddec);
+        return FALSE;
+    }
+    gst_tithread_set_status(viddec, TIThread_QUEUE_CREATED);
+
+    GST_LOG("end init_video\n");
+    return TRUE;
+}
+
+
+/******************************************************************************
+ * gst_tividdec_exit_video
+ *    Shut down any running video decoder, and reset the element state.
+ ******************************************************************************/
+static gboolean gst_tividdec_exit_video(GstTIViddec *viddec)
+{
+    void*    thread_ret;
+    gboolean checkResult;
+
+    GST_LOG("begin exit_video\n");
+
+    /* Drain the pipeline if it hasn't already been drained */
+    if (!viddec->drainingEOS) {
+       gst_tividdec_drain_pipeline(viddec);
+     }
+
+    /* Shut down the decode thread */
+    if (gst_tithread_check_status(
+            viddec, TIThread_DECODE_CREATED, checkResult)) {
+        GST_LOG("shutting down decode thread\n");
+
+        /* Wait for decoder thread to shut-down */
+        Rendezvous_meet(viddec->waitOnDecodeThread);
+
+        if (pthread_join(viddec->decodeThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
+                GST_DEBUG("decode thread exited with an error condition\n");
+            }
+        }
+    }
+
+    /* Shut down the queue thread */
+    if (gst_tithread_check_status(
+            viddec, TIThread_QUEUE_CREATED, checkResult)) {
+        GST_LOG("shutting down queue thread\n");
+
+        /* Unstop the queue thread if needed, and wait for it to finish */
+        Fifo_flush(viddec->hInFifo);
+
+        if (pthread_join(viddec->queueThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
+                GST_DEBUG("queue thread exited with an error condition\n");
+            }
+        }
+    }
+
+    /* Shut down thread status management */
+    viddec->threadStatus = 0UL;
+    pthread_mutex_destroy(&viddec->threadStatusMutex);
+
+    /* Shut-down any remaining items */
+    if (viddec->hInFifo) {
+        Fifo_delete(viddec->hInFifo);
+        viddec->hInFifo = NULL;
+    }
+
+    if (viddec->waitOnQueueThread) {
+        Rendezvous_delete(viddec->waitOnQueueThread);
+        viddec->waitOnQueueThread = NULL;
+    }
+
+    if (viddec->waitOnDecodeDrain) {
+        Rendezvous_delete(viddec->waitOnDecodeDrain);
+        viddec->waitOnDecodeDrain = NULL;
+    }
+
+    if (viddec->waitOnDecodeThread) {
+        Rendezvous_delete(viddec->waitOnDecodeThread);
+        viddec->waitOnDecodeThread = NULL;
+    }
+
+    if (viddec->circBuf) {
+        GST_LOG("freeing cicrular input buffer\n");
+        gst_ticircbuffer_unref(viddec->circBuf);
+        viddec->circBuf      = NULL;
+        viddec->framerateNum = 0;
+        viddec->framerateDen = 0;
+    }
+
+    if (viddec->hOutBufTab) {
+        GST_LOG("freeing output buffers\n");
+        BufTab_delete(viddec->hOutBufTab);
+        viddec->hOutBufTab = NULL;
+    }
+
+    if (viddec->sps_pps_data) {
+        GST_LOG("freeing sps_pps buffers\n");
+        gst_buffer_unref(viddec->sps_pps_data);
+        viddec->sps_pps_data = NULL;
+    }
+
+    if (viddec->nal_code_prefix) {
+        GST_LOG("freeing nal code prefix buffers\n");
+        gst_buffer_unref(viddec->nal_code_prefix);
+        viddec->nal_code_prefix = NULL;
+    }
+
+    if (viddec->nal_length) {
+        GST_LOG("reseting nal length to zero\n");
+        viddec->nal_length = 0;
+    }
+
+    GST_LOG("end exit_video\n");
+    return TRUE;
+}
+
+
+/******************************************************************************
+ * gst_tividdec_change_state
+ *     Manage state changes for the video stream.  The gStreamer documentation
+ *     states that state changes must be handled in this manner:
+ *        1) Handle ramp-up states
+ *        2) Pass state change to base class
+ *        3) Handle ramp-down states
+ ******************************************************************************/
+static GstStateChangeReturn gst_tividdec_change_state(GstElement *element,
+                                GstStateChange transition)
+{
+    GstStateChangeReturn  ret    = GST_STATE_CHANGE_SUCCESS;
+    GstTIViddec          *viddec = GST_TIVIDDEC(element);
+
+    GST_LOG("begin change_state (%d)\n", transition);
+
+    /* Handle ramp-up state changes */
+    switch (transition) {
+        case GST_STATE_CHANGE_NULL_TO_READY:
+            break;
+        default:
+            break;
+    }
+
+    /* Pass state changes to base class */
+    ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
+    if (ret == GST_STATE_CHANGE_FAILURE)
+        return ret;
+
+    /* Handle ramp-down state changes */
+    switch (transition) {
+        case GST_STATE_CHANGE_READY_TO_NULL:
+            /* Shut down any running video decoder */
+            if (!gst_tividdec_exit_video(viddec)) {
+                return GST_STATE_CHANGE_FAILURE;
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    GST_LOG("end change_state\n");
+    return ret;
+}
+
+/******************************************************************************
+ * gst_tividdec2_codec_start
+ *     Initialize codec engine
+ *****************************************************************************/
+static gboolean gst_tividdec_codec_start (GstTIViddec  *viddec)
+{
+    VIDDEC_Params         params    = Vdec_Params_DEFAULT;
+    VIDDEC_DynamicParams  dynParams = Vdec_DynamicParams_DEFAULT;
+    BufferGfx_Attrs       gfxAttrs  = BufferGfx_Attrs_DEFAULT;
+    Fifo_Attrs            fAttrs    = Fifo_Attrs_DEFAULT;
 
     /* If video has already been initialized, shut down previous decoder */
     if (viddec->hEngine) {
@@ -830,138 +1065,18 @@ static gboolean gst_tividdec_init_video(GstTIViddec *viddec)
     /* Tell the Vdec module that hOutBufTab will be used for display buffers */
     Vdec_setBufTab(viddec->hVd, viddec->hOutBufTab);
 
-    /* Initialize thread status management */
-    viddec->threadStatus = 0UL;
-    pthread_mutex_init(&viddec->threadStatusMutex, NULL);
-
     /* Set up the queue fifo */
     viddec->hInFifo = Fifo_create(&fAttrs);
 
-    /* Create queue thread */
-    if (pthread_create(&viddec->queueThread, NULL,
-            gst_tividdec_queue_thread, (void*)viddec)) {
-        GST_ERROR("failed to create queue thread\n");
-        gst_tividdec_exit_video(viddec);
-        return FALSE;
-    }
-    gst_tithread_set_status(viddec, TIThread_QUEUE_CREATED);
-
-    /* Initialize custom thread attributes */
-    if (pthread_attr_init(&attr)) {
-        GST_WARNING("failed to initialize thread attrs\n");
-        gst_tividdec_exit_video(viddec);
-        return FALSE;
-    }
-
-    /* Force the thread to use the system scope */
-    if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM)) {
-        GST_WARNING("failed to set scope attribute\n");
-        gst_tividdec_exit_video(viddec);
-        return FALSE;
-    }
-
-    /* Force the thread to use custom scheduling attributes */
-    if (pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED)) {
-        GST_WARNING("failed to set schedule inheritance attribute\n");
-        gst_tividdec_exit_video(viddec);
-        return FALSE;
-    }
-
-    /* Set the thread to be fifo real time scheduled */
-    if (pthread_attr_setschedpolicy(&attr, SCHED_FIFO)) {
-        GST_WARNING("failed to set FIFO scheduling policy\n");
-        gst_tividdec_exit_video(viddec);
-        return FALSE;
-    }
-
-    /* Set the display thread priority */
-    schedParam.sched_priority = GstTIVideoThreadPriority;
-    if (pthread_attr_setschedparam(&attr, &schedParam)) {
-        GST_WARNING("failed to set scheduler parameters\n");
-        return FALSE;
-    }
-
-    /* Create decoder thread */
-    if (pthread_create(&viddec->decodeThread, &attr,
-            gst_tividdec_decode_thread, (void*)viddec)) {
-        GST_ERROR("failed to create decode thread\n");
-        gst_tividdec_exit_video(viddec);
-        return FALSE;
-    }
-    gst_tithread_set_status(viddec, TIThread_DECODE_CREATED);
-
-    /* Initialize rendezvous objects for making threads wait on conditions */
-    viddec->waitOnDecodeDrain = Rendezvous_create(100, &rzvAttrs);
-    viddec->waitOnQueueThread = Rendezvous_create(100, &rzvAttrs);
-    viddec->drainingEOS       = FALSE;
-
-    GST_LOG("end init_video\n");
     return TRUE;
 }
 
-
 /******************************************************************************
- * gst_tividdec_exit_video
- *    Shut down any running video decoder, and reset the element state.
- ******************************************************************************/
-static gboolean gst_tividdec_exit_video(GstTIViddec *viddec)
+ * gst_tividdec2_codec_stop
+ *     Release codec engine resources
+ *****************************************************************************/
+static gboolean gst_tividdec_codec_stop (GstTIViddec  *viddec)
 {
-    void*    thread_ret;
-    gboolean checkResult;
-
-    GST_LOG("begin exit_video\n");
-
-    /* Drain the pipeline if it hasn't already been drained */
-    if (!viddec->drainingEOS) {
-       gst_tividdec_drain_pipeline(viddec);
-     }
-
-    /* Shut down the queue thread */
-    if (gst_tithread_check_status(
-            viddec, TIThread_QUEUE_CREATED, checkResult)) {
-        GST_LOG("shutting down queue thread\n");
-
-        /* Unstop the queue thread if needed, and wait for it to finish */
-        Fifo_flush(viddec->hInFifo);
-
-        if (pthread_join(viddec->queueThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("queue thread exited with an error condition\n");
-            }
-        }
-    }
-
-    if (viddec->hInFifo) {
-        Fifo_delete(viddec->hInFifo);
-        viddec->hInFifo = NULL;
-    }
-
-    if (viddec->waitOnQueueThread) {
-        Rendezvous_delete(viddec->waitOnQueueThread);
-        viddec->waitOnQueueThread = NULL;
-    }
-
-    /* Shut down the decode thread */
-    if (gst_tithread_check_status(
-            viddec, TIThread_DECODE_CREATED, checkResult)) {
-        GST_LOG("shutting down decode thread\n");
-
-        if (pthread_join(viddec->decodeThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("decode thread exited with an error condition\n");
-            }
-        }
-    }
-
-    if (viddec->waitOnDecodeDrain) {
-        Rendezvous_delete(viddec->waitOnDecodeDrain);
-        viddec->waitOnDecodeDrain = NULL;
-    }
-
-    /* Shut down thread status management */
-    viddec->threadStatus = 0UL;
-    pthread_mutex_destroy(&viddec->threadStatusMutex);
-
     /* Shut down remaining items */
     if (viddec->hVd) {
         GST_LOG("closing video decoder\n");
@@ -975,88 +1090,8 @@ static gboolean gst_tividdec_exit_video(GstTIViddec *viddec)
         viddec->hEngine = NULL;
     }
 
-    if (viddec->circBuf) {
-        GST_LOG("freeing cicrular input buffer\n");
-        gst_ticircbuffer_unref(viddec->circBuf);
-        viddec->circBuf      = NULL;
-        viddec->framerateNum = 0;
-        viddec->framerateDen = 0;
-    }
-
-    if (viddec->hOutBufTab) {
-        GST_LOG("freeing output buffers\n");
-        BufTab_delete(viddec->hOutBufTab);
-        viddec->hOutBufTab = NULL;
-    }
-
-    if (viddec->sps_pps_data) {
-        GST_LOG("freeing sps_pps buffers\n");
-        gst_buffer_unref(viddec->sps_pps_data);
-        viddec->sps_pps_data = NULL;
-    }
-
-    if (viddec->nal_code_prefix) {
-        GST_LOG("freeing nal code prefix buffers\n");
-        gst_buffer_unref(viddec->nal_code_prefix);
-        viddec->nal_code_prefix = NULL;
-    }
-
-    if (viddec->nal_length) {
-        GST_LOG("reseting nal length to zero\n");
-        viddec->nal_length = 0;
-    }
-
-    GST_LOG("end exit_video\n");
     return TRUE;
 }
-
-
-/******************************************************************************
- * gst_tividdec_change_state
- *     Manage state changes for the video stream.  The gStreamer documentation
- *     states that state changes must be handled in this manner:
- *        1) Handle ramp-up states
- *        2) Pass state change to base class
- *        3) Handle ramp-down states
- ******************************************************************************/
-static GstStateChangeReturn gst_tividdec_change_state(GstElement *element,
-                                GstStateChange transition)
-{
-    GstStateChangeReturn  ret    = GST_STATE_CHANGE_SUCCESS;
-    GstTIViddec          *viddec = GST_TIVIDDEC(element);
-
-    GST_LOG("begin change_state (%d)\n", transition);
-
-    /* Handle ramp-up state changes */
-    switch (transition) {
-        case GST_STATE_CHANGE_NULL_TO_READY:
-            break;
-        default:
-            break;
-    }
-
-    /* Pass state changes to base class */
-    ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
-    if (ret == GST_STATE_CHANGE_FAILURE)
-        return ret;
-
-    /* Handle ramp-down state changes */
-    switch (transition) {
-        case GST_STATE_CHANGE_READY_TO_NULL:
-            /* Shut down any running video decoder */
-            if (!gst_tividdec_exit_video(viddec)) {
-                return GST_STATE_CHANGE_FAILURE;
-            }
-            break;
-
-        default:
-            break;
-    }
-
-    GST_LOG("end change_state\n");
-    return ret;
-}
-
 
 /******************************************************************************
  * gst_tividdec_decode_thread
@@ -1078,8 +1113,19 @@ static void* gst_tividdec_decode_thread(void *arg)
     GstBuffer     *outBuf;
     Int            ret;
 
+    GST_LOG("init video decode_thread \n");
+
+    /* Initialize codec engine */
+    if (gst_tividdec_codec_start(viddec) < 0) {
+        GST_ERROR("failed to start codec\n");
+        goto thread_exit;
+    }
+
     /* Calculate the duration of a single frame in this stream */
     frameDuration = gst_tividdec_frame_duration(viddec);
+
+    /* Notify main thread if it is waiting create queue thread */
+    Rendezvous_forceAndReset(viddec->waitOnDecodeThread);
 
     /* Main thread loop */
     while (TRUE) {
@@ -1230,8 +1276,15 @@ thread_failure:
 
 thread_exit:
  
+    /* Initialize codec engine */
+    if (gst_tividdec_codec_stop(viddec) < 0) {
+        GST_ERROR("failed to stop codec\n");
+    }
+
+    /* Notify main thread if it is waiting on decode thread shut-down */
     viddec->decodeDrained = TRUE;
     Rendezvous_force(viddec->waitOnDecodeDrain);
+    Rendezvous_force(viddec->waitOnDecodeThread);
 
     gst_object_unref(viddec);
 

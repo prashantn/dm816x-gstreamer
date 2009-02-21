@@ -90,6 +90,9 @@ struct _GstTIAuddec
   Rendezvous_Handle  waitOnQueueThread;
   Int32              waitQueueSize;
 
+  /* Blocking conditions for decode thread */
+  Rendezvous_Handle  waitOnDecodeThread;
+  
   /* Buffer management */
   UInt32           numOutputBufs;
   BufTab_Handle    hOutBufTab;
