@@ -1122,11 +1122,6 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
     }
     else {
         params.inputChromaFormat = XDM_YUV_422ILE;
-        #if defined(Platform_omap3530)
-        params.reconChromaFormat = XDM_CHROMA_NA;
-        #else 
-        params.reconChromaFormat = XDM_YUV_420P;
-        #endif
     }
 
     /* Set up codec parameters depending on bit rate */
@@ -1278,7 +1273,7 @@ static void* gst_tividenc1_encode_thread(void *arg)
     /* Initialize codec engine */
     if (gst_tividenc1_codec_start(videnc1) < 0) {
         GST_ERROR("failed to start codec\n");
-        goto thread_exit;
+        goto thread_failure;
     }
 
     /* Notify main thread if it is waiting create queue thread */
@@ -1292,7 +1287,7 @@ static void* gst_tividenc1_encode_thread(void *arg)
         
         if (hCcv == NULL) {
             GST_ERROR("Failed to create Ccv module\n");
-            goto thread_exit;
+            goto thread_failure;
         }
 
         /* create ccv output buffer */
@@ -1306,7 +1301,7 @@ static void* gst_tividenc1_encode_thread(void *arg)
 
         if (hCcvBuf == NULL) {
             GST_ERROR("Failed to allocate buffer for ccv module\n");
-            goto thread_exit;
+            goto thread_failure;
         }
     }
 
@@ -1590,6 +1585,8 @@ static void gst_tividenc1_drain_pipeline(GstTIVidenc1 *videnc1)
 {
     gboolean checkResult;
 
+    GST_LOG("draining pipeline begin\n");
+
     videnc1->drainingEOS = TRUE;
 
     /* If the processing threads haven't been created, there is nothing to
@@ -1622,6 +1619,7 @@ static void gst_tividenc1_drain_pipeline(GstTIVidenc1 *videnc1)
     }
     videnc1->encodeDrained = FALSE;
 
+    GST_LOG("draining pipeline end\n");
 }
 
 
