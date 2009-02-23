@@ -1577,7 +1577,6 @@ static gboolean gst_tividdec2_resizeBufTab(GstTIViddec2 *viddec2)
         }
     }
 
-    viddec2->numOutputBufs = numBufs;
     return TRUE;
 }
 
