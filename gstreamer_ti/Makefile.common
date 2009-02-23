@@ -82,12 +82,6 @@ export XDAIS_INSTALL_DIR
 export XDC_INSTALL_DIR
 
 #------------------------------------------------------------------------------
-# Set the CROSS_COMPILE_PREFIX variable, this is used by libtool while linking 
-# the cross compiled libraries on MV platform
-#------------------------------------------------------------------------------
-export CROSS_COMPILE_PREFIX = $(TARGET_ROOT_DIR)
-
-#------------------------------------------------------------------------------
 # Set XDC target and platform based on PLATFORM variable
 #------------------------------------------------------------------------------
 ifeq ($(PLATFORM), dm355)
@@ -173,5 +167,6 @@ CC_CONFIGURE_OPTS        = --build=i686-linux --host=arm-linux \
                            --prefix=$(TARGET_GSTREAMER_DIR)
 export CC                = $(MVTOOL_PREFIX)gcc
 export LD_LIBRARY_PATH   = $(TARGET_GSTREAMER_DIR)/lib
-export PKG_CONFIG_PATH   = $(LD_LIBRARY_PATH)/pkgconfig
+export PKG_CONFIG_PATH   = $(TARGET_GSTREAMER_DIR)/lib/pkgconfig
 export PKG_CONFIG_LIBDIR = $(PKG_CONFIG_PATH)
+
