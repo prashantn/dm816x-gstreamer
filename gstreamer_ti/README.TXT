@@ -109,7 +109,7 @@ This GStreamer plug-in has been built and tested on the following platforms:
 - DM6467
 - OMAP35xx (*)
 
-* OMAP35xx support currently requires DVSDK 3.00.00.27, which is a TI internal
+* OMAP35xx support currently requires DVSDK 3.00.00.29, which is a TI internal
   engineering release.
 
 Prerequisites
@@ -216,4 +216,8 @@ Known Issues
 - If clip size is smaller and dmaivideosink element reports "assertion" then
   try disabling hw accelerated framecopy. This can be disabled with -c option
   in scripts. Note: disabling hw accel framecopy will affect performance.
+
+The above are some high level issues and limitations.  For specific issues
+please the the tracker items on the GStreamer project site at:
+https://gstreamer.ti.com/gf/project/gstreamer_ti/tracker/
 
