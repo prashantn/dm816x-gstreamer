@@ -367,6 +367,14 @@ gboolean gst_ticircbuffer_data_consumed(
     /* Release the reference buffer */
     gst_buffer_unref(buf);
 
+    /* Make sure the client didn't consume more data than we gave out */
+    if (GST_BUFFER_SIZE(buf) < bytesConsumed) {
+        GST_WARNING("%ld bytes reported consumed from the circular buffer "
+            "when only %d were available", bytesConsumed,
+            GST_BUFFER_SIZE(buf));
+        bytesConsumed = GST_BUFFER_SIZE(buf);
+    }
+
     /* Update the read pointer */
     GST_LOG("%ld bytes consumed\n", bytesConsumed);
     circBuf->readPtr  += bytesConsumed;
