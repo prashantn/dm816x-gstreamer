@@ -2,6 +2,11 @@
 	* src/{gsttiauddec.c,gsttiauddec1.c,gsttiimgdec1.c,gsttiimgenc1.c,
 	gsttividdec.c,gsttividdec2.c}:
 	Fix potential memory leak in all element, see bug#303.
+
+2008-02-20 Chase Maupin, Texas Instruments, Inc.
+	* src/{gsttiauddec.c,gsttiauddec1.c,gsttiimgdec1.c,gsttiimgenc1.c,
+	gsttividdec.c,gsttividdec2.c}:
+	Fix memory leak in all elements.  See bug#389.
 	
 2008-02-20  Don Darling, Texas Instruments, Inc.
 	Release 0.99.00.  This is our first major release.  The ChangeLog before
