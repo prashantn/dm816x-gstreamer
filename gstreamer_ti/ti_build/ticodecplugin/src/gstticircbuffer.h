@@ -27,7 +27,9 @@
 
 #include <ti/sdo/dmai/Dmai.h>
 #include <ti/sdo/dmai/Buffer.h>
+#include <ti/sdo/dmai/BufferGfx.h>
 #include <ti/sdo/dmai/Rendezvous.h>
+#include <ti/sdo/dmai/Framecopy.h>
 
 G_BEGIN_DECLS
 
@@ -61,6 +63,8 @@ struct _GstTICircBuffer {
     gboolean           fixedBlockSize;
     gboolean           contiguousData;
     gboolean           consumerAborted;
+    Framecopy_Handle   hFc;
+    BufferGfx_Attrs    *gfxAttrs;
 
     /* Timestamp Management */
     GstClockTime       dataTimeStamp;
@@ -86,6 +90,8 @@ GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize, Int32 numWindows,
                      Bool fixedBlockSize);
 gboolean         gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
                      GstBuffer *buf);
+gboolean         gst_ticircbuffer_set_bufferGfx_attrs(GstTICircBuffer *circBuf,
+                      BufferGfx_Attrs *gfxAttrs);
 gboolean         gst_ticircbuffer_data_consumed(GstTICircBuffer *circBuf,
                      GstBuffer* buf, Int32 bytesConsumed);
 gboolean         gst_ticircbuffer_time_consumed(

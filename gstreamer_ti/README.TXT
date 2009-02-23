@@ -99,6 +99,11 @@ TIAuddec1
 TIDmaiVideoSink
     Video sink supporting both framebuffer and V4L2 displays
 
+TIVidenc
+    xDM 0.9 Video Encoder
+
+TIVidenc1
+    xDM 1.x Video Encoder
 
 Supported Platforms
 ===================
@@ -200,6 +205,7 @@ multimedia files:
 ./decode_elementary.sh:  Play an audio or video elementary stream
 ./encode_image.sh:       Encode an image file
 ./test_sink.sh           Test audio or video sink
+./encode_elementry.sh:   Encode elementry stream using live source or file
 
 Note that you may need to specify command line arguments to some scripts for
 them to work properly.  Run a script with -h to see what options are available.

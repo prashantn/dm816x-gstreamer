@@ -39,3 +39,17 @@ resolution="720x480"
 inputcolorSpace="UYVY"
 outputcolorSpace="UYVY"
 qValue="75"
+
+# audio encoder defaults
+audio_live_source="audiotestsrc"
+audio_encoder="lame"
+audio_src_args="num-buffers=100"
+
+# video encoder defauls
+video_encoder="TIVidenc1"
+video_encoder_codec_name="mpeg4enc"
+video_live_source="videotestsrc"
+video_encoder_color_space="UYVY"
+video_src_args="num-buffers=1000"
+video_encoder_resolution="720x480"
+video_encoder_args="contiguousInputFrame=FALSE"

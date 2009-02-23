@@ -1,4 +1,12 @@
-2008-02-20  Brijesh Singh, Texas Instruments, Inc.
+2009-02-20  Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttividenc.{c,h},Makefile.am,gstticodecplugin.c}:
+	Add xDM 1.x video encoder support
+
+2009-02-20  Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttividenc.{c,h},Makefile.am,gstticodecplugin.c}:
+	Add xDM 0.9 video encoder support
+
+2009-02-20  Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttiauddec.c,gsttiauddec1.c,gsttiimgdec1.c,gsttiimgenc1.c,
 	gsttividdec.c,gsttividdec2.c}:
 	Fix potential memory leak in all element, see bug#303.
@@ -15,11 +23,11 @@
 	gsttividdec.c,gsttividdec2.c}:
 	Fix memory leak in all elements.  See bug#389.
 	
-2008-02-20  Don Darling, Texas Instruments, Inc.
+2009-02-20  Don Darling, Texas Instruments, Inc.
 	Release 0.99.00.  This is our first major release.  The ChangeLog before
 	this point in time may be incomplete.
 
-2008-01-12  Don Darling, Texas Instruments, Inc.
+2009-01-12  Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec.c,gsttiauddec1.c,gsttiimgdec1.c,gsttiimgenc1.c,
 	gsttividdec.c,gsttividdec2.c}:
 	Fix potential deadlock issue with the queue Fifo object on all elements.

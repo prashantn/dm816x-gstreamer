@@ -20,9 +20,12 @@
  *
  */
 #include <string.h>
+#include <stdlib.h>
 
 #include <ti/sdo/dmai/Dmai.h>
 #include <ti/sdo/dmai/Buffer.h>
+#include <ti/sdo/dmai/BufferGfx.h>
+#include <ti/sdo/dmai/Framecopy.h>
 
 #include "gstticircbuffer.h"
 #include "gsttidmaibuffertransport.h"
@@ -53,6 +56,8 @@ static Int32     gst_ticircbuffer_data_size(GstTICircBuffer *circBuf);
 static Int32     gst_ticircbuffer_write_space(GstTICircBuffer *circBuf);
 static Int32     gst_ticircbuffer_is_empty(GstTICircBuffer *circBuf);
 static void      gst_ticircbuffer_display(GstTICircBuffer *circBuf);
+static gboolean  gst_ticircbuffer_hw_accel_memcpy(GstTICircBuffer *circBuf,
+                    Int8* circBufPtr, GstBuffer *buf);
 
 /* Useful macros */
 #define gst_ticircbuffer_first_window_free(circBuf) \
@@ -137,6 +142,14 @@ static void gst_ticircbuffer_finalize(GstTICircBuffer* circBuf)
     if (circBuf->waitOnConsumer) {
         Rendezvous_delete(circBuf->waitOnConsumer);
     }
+
+    if (circBuf->hFc) {
+        Framecopy_delete(circBuf->hFc);
+    }
+
+    if (circBuf->gfxAttrs) {
+        free(circBuf->gfxAttrs);
+    }
 }
 
 /******************************************************************************
@@ -167,6 +180,8 @@ static void gst_ticircbuffer_init(GTypeInstance *instance,
     circBuf->contiguousData  = TRUE;
     circBuf->fixedBlockSize  = FALSE;
     circBuf->consumerAborted = FALSE;
+    circBuf->hFc             = NULL;
+    circBuf->gfxAttrs        = NULL;
 
     GST_LOG("end init");
 }
@@ -225,13 +240,89 @@ GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize, Int32 numWindows,
     return circBuf;
 }
 
+/******************************************************************************
+ * gst_ticircbuffer_hw_accel_memcpy
+ *     Use hw accelerated framecopy to copy the input buffer in circular buffer
+ *****************************************************************************/
+static gboolean gst_ticircbuffer_hw_accel_memcpy (GstTICircBuffer *circBuf,
+    Int8 *circBufPtr, GstBuffer *buf)
+{
+    Framecopy_Attrs     fcAttrs = Framecopy_Attrs_DEFAULT;
+    Buffer_Handle       hInBuf, hOutBuf;
+
+    /* if this is our first frame, then create framecopy handler */
+    if (circBuf->hFc == NULL) {
+        fcAttrs.accel = TRUE;
+        circBuf->hFc = Framecopy_create(&fcAttrs);
+
+        if (circBuf->hFc == NULL) {
+            GST_ERROR("failed to create framecopy handler\n");
+            return FALSE;
+        }
+    }
+
+    /* create input and output graphics reference buffers and update user
+     * pointers and buffer sizes.
+     */
+    circBuf->gfxAttrs->bAttrs.reference   = TRUE;
+    hInBuf = Buffer_create(GST_BUFFER_SIZE(buf), 
+                BufferGfx_getBufferAttrs(circBuf->gfxAttrs));
+            
+    if (hInBuf == NULL) {
+        GST_ERROR("failed to create input graphics reference buffer\n");
+        return FALSE;
+    }
+    Buffer_setUserPtr(hInBuf, (Int8*) GST_BUFFER_DATA(buf));
+    Buffer_setNumBytesUsed(hInBuf, GST_BUFFER_SIZE(buf));
+
+    hOutBuf = Buffer_create(GST_BUFFER_SIZE(buf), 
+                  BufferGfx_getBufferAttrs(circBuf->gfxAttrs));
+            
+    if (hInBuf == NULL) {
+        GST_ERROR("failed to create input graphics reference buffer\n");
+        return FALSE;
+    }
+    Buffer_setUserPtr(hOutBuf, circBufPtr);
+
+    /* configure framecopy  */                  
+    if (Framecopy_config(circBuf->hFc, hInBuf, hOutBuf) < 0) {
+        GST_ERROR("failed to configure framecopy module\n");
+        return FALSE;
+    }
+
+    /* execute framecopy */
+    if (Framecopy_execute(circBuf->hFc, hInBuf, hOutBuf) < 0) {
+        GST_ERROR("failed to execute framecopy\n");
+        return FALSE;
+    }
+
+    return TRUE;
+} 
+
+/******************************************************************************
+ * gst_ticircular_set_bufferGfx_attrs
+ *  This function sets the graphics attribute for framecopy
+ *****************************************************************************/
+gboolean gst_ticircbuffer_set_bufferGfx_attrs(GstTICircBuffer *circBuf,
+    BufferGfx_Attrs *gfxAttrs)
+{
+    circBuf->gfxAttrs = calloc(1, sizeof(BufferGfx_Attrs));
+
+    if (circBuf->gfxAttrs == NULL) {
+        GST_ERROR("failed to allocate space for graphics buffer object\n");
+        return FALSE;
+    }
+
+    memcpy(circBuf->gfxAttrs, gfxAttrs, sizeof(BufferGfx_Attrs));
+
+    return TRUE;
+}
 
 /******************************************************************************
  * gst_ticircbuffer_queue_data
  *     Append received encoded data to end of circular buffer
  ******************************************************************************/
-gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
-             GstBuffer *buf)
+gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
 {
     /* Reset our mutex condition so a call to wait_on_consumer will block */
     Rendezvous_reset(circBuf->waitOnConsumer);
@@ -323,11 +414,25 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
         GST_LOG("buffer received:  no timestamp available\n");
     }
 
+    /* Check if graphics buffer attribute is passed. 
+     * The flag indicates the queue has recieved contiguous buffer.
+     * To get optimized performance, we will use framecopy module to copy
+     * data from gstreamer buffer to circular buffer.
+     */
+    if (circBuf->gfxAttrs) {
+        GST_LOG("copying buffer using hw accel framecopy module\n");
+        if (gst_ticircbuffer_hw_accel_memcpy(circBuf, 
+                circBuf->writePtr, buf) < 0) {
+            return FALSE;
+        }
+    }
+    else {        
+        memcpy(circBuf->writePtr, GST_BUFFER_DATA(buf), GST_BUFFER_SIZE(buf));
+    }
+    circBuf->writePtr += GST_BUFFER_SIZE(buf);
+
     /* Copy new data to the end of the buffer */
     GST_LOG("queued %u bytes of data\n", GST_BUFFER_SIZE(buf));
-        
-    memcpy(circBuf->writePtr, GST_BUFFER_DATA(buf), GST_BUFFER_SIZE(buf));
-    circBuf->writePtr += GST_BUFFER_SIZE(buf);
 
     /* Output the buffer status to stdout if buffer debug is enabled */
     if (circBuf->displayBuffer) {
