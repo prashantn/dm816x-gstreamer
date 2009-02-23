@@ -107,6 +107,13 @@ ifeq ($(PLATFORM), omap3530)
 endif
 
 #------------------------------------------------------------------------------
+# Set v4l2src workaround enviroment variable
+#------------------------------------------------------------------------------
+ifneq ($(PLATFORM), omap3530)
+	export USE_V4L2SRC_WORKAROUND = "CFLAGS=-I$(LINUXKERNEL_INSTALL_DIR)/include -DDAVINCI_LSP_WORKAROUND -DPlatform_$(PLATFORM)"
+endif
+
+#------------------------------------------------------------------------------
 # Enable ALSA support based on PLATFORM and MVL_VERSION variable
 #------------------------------------------------------------------------------
 ifeq ($(PLATFORM), omap3530)
