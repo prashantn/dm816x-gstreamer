@@ -136,10 +136,21 @@ PACKAGE_plugins_ugly_PRECONFIG_PATCHES  =
 ifeq ($(ALSA_SUPPORT), --disable-alsa)
     PACKAGE_plugins_ugly_PRECONFIG_PATCHES += plugins_ugly1_0_10_9
 endif
-PACKAGE_plugins_ugly_CONFIGURE_OPTS     = LDFLAGS=-L$(TARGET_ROOT_DIR)/lib
+PACKAGE_plugins_ugly_CONFIGURE_OPTS     = LDFLAGS=-L$(TARGET_GSTREAMER_DIR)/lib  CFLAGS=-I${TARGET_GSTREAMER_DIR}/include  --enable-lame
 PACKAGE_plugins_ugly_POSTCONFIG_PATCHES =
 PACKAGE_plugins_ugly_BUILD_DIRS         = ext/mad
+PACKAGE_plugins_ugly_BUILD_DIRS         += ext/lame
 PACKAGE_plugins_ugly_DESCRIPTION        = \
-        Selected plugins from Gstreamer ugly-plugins (id3tag, mad)
+        Selected plugins from Gstreamer ugly-plugins (id3tag, mad, lame)
 PLUGIN_PACKAGES += $(PACKAGE_plugins_ugly_BUILD_TARGET)
 
+#-------------------------------------------------------------------------------
+# Package lame
+#-------------------------------------------------------------------------------
+PACKAGE_lame_BUILD_TARGET       = lame
+PACKAGE_lame_ARCHIVE_BASENAME   = lame-398-2
+PACKAGE_lame_PRECONFIG_PATCHES  =
+PACKAGE_lame_CONFIGURE_OPTS     = LDFLAGS=-L$(TARGET_ROOT_DIR)/lib
+PACKAGE_lame_DESCRIPTION        = \
+        lame lib for encoding mp3
+PLUGIN_PACKAGES += $(PACKAGE_lame_BUILD_TARGET)

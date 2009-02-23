@@ -75,7 +75,12 @@ libmad-0.15.1b
     Description:   MPEG audio decoder library
     Project Page:  http://www.underbit.com/products/mad
     Download URL:  ftp://ftp.mars.org/pub/mpeg
-    
+
+lame-398-2
+    Description:   MPEG Audio Layer III (MP3) encoder
+    Project Page:  http://lame.sourceforge.net/
+    Download URL:  http://lame.sourceforge.net/download.php
+ 
 TI Plugin Elements
 ------------------
 TIViddec

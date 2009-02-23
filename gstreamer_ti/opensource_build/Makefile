@@ -46,6 +46,7 @@ base:
 	$(CMD_PREFIX) $(MAKE) liboil       $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) id3tag       $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) mad          $(BUILD_INSTALL)
+	$(CMD_PREFIX) $(MAKE) lame         $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) plugins_base $(BUILD_INSTALL)
 
 plugins:     $(PLUGIN_PACKAGES)
