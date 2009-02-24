@@ -18,14 +18,14 @@
 	gsttividdec.c,gsttividdec2.c}:
 	Fix potential memory leak in all element, see bug#303.
 
-2008-02-20 Chase Maupin, Texas Instruments, Inc.
+2009-02-20 Chase Maupin, Texas Instruments, Inc.
 	* src/gsttidmaivideosink.c, gsttidmaivideosink.h:
 	Changed how DMAI video sink does auto detection of the video
 	standard.  Added a new parameter to enable auto detection.
 	Added the ability for the plugin to retry finding a video
 	standard that works if the first selected standard fails.
 
-2008-02-20 Chase Maupin, Texas Instruments, Inc.
+2009-02-20 Chase Maupin, Texas Instruments, Inc.
 	* src/{gsttiauddec.c,gsttiauddec1.c,gsttiimgdec1.c,gsttiimgenc1.c,
 	gsttividdec.c,gsttividdec2.c}:
 	Fix memory leak in all elements.  See bug#389.
@@ -33,6 +33,11 @@
 2009-02-20  Don Darling, Texas Instruments, Inc.
 	Release 0.99.00.  This is our first major release.  The ChangeLog before
 	this point in time may be incomplete.
+
+2009-02-19  Diego Dompe, Ridgerun
+	* BUILDING_STAND_ALONE.txt,Makefile.external
+	Add information about how to build the plugins outside project's build 
+	system
 
 2009-01-12  Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec.c,gsttiauddec1.c,gsttiimgdec1.c,gsttiimgenc1.c,
