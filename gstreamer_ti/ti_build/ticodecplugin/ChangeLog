@@ -1,3 +1,8 @@
+2009-02-24  Diego Dompe, RidgeRun
+	* src/Makefile.am:
+	* Add XDC_USER_PATH to the XDC_PATH so people can add the location 
+	of codecs without needing to change the Makefile.am
+
 2009-02-23  Diego Dompe, RidgeRun
 	* src/{gsttividenc.c,gsttividdec.c,gsttividdec2.c,gstvidenc1.c}:
 	* Correct the static capabilities so the plugins can be pickup by
