@@ -84,9 +84,16 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
-    ("video/mpeg, mpegversion=(int){ 2, 4 }, "     /* MPEG versions 2 and 4 */
-         "systemstream=(boolean)false; "
-     "video/x-h264"                             /* H264                  */
+    ("video/mpeg, " 
+	 "mpegversion=(int){ 2, 4 }, "  /* MPEG versions 2 and 4 */
+         "systemstream=(boolean)false, "
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ] ;"
+     "video/x-h264, "                             /* H264                  */
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ]"
     )
 );
 
@@ -95,7 +102,8 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
  * UYVY - YUV 422 interleaved corresponding to V4L2_PIX_FMT_UYVY in v4l2
  * Y8C8 - YUV 422 semi planar. The dm6467 VDCE outputs this format after a
  *        color conversion.The format consists of two planes: one with the
- *        Y component and one with the CbCr components interleaved (hence semi)  *        See the LSP VDCE documentation for a thorough description of this
+ *        Y component and one with the CbCr components interleaved (hence semi)  
+ *        See the LSP VDCE documentation for a thorough description of this
  *        format.
  */
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
@@ -394,7 +402,6 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
 
     videnc1->numOutputBufs          = 0;
     videnc1->numInputBufs           = 0;
-    videnc1->device                 = NULL;
 
     videnc1->contiguousInputFrame   = FALSE;
 }
@@ -669,7 +676,7 @@ static gboolean gst_tividenc1_set_source_caps(
         gint mpegversion = 4;
 
         caps =
-            gst_caps_new_simple("video/mepg",
+            gst_caps_new_simple("video/mpeg",
                 "mpegversion",  G_TYPE_INT,         mpegversion,
                 "framerate",    GST_TYPE_FRACTION,  videnc1->framerateNum,
                                                     videnc1->framerateDen,

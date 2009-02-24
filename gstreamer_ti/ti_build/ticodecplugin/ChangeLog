@@ -1,3 +1,10 @@
+2009-02-23  Diego Dompe, RidgeRun
+	* src/{gsttividenc.c,gsttividdec.c,gsttividdec2.c,gstvidenc1.c}:
+	* Correct the static capabilities so the plugins can be pickup by
+	the autoplugging system.
+	* Fix some typos on the generation of capabilities
+	* Remove invalid assignment of videnc1->device field.
+
 2009-02-20  Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividenc.{c,h},Makefile.am,gstticodecplugin.c}:
 	Add xDM 1.x video encoder support

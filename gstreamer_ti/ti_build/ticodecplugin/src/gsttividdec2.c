@@ -80,9 +80,16 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
-    ("video/mpeg, mpegversion=(int){ 2, 4 }, "  /* MPEG versions 2 and 4 */
-         "systemstream=(boolean)false; "
-     "video/x-h264"                             /* H264                  */
+    ("video/mpeg, " 
+	 "mpegversion=(int){ 2, 4 }, "  /* MPEG versions 2 and 4 */
+         "systemstream=(boolean)false, "
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ] ;"
+     "video/x-h264, "                             /* H264                  */
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ]"
     )
 );
 

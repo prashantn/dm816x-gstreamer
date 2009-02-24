@@ -81,9 +81,16 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
-    ("video/mpeg, mpegversion=(int){ 4 }, "     /* MPEG versions 4 */
-         "systemstream=(boolean)false; "
-     "video/x-h264"                             /* H264   */
+    ("video/mpeg, " 
+	 "mpegversion=(int){ 4 }, "  		/* MPEG version 4 */
+         "systemstream=(boolean)false, "
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ] ;"
+     "video/x-h264, "                           /* H264   */
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ]"
     )
 );
 
@@ -621,7 +628,7 @@ static gboolean gst_tividenc_set_source_caps(
         gint mpegversion = 4;
 
         caps =
-            gst_caps_new_simple("video/mepg",
+            gst_caps_new_simple("video/mpeg",
                 "mpegversion",  G_TYPE_INT,         mpegversion,
                 "framerate",    GST_TYPE_FRACTION,  videnc->framerateNum,
                                                     videnc->framerateDen,
