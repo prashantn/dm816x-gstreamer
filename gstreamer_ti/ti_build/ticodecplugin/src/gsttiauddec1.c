@@ -77,7 +77,7 @@ enum
  * supported.
  */
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
-    "encaudio",
+    "sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
@@ -87,7 +87,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
 
 /* Define source (output) pad capabilities.  Currently, RAW is supported. */
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
-    "decaudio",
+    "src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS

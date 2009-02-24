@@ -1,14 +1,18 @@
 2009-02-24  Diego Dompe, RidgeRun
 	* src/Makefile.am:
-	* Add XDC_USER_PATH to the XDC_PATH so people can add the location 
+	Add XDC_USER_PATH to the XDC_PATH so people can add the location 
 	of codecs without needing to change the Makefile.am
+	* src/{gsttiauddec.c,gsttiauddec1.c,gsttiimgdec1.c,gsttividdec2.c,
+	gsttividdec.c}:
+	Rename the source and sinks to standard "src" and "sink" names, so
+	the autoplug system may pick them.	
 
 2009-02-23  Diego Dompe, RidgeRun
 	* src/{gsttividenc.c,gsttividdec.c,gsttividdec2.c,gstvidenc1.c}:
-	* Correct the static capabilities so the plugins can be pickup by
+	- Correct the static capabilities so the plugins can be pickup by
 	the autoplugging system.
-	* Fix some typos on the generation of capabilities
-	* Remove invalid assignment of videnc1->device field.
+	- Fix some typos on the generation of capabilities
+	- Remove invalid assignment of videnc1->device field.
 
 2009-02-20  Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividenc.{c,h},Makefile.am,gstticodecplugin.c}:

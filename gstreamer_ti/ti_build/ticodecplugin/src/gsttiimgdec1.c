@@ -63,7 +63,7 @@ enum
 
 /* Define sink (input) pad capabilities */
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
-    "encimage",
+    "sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
@@ -76,7 +76,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
 
 /* Define source (output) pad capabilities */
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
-    "rawimage",
+    "src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
