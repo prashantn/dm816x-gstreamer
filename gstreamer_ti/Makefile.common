@@ -82,6 +82,12 @@ export XDAIS_INSTALL_DIR
 export XDC_INSTALL_DIR
 
 #------------------------------------------------------------------------------
+# Set the CROSS_COMPILE_PREFIX variable, this is used by libtool while linking 
+# the cross compiled libraries on MV platform
+#------------------------------------------------------------------------------
+export CROSS_COMPILE_PREFIX = $(TARGET_ROOT_DIR)
+
+#------------------------------------------------------------------------------
 # Set XDC target and platform based on PLATFORM variable
 #------------------------------------------------------------------------------
 ifeq ($(PLATFORM), dm355)
