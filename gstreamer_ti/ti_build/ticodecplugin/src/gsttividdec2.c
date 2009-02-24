@@ -301,7 +301,7 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
      * function, which is overkill for this element.
      */
     viddec2->sinkpad =
-        gst_pad_new_from_static_template(&sink_factory, "encvideo");
+        gst_pad_new_from_static_template(&sink_factory, "sink");
     gst_pad_set_setcaps_function(
         viddec2->sinkpad, GST_DEBUG_FUNCPTR(gst_tividdec2_set_sink_caps));
     gst_pad_set_event_function(
@@ -318,7 +318,7 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
      * function, which is overkill for this element.
      */
     viddec2->srcpad =
-        gst_pad_new_from_static_template(&src_factory, "decvideo");
+        gst_pad_new_from_static_template(&src_factory, "src");
     gst_pad_fixate_caps(viddec2->srcpad,
         gst_caps_make_writable(
             gst_caps_copy(gst_pad_get_pad_template_caps(viddec2->srcpad))));

@@ -3,7 +3,7 @@
 	Add XDC_USER_PATH to the XDC_PATH so people can add the location 
 	of codecs without needing to change the Makefile.am
 	* src/{gsttiauddec.c,gsttiauddec1.c,gsttiimgdec1.c,gsttividdec2.c,
-	gsttividdec.c}:
+	gsttividdec.c,gsttiimgenc1.c}:
 	Rename the source and sinks to standard "src" and "sink" names, so
 	the autoplug system may pick them.	
 

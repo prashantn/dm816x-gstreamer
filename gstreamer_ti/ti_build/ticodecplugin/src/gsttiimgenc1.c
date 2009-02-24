@@ -82,7 +82,7 @@ enum
  *   - 422P
  */
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
-    "rawimage",
+    "sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
@@ -115,7 +115,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
  */
 /* Define source (output) pad capabilities */
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
-    "encimage",
+    "src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS_ANY
@@ -365,7 +365,7 @@ static void gst_tiimgenc1_init(GstTIImgenc1 *imgenc1, GstTIImgenc1Class *gclass)
      * function, which is overkill for this element.
      */
     imgenc1->sinkpad =
-        gst_pad_new_from_static_template(&sink_factory, "rawimage");
+        gst_pad_new_from_static_template(&sink_factory, "sink");
     gst_pad_set_setcaps_function(
         imgenc1->sinkpad, GST_DEBUG_FUNCPTR(gst_tiimgenc1_set_sink_caps));
     gst_pad_set_event_function(
@@ -382,7 +382,7 @@ static void gst_tiimgenc1_init(GstTIImgenc1 *imgenc1, GstTIImgenc1Class *gclass)
      * function, which is overkill for this element.
      */
     imgenc1->srcpad =
-        gst_pad_new_from_static_template(&src_factory, "encimage");
+        gst_pad_new_from_static_template(&src_factory, "src");
     gst_pad_fixate_caps(imgenc1->srcpad,
         gst_caps_make_writable(
             gst_caps_copy(gst_pad_get_pad_template_caps(imgenc1->srcpad))));

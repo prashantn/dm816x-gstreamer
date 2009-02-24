@@ -306,7 +306,7 @@ static void gst_tiimgdec1_init(GstTIImgdec1 *imgdec1, GstTIImgdec1Class *gclass)
      * function which is overkill for this element.
      */
     imgdec1->sinkpad =
-        gst_pad_new_from_static_template(&sink_factory, "encimage");
+        gst_pad_new_from_static_template(&sink_factory, "sink");
     gst_pad_set_setcaps_function(
         imgdec1->sinkpad, GST_DEBUG_FUNCPTR(gst_tiimgdec1_set_sink_caps));
 //    gst_pad_set_getcaps_function(
@@ -325,7 +325,7 @@ static void gst_tiimgdec1_init(GstTIImgdec1 *imgdec1, GstTIImgdec1Class *gclass)
      * function which is overkill for this element.
      */
     imgdec1->srcpad =
-        gst_pad_new_from_static_template(&src_factory, "rawimage");
+        gst_pad_new_from_static_template(&src_factory, "src");
 //    gst_pad_set_getcaps_function(
 //        imgdec1->srcpad, GST_DEBUG_FUNCPTR(gst_pad_proxy_getcaps));
     gst_pad_fixate_caps(imgdec1->srcpad,

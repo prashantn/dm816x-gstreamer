@@ -276,7 +276,7 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
      * function, which is overkill for this element.
      */
     auddec1->sinkpad =
-        gst_pad_new_from_static_template(&sink_factory, "encaudio");
+        gst_pad_new_from_static_template(&sink_factory, "sink");
     gst_pad_set_setcaps_function(
         auddec1->sinkpad, GST_DEBUG_FUNCPTR(gst_tiauddec1_set_sink_caps));
     gst_pad_set_event_function(
@@ -293,7 +293,7 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
      * function, which is overkill for this element.
      */
     auddec1->srcpad =
-        gst_pad_new_from_static_template(&src_factory, "decaudio");
+        gst_pad_new_from_static_template(&src_factory, "src");
     gst_pad_fixate_caps(auddec1->srcpad,
         gst_caps_make_writable(
             gst_caps_copy(gst_pad_get_pad_template_caps(auddec1->srcpad))));
