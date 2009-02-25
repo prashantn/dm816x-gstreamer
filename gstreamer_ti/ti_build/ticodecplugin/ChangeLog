@@ -1,3 +1,9 @@
+2009-02-25  Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttividenc1.{c,h},gsttividenc.{c,h},gsttividdec1.{c,h},gsttividdec.
+	{c,h},gsttiauddec1.{c,h},gsttiauddec.{c,h},gsttiimgdec1.{c,h},gsttiimgenc1.
+	{c,h}}:
+	Fix potential dead-lock in all elements.
+
 2009-02-24  Diego Dompe, RidgeRun
 	* src/Makefile.am:
 	Add XDC_USER_PATH to the XDC_PATH so people can add the location 

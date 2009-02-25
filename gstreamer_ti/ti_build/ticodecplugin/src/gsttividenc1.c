@@ -85,7 +85,7 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
     ("video/mpeg, " 
-	 "mpegversion=(int){ 2, 4 }, "  /* MPEG versions 2 and 4 */
+     "mpegversion=(int){ 2, 4 }, "  /* MPEG versions 2 and 4 */
          "systemstream=(boolean)false, "
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
@@ -102,7 +102,7 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
  * UYVY - YUV 422 interleaved corresponding to V4L2_PIX_FMT_UYVY in v4l2
  * Y8C8 - YUV 422 semi planar. The dm6467 VDCE outputs this format after a
  *        color conversion.The format consists of two planes: one with the
- *        Y component and one with the CbCr components interleaved (hence semi)  
+ *        Y component and one with the CbCr components interleaved (hence semi)  *
  *        See the LSP VDCE documentation for a thorough description of this
  *        format.
  */
@@ -827,8 +827,31 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
     Rendezvous_Attrs      rzvAttrs   = Rendezvous_Attrs_DEFAULT;
     struct sched_param    schedParam;
     pthread_attr_t        attr;
+    Fifo_Attrs            fAttrs     = Fifo_Attrs_DEFAULT;
 
     GST_LOG("begin init_video\n");
+
+    /* If video has already been initialized, shut down previous encoder */
+    if (videnc1->hEngine) {
+        if (!gst_tividenc1_exit_video(videnc1)) {
+            GST_ERROR("failed to shut down existing video encoder\n");
+            return FALSE;
+        }
+    }
+
+    /* Make sure we know what codec we're using */
+    if (!videnc1->engineName) {
+        GST_ERROR("engine name not specified\n");
+        return FALSE;
+    }
+
+    if (!videnc1->codecName) {
+        GST_ERROR("codec name not specified\n");
+        return FALSE;
+    }
+
+    /* Set up the queue fifo */
+    videnc1->hInFifo = Fifo_create(&fAttrs);
 
     /* Initialize thread status management */
     videnc1->threadStatus = 0UL;
@@ -837,7 +860,7 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
     /* Initialize rendezvous objects for making threads wait on conditions */
     videnc1->waitOnEncodeDrain  = Rendezvous_create(100, &rzvAttrs);
     videnc1->waitOnQueueThread  = Rendezvous_create(100, &rzvAttrs);
-    videnc1->waitOnEncodeThread = Rendezvous_create(100, &rzvAttrs);
+    videnc1->waitOnEncodeThread = Rendezvous_create(2, &rzvAttrs);
     videnc1->drainingEOS        = FALSE;
 
     /* Initialize custom thread attributes */
@@ -889,6 +912,15 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
      */
     Rendezvous_meet(videnc1->waitOnEncodeThread);
 
+    /* Make sure circular buffer and display buffer handles are created by
+     * decoder thread.
+     */
+    if (videnc1->circBuf == NULL || videnc1->hOutBufTab == NULL) {
+        GST_ERROR("encode thread failed to create circbuf or display buffer"
+                  " handles\n");
+        return FALSE;
+    }
+
     /* Create queue thread */
     if (pthread_create(&videnc1->queueThread, NULL,
             gst_tividenc1_queue_thread, (void*)videnc1)) {
@@ -923,9 +955,6 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
     if (gst_tithread_check_status(
             videnc1, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down encode thread\n");
-
-        /* Wait for decoder thread to shut-down */
-        Rendezvous_meet(videnc1->waitOnEncodeThread);
 
         if (pthread_join(videnc1->encodeThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
@@ -1075,27 +1104,8 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
     VIDENC1_Params        params     = Venc1_Params_DEFAULT;
     VIDENC1_DynamicParams dynParams  = Venc1_DynamicParams_DEFAULT;
     BufferGfx_Attrs       gfxAttrs   = BufferGfx_Attrs_DEFAULT;
-    Fifo_Attrs            fAttrs     = Fifo_Attrs_DEFAULT;
     Cpu_Attrs             cpuAttrs   = Cpu_Attrs_DEFAULT;
 
-    /* If video has already been initialized, shut down previous encoder */
-    if (videnc1->hEngine) {
-        if (!gst_tividenc1_exit_video(videnc1)) {
-            GST_ERROR("failed to shut down existing video encoder\n");
-            return FALSE;
-        }
-    }
-
-    /* Make sure we know what codec we're using */
-    if (!videnc1->engineName) {
-        GST_ERROR("engine name not specified\n");
-        return FALSE;
-    }
-
-    if (!videnc1->codecName) {
-        GST_ERROR("codec name not specified\n");
-        return FALSE;
-    }
 
     /* Open the codec engine */
     GST_LOG("opening codec engine \"%s\"\n", videnc1->engineName);
@@ -1247,9 +1257,6 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
     /* Display buffer contents if displayBuffer=TRUE was specified */
     gst_ticircbuffer_set_display(videnc1->circBuf, videnc1->displayBuffer);
 
-    /* Set up the queue fifo */
-    videnc1->hInFifo = Fifo_create(&fAttrs);
-
     return TRUE;
 }
 
@@ -1278,13 +1285,15 @@ static void* gst_tividenc1_encode_thread(void *arg)
     frameDuration = gst_tividenc1_frame_duration(videnc1);
 
     /* Initialize codec engine */
-    if (gst_tividenc1_codec_start(videnc1) < 0) {
-        GST_ERROR("failed to start codec\n");
-        goto thread_failure;
-    }
+    ret = gst_tividenc1_codec_start(videnc1);
 
-    /* Notify main thread if it is waiting create queue thread */
-    Rendezvous_forceAndReset(videnc1->waitOnEncodeThread);
+    /* Notify main thread if it is waiting to create queue thread */
+    Rendezvous_meet(videnc1->waitOnEncodeThread);
+
+    if (ret == FALSE) {
+        GST_ERROR("failed to start codec\n");
+        goto thread_exit;
+    }
 
     /* On DM6467, we need to convert YUV422PSEMI buffer in YUV420PSEMI */
     if (videnc1->device == Cpu_Device_DM6467) {
@@ -1490,7 +1499,6 @@ thread_exit:
     videnc1->encodeDrained = TRUE;
     Rendezvous_force(videnc1->waitOnEncodeDrain);
     Rendezvous_force(videnc1->waitOnQueueThread);
-    Rendezvous_force(videnc1->waitOnEncodeThread);
 
     gst_object_unref(videnc1);
 

@@ -82,7 +82,7 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
     ("video/mpeg, " 
-	 "mpegversion=(int){ 4 }, "  		/* MPEG version 4 */
+     "mpegversion=(int){ 4 }, "         /* MPEG version 4 */
          "systemstream=(boolean)false, "
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
@@ -779,15 +779,37 @@ static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
     Rendezvous_Attrs      rzvAttrs  = Rendezvous_Attrs_DEFAULT;
     struct sched_param    schedParam;
     pthread_attr_t        attr;
+    Fifo_Attrs            fAttrs    = Fifo_Attrs_DEFAULT;
 
     GST_LOG("begin init_video\n");
+
+    /* If video has already been initialized, shut down previous encoder */
+    if (videnc->hEngine) {
+        if (!gst_tividenc_exit_video(videnc)) {
+            GST_ERROR("failed to shut down existing video encoder\n");
+            return FALSE;
+        }
+    }
+
+    /* Make sure we know what codec we're using */
+    if (!videnc->engineName) {
+        GST_ERROR("engine name not specified\n");
+        return FALSE;
+    }
+
+    if (!videnc->codecName) {
+        GST_ERROR("codec name not specified\n");
+        return FALSE;
+    }
+
+    /* Set up the queue fifo */
+    videnc->hInFifo = Fifo_create(&fAttrs);
 
     /* Initialize rendezvous objects for making threads wait on conditions */
     videnc->waitOnEncodeDrain   = Rendezvous_create(100, &rzvAttrs);
     videnc->waitOnQueueThread   = Rendezvous_create(100, &rzvAttrs);
-    videnc->waitOnEncodeThread  = Rendezvous_create(100, &rzvAttrs);
+    videnc->waitOnEncodeThread  = Rendezvous_create(2, &rzvAttrs);
     videnc->drainingEOS         = FALSE;
-
 
     /* Initialize thread status management */
     videnc->threadStatus = 0UL;
@@ -843,6 +865,15 @@ static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
      */
     Rendezvous_meet(videnc->waitOnEncodeThread);
 
+    /* Make sure circular buffer and display buffer handles are created by
+     * decoder thread.
+     */
+    if (videnc->circBuf == NULL || videnc->hOutBufTab == NULL) {
+        GST_ERROR("encode thread failed to create circbuf or display buffer"
+                  " handles\n");
+        return FALSE;
+    }
+
     /* Create queue thread */
     if (pthread_create(&videnc->queueThread, NULL,
             gst_tividenc_queue_thread, (void*)videnc)) {
@@ -876,9 +907,6 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
     if (gst_tithread_check_status(
             videnc, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down encode thread\n");
-
-        /* Wait for decoder thread to shut-down */
-        Rendezvous_meet(videnc->waitOnEncodeThread);
 
         if (pthread_join(videnc->encodeThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
@@ -1023,27 +1051,7 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
     VIDENC_Params         params    = Venc_Params_DEFAULT;
     VIDENC_DynamicParams  dynParams = Venc_DynamicParams_DEFAULT;
     BufferGfx_Attrs       gfxAttrs  = BufferGfx_Attrs_DEFAULT;
-    Fifo_Attrs            fAttrs    = Fifo_Attrs_DEFAULT;
     Int                   inBufSize, outBufSize;
-
-    /* If video has already been initialized, shut down previous encoder */
-    if (videnc->hEngine) {
-        if (!gst_tividenc_exit_video(videnc)) {
-            GST_ERROR("failed to shut down existing video encoder\n");
-            return FALSE;
-        }
-    }
-
-    /* Make sure we know what codec we're using */
-    if (!videnc->engineName) {
-        GST_ERROR("engine name not specified\n");
-        return FALSE;
-    }
-
-    if (!videnc->codecName) {
-        GST_ERROR("codec name not specified\n");
-        return FALSE;
-    }
 
     /* Open the codec engine */
     GST_LOG("opening codec engine \"%s\"\n", videnc->engineName);
@@ -1091,7 +1099,6 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
     if (videnc->hVe == NULL) {
         GST_ERROR("failed to create video encoder: %s\n", videnc->codecName);
         GST_LOG("closing codec engine\n");
-        gst_tividenc_exit_video(videnc);
         return FALSE;
     }
 
@@ -1111,7 +1118,6 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
 
     if (videnc->circBuf == NULL) {
         GST_ERROR("failed to create circular input buffer\n");
-        gst_tividenc_exit_video(videnc);
         return FALSE;
     }
     
@@ -1144,7 +1150,6 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
 
     if (videnc->hOutBufTab == NULL) {
         GST_ERROR("failed to create output buffers\n");
-        gst_tividenc_exit_video(videnc);
         return FALSE;
     }
 
@@ -1156,15 +1161,11 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
             gst_ticircbuffer_set_bufferGfx_attrs(videnc->circBuf, 
             &gfxAttrs) < 0) {
         GST_ERROR("failed to set the graphics attribute on circular buffer\n");
-        gst_tividenc_exit_video(videnc);
         return FALSE;
     }
 
     /* Display buffer contents if displayBuffer=TRUE was specified */
     gst_ticircbuffer_set_display(videnc->circBuf, videnc->displayBuffer);
-
-    /* Set up the queue fifo */
-    videnc->hInFifo = Fifo_create(&fAttrs);
 
     return TRUE;
 }
@@ -1193,13 +1194,15 @@ static void* gst_tividenc_encode_thread(void *arg)
     frameDuration = gst_tividenc_frame_duration(videnc);
 
     /* Initialize codec engine */
-    if (gst_tividenc_codec_start(videnc) < 0) {
+    ret = gst_tividenc_codec_start(videnc);
+
+    /* Notify main thread if it is waiting to create queue thread */
+    Rendezvous_meet(videnc->waitOnEncodeThread);
+
+    if (ret == FALSE) {
         GST_ERROR("failed to start codec\n");
         goto thread_exit;
     }
-
-    /* Notify main thread if it is waiting create queue thread */
-    Rendezvous_forceAndReset(videnc->waitOnEncodeThread);
 
     /* Main thread loop */
     while (TRUE) {
@@ -1346,7 +1349,6 @@ thread_exit:
     videnc->encodeDrained = TRUE;
     Rendezvous_force(videnc->waitOnQueueThread);
     Rendezvous_force(videnc->waitOnEncodeDrain);
-    Rendezvous_force(videnc->waitOnEncodeThread);
 
     gst_object_unref(videnc);
 

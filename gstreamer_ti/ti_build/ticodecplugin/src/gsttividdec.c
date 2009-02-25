@@ -80,7 +80,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
     ("video/mpeg, " 
-	 "mpegversion=(int){ 2, 4 }, "  /* MPEG versions 2 and 4 */
+     "mpegversion=(int){ 2, 4 }, "  /* MPEG versions 2 and 4 */
          "systemstream=(boolean)false, "
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
@@ -744,8 +744,31 @@ static gboolean gst_tividdec_init_video(GstTIViddec *viddec)
     Rendezvous_Attrs      rzvAttrs  = Rendezvous_Attrs_DEFAULT;
     struct sched_param    schedParam;
     pthread_attr_t        attr;
+    Fifo_Attrs            fAttrs    = Fifo_Attrs_DEFAULT;
 
     GST_LOG("begin init_video\n");
+
+    /* Set up the queue fifo */
+    viddec->hInFifo = Fifo_create(&fAttrs);
+
+    /* If video has already been initialized, shut down previous decoder */
+    if (viddec->hEngine) {
+        if (!gst_tividdec_exit_video(viddec)) {
+            GST_ERROR("failed to shut down existing video decoder\n");
+            return FALSE;
+        }
+    }
+
+    /* Make sure we know what codec we're using */
+    if (!viddec->engineName) {
+        GST_ERROR("engine name not specified\n");
+        return FALSE;
+    }
+
+    if (!viddec->codecName) {
+        GST_ERROR("codec name not specified\n");
+        return FALSE;
+    }
 
     /* Initialize thread status management */
     viddec->threadStatus = 0UL;
@@ -754,7 +777,7 @@ static gboolean gst_tividdec_init_video(GstTIViddec *viddec)
     /* Initialize rendezvous objects for making threads wait on conditions */
     viddec->waitOnDecodeDrain   = Rendezvous_create(100, &rzvAttrs);
     viddec->waitOnQueueThread   = Rendezvous_create(100, &rzvAttrs);
-    viddec->waitOnDecodeThread  = Rendezvous_create(100, &rzvAttrs);
+    viddec->waitOnDecodeThread  = Rendezvous_create(2, &rzvAttrs);
     viddec->drainingEOS         = FALSE;
 
     /* Initialize custom thread attributes */
@@ -806,6 +829,15 @@ static gboolean gst_tividdec_init_video(GstTIViddec *viddec)
      */
     Rendezvous_meet(viddec->waitOnDecodeThread);
 
+    /* Make sure circular buffer and display buffers are created by decoder
+     * thread.
+     */
+    if (viddec->circBuf == NULL || viddec->hOutBufTab == NULL) {
+        GST_LOG("decode thread failed to create circular or display buffer"
+                " handles\n");
+        return FALSE;
+    }
+
     /* Create queue thread */
     if (pthread_create(&viddec->queueThread, NULL,
             gst_tividdec_queue_thread, (void*)viddec)) {
@@ -840,9 +872,6 @@ static gboolean gst_tividdec_exit_video(GstTIViddec *viddec)
     if (gst_tithread_check_status(
             viddec, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down decode thread\n");
-
-        /* Wait for decoder thread to shut-down */
-        Rendezvous_meet(viddec->waitOnDecodeThread);
 
         if (pthread_join(viddec->decodeThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
@@ -982,26 +1011,6 @@ static gboolean gst_tividdec_codec_start (GstTIViddec  *viddec)
     VIDDEC_Params         params    = Vdec_Params_DEFAULT;
     VIDDEC_DynamicParams  dynParams = Vdec_DynamicParams_DEFAULT;
     BufferGfx_Attrs       gfxAttrs  = BufferGfx_Attrs_DEFAULT;
-    Fifo_Attrs            fAttrs    = Fifo_Attrs_DEFAULT;
-
-    /* If video has already been initialized, shut down previous decoder */
-    if (viddec->hEngine) {
-        if (!gst_tividdec_exit_video(viddec)) {
-            GST_ERROR("failed to shut down existing video decoder\n");
-            return FALSE;
-        }
-    }
-
-    /* Make sure we know what codec we're using */
-    if (!viddec->engineName) {
-        GST_ERROR("engine name not specified\n");
-        return FALSE;
-    }
-
-    if (!viddec->codecName) {
-        GST_ERROR("codec name not specified\n");
-        return FALSE;
-    }
 
     /* Open the codec engine */
     GST_LOG("opening codec engine \"%s\"\n", viddec->engineName);
@@ -1024,7 +1033,6 @@ static gboolean gst_tividdec_codec_start (GstTIViddec  *viddec)
     if (viddec->hVd == NULL) {
         GST_ERROR("failed to create video decoder: %s\n", viddec->codecName);
         GST_LOG("closing codec engine\n");
-        gst_tividdec_exit_video(viddec);
         return FALSE;
     }
 
@@ -1034,7 +1042,6 @@ static gboolean gst_tividdec_codec_start (GstTIViddec  *viddec)
 
     if (viddec->circBuf == NULL) {
         GST_ERROR("failed to create circular input buffer\n");
-        gst_tividdec_exit_video(viddec);
         return FALSE;
     }
 
@@ -1065,15 +1072,11 @@ static gboolean gst_tividdec_codec_start (GstTIViddec  *viddec)
 
     if (viddec->hOutBufTab == NULL) {
         GST_ERROR("failed to create output buffers\n");
-        gst_tividdec_exit_video(viddec);
         return FALSE;
     }
 
     /* Tell the Vdec module that hOutBufTab will be used for display buffers */
     Vdec_setBufTab(viddec->hVd, viddec->hOutBufTab);
-
-    /* Set up the queue fifo */
-    viddec->hInFifo = Fifo_create(&fAttrs);
 
     return TRUE;
 }
@@ -1123,16 +1126,18 @@ static void* gst_tividdec_decode_thread(void *arg)
     GST_LOG("init video decode_thread \n");
 
     /* Initialize codec engine */
-    if (gst_tividdec_codec_start(viddec) < 0) {
+    ret = gst_tividdec_codec_start(viddec);
+
+    /* Notify main thread if it is waiting to create queue thread */
+    Rendezvous_meet(viddec->waitOnDecodeThread);
+
+    if (ret == FALSE) {
         GST_ERROR("failed to start codec\n");
         goto thread_exit;
     }
 
     /* Calculate the duration of a single frame in this stream */
     frameDuration = gst_tividdec_frame_duration(viddec);
-
-    /* Notify main thread if it is waiting create queue thread */
-    Rendezvous_forceAndReset(viddec->waitOnDecodeThread);
 
     /* Main thread loop */
     while (TRUE) {
@@ -1291,7 +1296,6 @@ thread_exit:
     /* Notify main thread if it is waiting on decode thread shut-down */
     viddec->decodeDrained = TRUE;
     Rendezvous_force(viddec->waitOnDecodeDrain);
-    Rendezvous_force(viddec->waitOnDecodeThread);
 
     gst_object_unref(viddec);
 

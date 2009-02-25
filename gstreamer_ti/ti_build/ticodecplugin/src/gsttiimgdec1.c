@@ -910,9 +910,31 @@ static gboolean gst_tiimgdec1_init_image(GstTIImgdec1 *imgdec1)
     Rendezvous_Attrs       rzvAttrs  = Rendezvous_Attrs_DEFAULT;
     struct sched_param     schedParam;
     pthread_attr_t         attr;
+    Fifo_Attrs             fAttrs    = Fifo_Attrs_DEFAULT;
 
     GST_LOG("Begin\n");
 
+    /* If image has already been initialized, shut down previous decoder */
+    if (imgdec1->hEngine) {
+        if (!gst_tiimgdec1_exit_image(imgdec1)) {
+            GST_ERROR("failed to shut down existing image decoder\n");
+            return FALSE;
+        }
+    }
+
+    /* Make sure we know what codec we're using */
+    if (!imgdec1->engineName) {
+        GST_ERROR("engine name not specified\n");
+        return FALSE;
+    }
+
+    if (!imgdec1->codecName) {
+        GST_ERROR("codec name not specified\n");
+        return FALSE;
+    }
+
+    /* Set up the queue fifo */
+    imgdec1->hInFifo = Fifo_create(&fAttrs);
 
     /* Initialize thread status management */
     imgdec1->threadStatus = 0UL;
@@ -921,7 +943,7 @@ static gboolean gst_tiimgdec1_init_image(GstTIImgdec1 *imgdec1)
     /* Initialize rendezvous objects for making threads wait on conditions */
     imgdec1->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
     imgdec1->waitOnQueueThread  = Rendezvous_create(100, &rzvAttrs);
-    imgdec1->waitOnDecodeThread = Rendezvous_create(100, &rzvAttrs);
+    imgdec1->waitOnDecodeThread = Rendezvous_create(2, &rzvAttrs);
     imgdec1->drainingEOS        = FALSE;
 
     /* Initialize custom thread attributes */
@@ -973,6 +995,15 @@ static gboolean gst_tiimgdec1_init_image(GstTIImgdec1 *imgdec1)
      */
     Rendezvous_meet(imgdec1->waitOnDecodeThread);
 
+    /* Make sure circular buffer and display buffer handles are created by
+     * decoder thread.
+     */
+    if (imgdec1->circBuf == NULL || imgdec1->hOutBufTab == NULL) {
+        GST_ERROR("decode thread failed to create circbuf or display buffer"
+                  " handles\n");
+        return FALSE;
+    }
+
     /* Create queue thread */
     if (pthread_create(&imgdec1->queueThread, NULL,
             gst_tiimgdec1_queue_thread, (void*)imgdec1)) {
@@ -1008,9 +1039,6 @@ static gboolean gst_tiimgdec1_exit_image(GstTIImgdec1 *imgdec1)
     if (gst_tithread_check_status(
             imgdec1, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down decode thread\n");
-
-        /* Wait for decoder thread to shut-down */
-        Rendezvous_meet(imgdec1->waitOnDecodeThread);
 
         if (pthread_join(imgdec1->decodeThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
@@ -1155,26 +1183,6 @@ static gboolean gst_tiimgdec1_codec_stop (GstTIImgdec1  *imgdec1)
 static gboolean gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1)
 {
     BufferGfx_Attrs        gfxAttrs  = BufferGfx_Attrs_DEFAULT;
-    Fifo_Attrs             fAttrs    = Fifo_Attrs_DEFAULT;
-
-    /* If image has already been initialized, shut down previous decoder */
-    if (imgdec1->hEngine) {
-        if (!gst_tiimgdec1_exit_image(imgdec1)) {
-            GST_ERROR("failed to shut down existing image decoder\n");
-            return FALSE;
-        }
-    }
-
-    /* Make sure we know what codec we're using */
-    if (!imgdec1->engineName) {
-        GST_ERROR("engine name not specified\n");
-        return FALSE;
-    }
-
-    if (!imgdec1->codecName) {
-        GST_ERROR("codec name not specified\n");
-        return FALSE;
-    }
 
     /* Open the codec engine */
     GST_LOG("opening codec engine \"%s\"\n", imgdec1->engineName);
@@ -1198,7 +1206,6 @@ static gboolean gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1)
     if (imgdec1->hIe == NULL) {
         GST_ERROR("failed to create image decoder: %s\n", imgdec1->codecName);
         GST_LOG("closing codec engine\n");
-        gst_tiimgdec1_exit_image(imgdec1);
         return FALSE;
     }
 
@@ -1208,7 +1215,6 @@ static gboolean gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1)
 
     if (imgdec1->circBuf == NULL) {
         GST_ERROR("failed to create circular input buffer\n");
-        gst_tiimgdec1_exit_image(imgdec1);
         return FALSE;
     }
 
@@ -1243,12 +1249,8 @@ static gboolean gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1)
 
     if (imgdec1->hOutBufTab == NULL) {
         GST_ERROR("failed to create output buffers\n");
-        gst_tiimgdec1_exit_image(imgdec1);
         return FALSE;
     }
-
-    /* Set up the queue fifo */
-    imgdec1->hInFifo = Fifo_create(&fAttrs);
 
     return TRUE;
 }
@@ -1280,13 +1282,15 @@ static void* gst_tiimgdec1_decode_thread(void *arg)
     frameDuration = gst_tiimgdec1_frame_duration(imgdec1);
 
     /* Initialize codec engine */
-    if (gst_tiimgdec1_codec_start(imgdec1) < 0) {
+    ret = gst_tiimgdec1_codec_start(imgdec1);
+
+    /* Notify main thread if it is waiting to create queue thread */
+    Rendezvous_meet(imgdec1->waitOnDecodeThread);
+
+    if (ret == FALSE) {
         GST_ERROR("failed to start codec\n");
         goto thread_exit;
     }
-
-    /* Notify main thread if it is waiting create queue thread */
-    Rendezvous_forceAndReset(imgdec1->waitOnDecodeThread);
 
     /* Main thread loop */
     while (TRUE) {
@@ -1445,7 +1449,6 @@ thread_exit:
 
     imgdec1->decodeDrained = TRUE;
     Rendezvous_force(imgdec1->waitOnDecodeDrain);
-    Rendezvous_force(imgdec1->waitOnDecodeThread);
 
     gst_object_unref(imgdec1);
 

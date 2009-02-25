@@ -81,7 +81,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
     ("video/mpeg, " 
-	 "mpegversion=(int){ 2, 4 }, "  /* MPEG versions 2 and 4 */
+     "mpegversion=(int){ 2, 4 }, "  /* MPEG versions 2 and 4 */
          "systemstream=(boolean)false, "
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
@@ -756,8 +756,31 @@ static gboolean gst_tividdec2_init_video(GstTIViddec2 *viddec2)
     Rendezvous_Attrs       rzvAttrs  = Rendezvous_Attrs_DEFAULT;
     struct sched_param     schedParam;
     pthread_attr_t         attr;
+    Fifo_Attrs             fAttrs    = Fifo_Attrs_DEFAULT;
 
     GST_LOG("begin init_video\n");
+
+    /* If video has already been initialized, shut down previous decoder */
+    if (viddec2->hEngine) {
+        if (!gst_tividdec2_exit_video(viddec2)) {
+            GST_ERROR("failed to shut down existing video decoder\n");
+            return FALSE;
+        }
+    }
+
+    /* Make sure we know what codec we're using */
+    if (!viddec2->engineName) {
+        GST_ERROR("engine name not specified\n");
+        return FALSE;
+    }
+
+    if (!viddec2->codecName) {
+        GST_ERROR("codec name not specified\n");
+        return FALSE;
+    }
+
+    /* Set up the queue fifo */
+    viddec2->hInFifo = Fifo_create(&fAttrs);
 
     /* Initialize thread status management */
     viddec2->threadStatus = 0UL;
@@ -766,7 +789,7 @@ static gboolean gst_tividdec2_init_video(GstTIViddec2 *viddec2)
     /* Initialize rendezvous objects for making threads wait on conditions */
     viddec2->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
     viddec2->waitOnQueueThread  = Rendezvous_create(100, &rzvAttrs);
-    viddec2->waitOnDecodeThread = Rendezvous_create(100, &rzvAttrs);
+    viddec2->waitOnDecodeThread = Rendezvous_create(2, &rzvAttrs);
     viddec2->drainingEOS        = FALSE;
 
     /* Initialize custom thread attributes */
@@ -818,6 +841,15 @@ static gboolean gst_tividdec2_init_video(GstTIViddec2 *viddec2)
      */
     Rendezvous_meet(viddec2->waitOnDecodeThread);
 
+    /* Make sure circular buffer and display buffer handles are created by 
+     * decoder thread.
+     */
+    if (viddec2->circBuf == NULL || viddec2->hOutBufTab == NULL) {
+        GST_ERROR("decode thread failed to create circbuf or display buffer"
+                  " handles\n");
+        return FALSE;
+    }
+
     /* Create queue thread */
     if (pthread_create(&viddec2->queueThread, NULL,
             gst_tividdec2_queue_thread, (void*)viddec2)) {
@@ -852,9 +884,6 @@ static gboolean gst_tividdec2_exit_video(GstTIViddec2 *viddec2)
     if (gst_tithread_check_status(
             viddec2, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down decode thread\n");
-
-        /* Wait for decoder thread to shut-down */
-        Rendezvous_meet(viddec2->waitOnDecodeThread);
 
         if (pthread_join(viddec2->decodeThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
@@ -1016,29 +1045,9 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
     VIDDEC2_Params         params    = Vdec2_Params_DEFAULT;
     VIDDEC2_DynamicParams  dynParams = Vdec2_DynamicParams_DEFAULT;
     BufferGfx_Attrs        gfxAttrs  = BufferGfx_Attrs_DEFAULT;
-    Fifo_Attrs             fAttrs    = Fifo_Attrs_DEFAULT;
     Cpu_Device             device;
     ColorSpace_Type        colorSpace;
     Int                    defaultNumBufs;
-
-    /* If video has already been initialized, shut down previous decoder */
-    if (viddec2->hEngine) {
-        if (!gst_tividdec2_exit_video(viddec2)) {
-            GST_ERROR("failed to shut down existing video decoder\n");
-            return FALSE;
-        }
-    }
-
-    /* Make sure we know what codec we're using */
-    if (!viddec2->engineName) {
-        GST_ERROR("engine name not specified\n");
-        return FALSE;
-    }
-
-    if (!viddec2->codecName) {
-        GST_ERROR("codec name not specified\n");
-        return FALSE;
-    }
 
     /* Open the codec engine */
     GST_LOG("opening codec engine \"%s\"\n", viddec2->engineName);
@@ -1077,7 +1086,6 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
     if (viddec2->hVd == NULL) {
         GST_ERROR("failed to create video decoder: %s\n", viddec2->codecName);
         GST_LOG("closing codec engine\n");
-        gst_tividdec2_exit_video(viddec2);
         return FALSE;
     }
 
@@ -1090,7 +1098,6 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
 
     if (viddec2->circBuf == NULL) {
         GST_ERROR("failed to create circular input buffer\n");
-        gst_tividdec2_exit_video(viddec2);
         return FALSE;
     }
 
@@ -1124,15 +1131,11 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
 
     if (viddec2->hOutBufTab == NULL) {
         GST_ERROR("failed to create output buffers\n");
-        gst_tividdec2_exit_video(viddec2);
         return FALSE;
     }
 
     /* Tell the Vdec module that hOutBufTab will be used for display buffers */
     Vdec2_setBufTab(viddec2->hVd, viddec2->hOutBufTab);
-
-    /* Set up the queue fifo */
-    viddec2->hInFifo = Fifo_create(&fAttrs);
 
     return TRUE;
 }
@@ -1164,16 +1167,18 @@ static void* gst_tividdec2_decode_thread(void *arg)
     GST_LOG("init video decode_thread \n");
 
     /* Initialize codec engine */
-    if (gst_tividdec2_codec_start(viddec2) < 0) {
+    ret = gst_tividdec2_codec_start(viddec2);
+
+    /* Notify main thread if it is waiting to create queue thread */
+    Rendezvous_meet(viddec2->waitOnDecodeThread);
+
+    if (ret == FALSE) {
         GST_ERROR("failed to start codec\n");
         goto thread_exit;
     }
 
     /* Calculate the duration of a single frame in this stream */
     frameDuration = gst_tividdec2_frame_duration(viddec2);
-
-    /* Notify main thread if it is waiting create queue thread */
-    Rendezvous_forceAndReset(viddec2->waitOnDecodeThread);
 
     /* Main thread loop */
     while (TRUE) {
@@ -1353,7 +1358,6 @@ thread_exit:
     /* Notify main thread if it is waiting on decode thread shut-down */
     viddec2->decodeDrained = TRUE;
     Rendezvous_force(viddec2->waitOnDecodeDrain);
-    Rendezvous_force(viddec2->waitOnDecodeThread);
 
     gst_object_unref(viddec2);
 
