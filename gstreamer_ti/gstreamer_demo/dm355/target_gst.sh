@@ -53,3 +53,7 @@ video_encoder_color_space="UYVY"
 video_src_args="num-buffers=1000"
 video_encoder_resolution="720x480"
 video_encoder_args="contiguousInputFrame=FALSE"
+
+# set video loopback sink args
+video_sink_args="contiguousInputFrame=FALSE"
+

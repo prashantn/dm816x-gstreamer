@@ -84,6 +84,7 @@ struct _GstTIDmaiVideoSink {
   gint          rotation;
   gboolean      resizer;
   gboolean      autoselect;
+  gboolean      contiguousInputFrame;
 
   Display_Handle    hDisplay;
   Display_Attrs     dAttrs;

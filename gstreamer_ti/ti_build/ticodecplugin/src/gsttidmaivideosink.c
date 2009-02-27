@@ -25,7 +25,14 @@
 #include "gsttidmaivideosink.h"
 #include <gst/gstmarshal.h>
 
-/* Define sink (input) pad capabilities.  Currently, UYVY is supported
+/* Define sink (input) pad capabilities.
+ *
+ * UYVY - YUV 422 interleaved corresponding to V4L2_PIX_FMT_UYVY in v4l2
+ * Y8C8 - YUV 422 semi planar. The dm6467 VDCE outputs this format after a
+ *        color conversion.The format consists of two planes: one with the
+ *        Y component and one with the CbCr components interleaved (hence semi)  *
+ *        See the LSP VDCE documentation for a thorough description of this
+ *        format.
  *
  * NOTE:  This pad must be named "sink" in order to be used with the
  * Base Sink class.
@@ -37,6 +44,11 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE (
     GST_STATIC_CAPS
     ("video/x-raw-yuv, "
          "format=(fourcc)UYVY, "
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ];"
+    "video/x-raw-yuv, "
+         "format=(fourcc)Y8C8, "
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
          "height=(int)[ 1, MAX ]"
@@ -86,7 +98,8 @@ enum
   PROP_SYNC,
   PROP_SIGNAL_HANDOFFS,
   PROP_CAN_ACTIVATE_PUSH,
-  PROP_CAN_ACTIVATE_PULL
+  PROP_CAN_ACTIVATE_PULL,
+  PROP_CONTIG_INPUT_BUF
 };
 
 enum
@@ -121,7 +134,7 @@ static int
  gst_tidmaivideosink_videostd_get_attrs(VideoStd_Type videoStd,
      VideoStd_Attrs * attrs);
 static gboolean
- gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink);
+ gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink, ColorSpace_Type);
 static gboolean
  gst_tidmaivideosink_exit_display(GstTIDmaiVideoSink * sink);
 static gboolean
@@ -237,6 +250,11 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
         g_param_spec_boolean("can-activate-pull", "Can activate pull",
             "Can activate in pull mode", DEFAULT_CAN_ACTIVATE_PULL,
             G_PARAM_READWRITE));
+
+    g_object_class_install_property(gobject_class, PROP_CONTIG_INPUT_BUF,
+        g_param_spec_boolean("contiguousInputFrame", "Contiguous Input frame",
+            "Set this if elemenet recieves contiguous input frame",
+            FALSE, G_PARAM_WRITABLE));
 
     /**
     * GstTIDmaiVideoSink::handoff:
@@ -386,6 +404,9 @@ static void gst_tidmaivideosink_set_property(GObject * object, guint prop_id,
             GST_BASE_SINK(sink)->can_activate_pull =
                 g_value_get_boolean(value);
             break;
+        case PROP_CONTIG_INPUT_BUF:
+            sink->contiguousInputFrame = g_value_get_boolean(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
             break;
@@ -445,6 +466,9 @@ static void gst_tidmaivideosink_get_property(GObject * object, guint prop_id,
             break;
         case PROP_CAN_ACTIVATE_PULL:
             g_value_set_boolean(value, GST_BASE_SINK(sink)->can_activate_pull);
+            break;
+        case PROP_CONTIG_INPUT_BUF:
+            g_value_set_boolean(value, sink->contiguousInputFrame);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1008,7 +1032,8 @@ static gboolean gst_tidmaivideosink_exit_display(GstTIDmaiVideoSink * sink)
  *       default display attributes whenever a new device is added.  Hopefully
  *       there is a way around that.
 *******************************************************************************/
-static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
+static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink,
+    ColorSpace_Type colorSpace)
 {
     Resize_Attrs rAttrs = Resize_Attrs_DEFAULT;
     Ccv_Attrs ccvAttrs = Ccv_Attrs_DEFAULT;
@@ -1057,7 +1082,8 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
 
     /* For DM6467 devices the frame copy is done by the color conversion engine
      */
-    if (sink->cpu_dev == Cpu_Device_DM6467) {
+    if (sink->cpu_dev == Cpu_Device_DM6467 && 
+            colorSpace != ColorSpace_YUV422PSEMI) {
         /* Create the VDCE accelerated color conversion job from 420 to 422 */
         ccvAttrs.accel = TRUE;
         sink->hCcv = Ccv_create(&ccvAttrs);
@@ -1126,6 +1152,8 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
     gint                  origHeight;
     gint                  origWidth;
     gint                  width;
+    ColorSpace_Type       inBufColorSpace;
+    guint32               fourcc;
 
     GST_DEBUG("\n\n\nBegin\n");
 
@@ -1137,6 +1165,21 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
     gst_structure_get_int(structure, "width", &width);
     gst_structure_get_int(structure, "height", &height);
 
+    /* Map input buffer fourcc to dmai color space  */
+    gst_structure_get_fourcc(structure, "format", &fourcc);
+
+    switch (fourcc) {
+        case GST_MAKE_FOURCC('U', 'Y', 'V', 'Y'):
+            inBufColorSpace = ColorSpace_UYVY;
+            break;
+        case GST_MAKE_FOURCC('Y', '8', 'C', '8'):
+            inBufColorSpace = ColorSpace_YUV422PSEMI;
+            break;
+        default:
+            GST_ERROR("unsupport fourcc\n");
+            goto cleanup;
+    }
+        
     /* If the input buffer is non dmai buffer, then allocate dmai buffer and 
      *  copy input buffer in dmai buffer using memcpy routine. 
      *  This logic will help to display non-dmai buffers. (e.g the video
@@ -1149,13 +1192,14 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         if (sink->tempDmaiBuf == NULL) {
 
             GST_DEBUG("\nInput buffer is non-dmai, allocating new buffer");
-
-            gfxAttrs.dim.width      = width;
-            gfxAttrs.dim.height     = height;
-            gfxAttrs.dim.lineLength = width * 2;
-            gfxAttrs.colorSpace     = ColorSpace_UYVY;
-            sink->tempDmaiBuf       = Buffer_create(buf->size,
-                                          BufferGfx_getBufferAttrs(&gfxAttrs));
+            gfxAttrs.bAttrs.reference   = sink->contiguousInputFrame;
+            gfxAttrs.dim.width          = width;
+            gfxAttrs.dim.height         = height;
+            gfxAttrs.dim.lineLength     = BufferGfx_calcLineLength(width, 
+                                            inBufColorSpace);
+            gfxAttrs.colorSpace         = inBufColorSpace;
+            sink->tempDmaiBuf           = Buffer_create(buf->size,
+                                           BufferGfx_getBufferAttrs(&gfxAttrs));
 
             if (sink->tempDmaiBuf == NULL) {
                 GST_ERROR("Failed to allocate memory for input buffer\n");
@@ -1163,7 +1207,17 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
             }
         }
         inBuf = sink->tempDmaiBuf;
-        memcpy(Buffer_getUserPtr(inBuf), buf->data, buf->size);
+        
+        /* If contiguous input frame is not set then use memcpy to copy the 
+         * input buffer in contiguous dmai buffer.
+         */
+        if (sink->contiguousInputFrame) {
+            Buffer_setUserPtr(inBuf, (Int8*)buf->data);
+        }
+        else {
+            memcpy(Buffer_getUserPtr(inBuf), buf->data, buf->size);
+        }
+
     }
 
     /* If the Display_Handle element is NULL, then either this is our first
@@ -1191,7 +1245,7 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
 
         GST_DEBUG("Display Handle does not exist.  Creating a display\n");
 
-        if (!gst_tidmaivideosink_init_display(sink)) {
+        if (!gst_tidmaivideosink_init_display(sink, inBufColorSpace)) {
             GST_ERROR("Unable to initialize display\n");
             goto cleanup;
         }
@@ -1300,7 +1354,8 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
             /* DM6467 Only: Color convert the 420Psemi decoded buffer from
              * the video thread to the 422Psemi display.
              */
-            if (sink->cpu_dev == Cpu_Device_DM6467) {
+            if (sink->cpu_dev == Cpu_Device_DM6467 && 
+                    inBufColorSpace != ColorSpace_YUV422PSEMI) {
 
                 /* Configure the 420->422 color conversion job */
                 if (Ccv_config(sink->hCcv, inBuf, hDispBuf) < 0) {
