@@ -173,10 +173,12 @@ Set the following variables at the top of the file:
     DVSDK_INSTALL_DIR:  Location of your DVSDK installation directory
     TARGET_ROOT_DIR:    Location of the target filesystem's root directory
                         on the Linux host machine.
-    MVL_VERSION:        If MontaVista tool is used for cross compiling, then 
-                        this variable specifies the version of the MontaVista
-                        toolchain used.  Currently versions 4.0.1 and 5.0
-                        are supported.
+    CROSS_COMPILER:     Cross compiler being used.  A default is chosen based
+                        on the platform you are building for, but you can set
+                        it explicitly to one of these values:
+                            MVL_4_0_1:  MontaVista   v4.0.1
+                            MVL_5_0:    MontaVista   v5.0
+                            CS_2007Q3:  CodeSourcery v2007q3
 
 Execute this command from the top-level "gstreamer_ti" directory:
 % make all install VERBOSE=true

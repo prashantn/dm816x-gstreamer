@@ -24,15 +24,20 @@
 #        location of gstreamer installation on target filesystem.  This setting
 #        should assume that "/" is the root file system of the target, not the
 #        host.
-#    MVL_VERSION
-#        MontaVista pro version
+#    CROSS_COMPILER
+#        Cross compiler being used.  A default is chosen based on the platform
+#        you are building for, but you can set it explicitly to one of these
+#        values:
+#            MVL_4_0_1:  MontaVista   v4.0.1
+#            MVL_5_0:    MontaVista   v5.0
+#            CS_2007Q3:  CodeSourcery v2007q3
 #
 # These paths must be specified or the build will fail.
 #------------------------------------------------------------------------------
 DVSDK_INSTALL_DIR    = 
 TARGET_ROOT_DIR      = 
 GSTREAMER_DIR        = /opt/gstreamer
-MVL_VERSION          = 
+CROSS_COMPILER       = 
 
 #------------------------------------------------------------------------------
 # Build configuration:
@@ -82,10 +87,43 @@ export XDAIS_INSTALL_DIR
 export XDC_INSTALL_DIR
 
 #------------------------------------------------------------------------------
+# Set a default cross compiler if one has not been specified
+#------------------------------------------------------------------------------
+ifndef CROSS_COMPILER
+    ifeq ($(PLATFORM), dm355)
+        CROSS_COMPILER=MVL_4_0_1
+    endif
+    ifeq ($(PLATFORM), dm6446)
+        CROSS_COMPILER=MVL_4_0_1
+    endif
+    ifeq ($(PLATFORM), dm6467)
+        CROSS_COMPILER=MVL_4_0_1
+    endif
+    ifeq ($(PLATFORM), omap3530)
+        CROSS_COMPILER=CS_2007Q3
+    endif
+endif
+
+#------------------------------------------------------------------------------
 # Set the CROSS_COMPILE_PREFIX variable, this is used by libtool while linking 
 # the cross compiled libraries on MV platform
 #------------------------------------------------------------------------------
+# NOTE:  If you're using the MontaVista toolchain, CROSS_COMPILE_PREFIX must be
+#        the location of the filesystem within the MontaVista directory, not
+#        your custom filesystem.  MontaVista will sometimes fail to link
+#        libraries such as -lpthread correctly if you specify a target
+#        filesystem in a different location.
+#------------------------------------------------------------------------------
 export CROSS_COMPILE_PREFIX = $(TARGET_ROOT_DIR)
+
+ifeq ($(CROSS_COMPILER), MVL_4_0_1)
+    export CROSS_COMPILE_PREFIX = $(MVLTOOL_DIR)/target
+endif 
+     
+ifeq ($(CROSS_COMPILER), MVL_5_0)
+    export CROSS_COMPILE_PREFIX = $(MVLTOOL_DIR)/target
+endif  
+
 
 #------------------------------------------------------------------------------
 # Set XDC target and platform based on PLATFORM variable
@@ -120,22 +158,18 @@ ifneq ($(PLATFORM), omap3530)
 endif
 
 #------------------------------------------------------------------------------
-# Enable ALSA support based on PLATFORM and MVL_VERSION variable
+# Enable ALSA support based on PLATFORM and CROSS_COMPILER variable
 #------------------------------------------------------------------------------
 ifeq ($(PLATFORM), omap3530)
     export ALSA_SUPPORT = --enable-alsa --with-alsa-inc-prefix=$(DVSDK_INSTALL_DIR)/linuxlibs/include --with-alsa-prefix=$(DVSDK_INSTALL_DIR)/linuxlibs/lib
 else
-    ifeq ($(MVL_VERSION), 5.0)
+    ifeq ($(CROSS_COMPILER), MVL_5_0)
         export	ALSA_SUPPORT = --enable-alsa
     endif 
      
-    ifeq ($(MVL_VERSION), 4.0.1)
+    ifeq ($(CROSS_COMPILER), MVL_4_0_1)
         export	ALSA_SUPPORT = --disable-alsa
     endif  
-
-    ifndef MVL_VERSION
-        export	ALSA_SUPPORT = --disable-alsa
-    endif
 endif
 
 
