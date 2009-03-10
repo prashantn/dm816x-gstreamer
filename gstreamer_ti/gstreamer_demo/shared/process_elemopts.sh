@@ -100,6 +100,12 @@ if [ ! -f $fileName ]; then
     exit 1
 fi
 
+if [ $PLATFORM == "dm357" ]
+then
+	engineName="hmjcp"
+else
+	engineName="decode"
+fi
 
 # main loop
 case "$streamType" in
@@ -130,13 +136,13 @@ case "$streamType" in
 	echo "$plugin" | grep "TI" > /dev/null
 	if [ $? == 0 ]
 	then
-            test -z $audiocodecName || plugin_option="genTimeStamps=$genTimeStamps engineName=decode codecName=$audiocodecName"
+            test -z $audiocodecName || plugin_option="genTimeStamps=$genTimeStamps engineName=$engineName codecName=$audiocodecName"
 	    if [ "$genTimeStamps" == "TRUE" ]
 	    then
 		echo "WARNING: setting genTimeStamps to TRUE (-t) may cause errors during audio playback"
 	    fi
 	else
-            test -z $audiocodecName || plugin_option="engineName=decode codecName=$audiocodecName"
+            test -z $audiocodecName || plugin_option="engineName=$engineName codecName=$audiocodecName"
 	fi
 
         echo "******* Audio stream *********"
@@ -168,9 +174,9 @@ case "$streamType" in
 	echo "$plugin" | grep "TI" > /dev/null
 	if [ $? == 0 ]
 	then
-            test -z $videocodecName ||plugin_option="genTimeStamps=$genTimeStamps engineName=decode codecName=$videocodecName"
+            test -z $videocodecName ||plugin_option="genTimeStamps=$genTimeStamps engineName=$engineName codecName=$videocodecName"
 	else
-            test -z $videocodecName ||plugin_option="engineName=decode codecName=$videocodecName"
+            test -z $videocodecName ||plugin_option="engineName=$engineName codecName=$videocodecName"
 	fi
         echo "*********** Video stream ************"
         echo "plugin         = $plugin"

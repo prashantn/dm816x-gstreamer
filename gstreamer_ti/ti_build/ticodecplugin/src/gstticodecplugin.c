@@ -37,7 +37,9 @@
 #include "gsttividdec.h"
 #include "gsttividdec2.h"
 #include "gsttiimgenc1.h"
+#include "gsttiimgenc.h"
 #include "gsttiimgdec1.h"
+#include "gsttiimgdec.h"
 #include "gsttidmaivideosink.h"
 #include "gsttividenc.h"
 #include "gsttividenc1.h"
@@ -81,8 +83,18 @@ TICodecPlugin_init (GstPlugin * TICodecPlugin)
         return FALSE;
 
     if (!gst_element_register(
+        TICodecPlugin, "TIImgenc", GST_RANK_PRIMARY,
+        GST_TYPE_TIIMGENC))
+        return FALSE;
+
+    if (!gst_element_register(
         TICodecPlugin, "TIImgdec1", GST_RANK_PRIMARY,
         GST_TYPE_TIIMGDEC1))
+        return FALSE;
+
+    if (!gst_element_register(
+        TICodecPlugin, "TIImgdec", GST_RANK_PRIMARY,
+        GST_TYPE_TIIMGDEC))
         return FALSE;
 
     if (!gst_element_register(

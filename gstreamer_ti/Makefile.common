@@ -138,6 +138,11 @@ ifeq ($(PLATFORM), dm6446)
     export XDC_PLATFORM = ti.platforms.evmDM6446
 endif
 
+ifeq ($(PLATFORM), dm357)
+    export XDC_TARGET   = gnu.targets.MVArm9
+    export XDC_PLATFORM = ti.platforms.evmDM357
+endif
+
 ifeq ($(PLATFORM), dm6467)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM6467

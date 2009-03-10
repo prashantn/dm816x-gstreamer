@@ -1,7 +1,7 @@
 /*
- * gsttiimgenc1.h
+ * gsttiimgenc.h
  *
- * This file declares the "TIImgenc1" element, which encodes an image in
+ * This file declares the "TIImgenc" element, which encodes an image in
  * jpeg format
  *
  * Original Author:
@@ -20,8 +20,8 @@
  *
  */
 
-#ifndef __GST_TIIMGENC1_H__
-#define __GST_TIIMGENC1_H__
+#ifndef __GST_TIIMGENC_H__
+#define __GST_TIIMGENC_H__
 
 #include <pthread.h>
 
@@ -37,27 +37,27 @@
 #include <ti/sdo/dmai/BufTab.h>
 #include <ti/sdo/dmai/Rendezvous.h>
 #include <ti/sdo/dmai/BufferGfx.h>
-#include <ti/sdo/dmai/ce/Ienc1.h>
+#include <ti/sdo/dmai/ce/Ienc.h>
 
 G_BEGIN_DECLS
 
-/* Standard macros for maniuplating TIImgenc1 objects */
-#define GST_TYPE_TIIMGENC1 \
-  (gst_tiimgenc1_get_type())
-#define GST_TIIMGENC1(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_TIIMGENC1,GstTIImgenc1))
-#define GST_TIIMGENC1_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_TIIMGENC1,GstTIImgenc1Class))
-#define GST_IS_TIIMGENC1(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_TIIMGENC1))
-#define GST_IS_TIIMGENC1_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_TIIMGENC1))
+/* Standard macros for maniuplating TIImgenc objects */
+#define GST_TYPE_TIIMGENC \
+  (gst_tiimgenc_get_type())
+#define GST_TIIMGENC(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_TIIMGENC,GstTIImgenc))
+#define GST_TIIMGENC_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_TIIMGENC,GstTIImgencClass))
+#define GST_IS_TIIMGENC(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_TIIMGENC))
+#define GST_IS_TIIMGENC_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_TIIMGENC))
 
-typedef struct _GstTIImgenc1      GstTIImgenc1;
-typedef struct _GstTIImgenc1Class GstTIImgenc1Class;
+typedef struct _GstTIImgenc      GstTIImgenc;
+typedef struct _GstTIImgencClass GstTIImgencClass;
 
-/* _GstTIImgenc1 object */
-struct _GstTIImgenc1
+/* _GstTIImgenc object */
+struct _GstTIImgenc
 {
   /* gStreamer infrastructure */
   GstElement                element;
@@ -79,7 +79,7 @@ struct _GstTIImgenc1
 
   /* Element state */
   Engine_Handle             hEngine;
-  Ienc1_Handle              hIe;
+  Ienc_Handle              hIe;
   gboolean                  drainingEOS;
   pthread_mutex_t           threadStatusMutex;
   UInt32                    threadStatus;
@@ -88,8 +88,8 @@ struct _GstTIImgenc1
   gint                      queueMaxBuffers;
 
   /* Codec Parameters */
-  IMGENC1_Params            params;
-  IMGENC1_DynamicParams     dynParams;
+  IMGENC_Params            params;
+  IMGENC_DynamicParams     dynParams;
 
   /* Encode thread */
   pthread_t                 encodeThread;
@@ -118,18 +118,18 @@ struct _GstTIImgenc1
   Buffer_Handle             hInBuf;
 };
 
-/* _GstTIImgenc1Class object */
-struct _GstTIImgenc1Class 
+/* _GstTIImgencClass object */
+struct _GstTIImgencClass 
 {
   GstElementClass parent_class;
 };
 
 /* External function declarations */
-GType gst_tiimgenc1_get_type(void);
+GType gst_tiimgenc_get_type(void);
 
 G_END_DECLS
 
-#endif /* __GST_TIIMGENC1_H__ */
+#endif /* __GST_TIIMGENC_H__ */
 
 
 /******************************************************************************

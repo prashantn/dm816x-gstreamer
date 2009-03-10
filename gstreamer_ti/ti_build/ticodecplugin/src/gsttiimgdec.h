@@ -1,7 +1,7 @@
 /*
- * gsttiimgenc1.h
+ * gsttiimgdec.h
  *
- * This file declares the "TIImgenc1" element, which encodes an image in
+ * This file declares the "TIImgdec" element, which decodes an image in
  * jpeg format
  *
  * Original Author:
@@ -20,8 +20,8 @@
  *
  */
 
-#ifndef __GST_TIIMGENC1_H__
-#define __GST_TIIMGENC1_H__
+#ifndef __GST_TIIMGDEC_H__
+#define __GST_TIIMGDEC_H__
 
 #include <pthread.h>
 
@@ -37,27 +37,27 @@
 #include <ti/sdo/dmai/BufTab.h>
 #include <ti/sdo/dmai/Rendezvous.h>
 #include <ti/sdo/dmai/BufferGfx.h>
-#include <ti/sdo/dmai/ce/Ienc1.h>
+#include <ti/sdo/dmai/ce/Idec.h>
 
 G_BEGIN_DECLS
 
-/* Standard macros for maniuplating TIImgenc1 objects */
-#define GST_TYPE_TIIMGENC1 \
-  (gst_tiimgenc1_get_type())
-#define GST_TIIMGENC1(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_TIIMGENC1,GstTIImgenc1))
-#define GST_TIIMGENC1_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_TIIMGENC1,GstTIImgenc1Class))
-#define GST_IS_TIIMGENC1(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_TIIMGENC1))
-#define GST_IS_TIIMGENC1_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_TIIMGENC1))
+/* Standard macros for maniuplating TIImgdec objects */
+#define GST_TYPE_TIIMGDEC \
+  (gst_tiimgdec_get_type())
+#define GST_TIIMGDEC(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_TIIMGDEC,GstTIImgdec))
+#define GST_TIIMGDEC_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_TIIMGDEC,GstTIImgdecClass))
+#define GST_IS_TIIMGDEC(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_TIIMGDEC))
+#define GST_IS_TIIMGDEC_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_TIIMGDEC))
 
-typedef struct _GstTIImgenc1      GstTIImgenc1;
-typedef struct _GstTIImgenc1Class GstTIImgenc1Class;
+typedef struct _GstTIImgdec      GstTIImgdec;
+typedef struct _GstTIImgdecClass GstTIImgdecClass;
 
-/* _GstTIImgenc1 object */
-struct _GstTIImgenc1
+/* _GstTIImgdec object */
+struct _GstTIImgdec
 {
   /* gStreamer infrastructure */
   GstElement                element;
@@ -69,9 +69,6 @@ struct _GstTIImgenc1
   const gchar*              codecName;
   gboolean                  displayBuffer;
   gboolean                  genTimeStamps;
-  gchar*                    iColor;
-  gchar*                    oColor;
-  gint                      qValue;
   /* Resolution input */
   gint                      width;
   gint                      height;
@@ -79,22 +76,20 @@ struct _GstTIImgenc1
 
   /* Element state */
   Engine_Handle             hEngine;
-  Ienc1_Handle              hIe;
+  Idec_Handle              hIe;
   gboolean                  drainingEOS;
   pthread_mutex_t           threadStatusMutex;
   UInt32                    threadStatus;
   gboolean                  capsSet;
-  gint                      upstreamBufSize;
-  gint                      queueMaxBuffers;
 
   /* Codec Parameters */
-  IMGENC1_Params            params;
-  IMGENC1_DynamicParams     dynParams;
+  IMGDEC_Params            params;
+  IMGDEC_DynamicParams     dynParams;
 
-  /* Encode thread */
-  pthread_t                 encodeThread;
-  gboolean                  encodeDrained;
-  Rendezvous_Handle         waitOnEncodeDrain;
+  /* Decode thread */
+  pthread_t                 decodeThread;
+  gboolean                  decodeDrained;
+  Rendezvous_Handle         waitOnDecodeDrain;
 
   /* Queue thread */
   pthread_t                 queueThread;
@@ -104,9 +99,9 @@ struct _GstTIImgenc1
   Rendezvous_Handle         waitOnQueueThread;
   Int32                     waitQueueSize;
 
-  /* Blocking conditions for encode thread */
-  Rendezvous_Handle         waitOnEncodeThread;
-
+  /* Blocking conditions for decodeThread */
+  Rendezvous_Handle         waitOnDecodeThread;
+  
   /* Framerate (Num/Den) */
   gint                      framerateNum;
   gint                      framerateDen;
@@ -118,18 +113,18 @@ struct _GstTIImgenc1
   Buffer_Handle             hInBuf;
 };
 
-/* _GstTIImgenc1Class object */
-struct _GstTIImgenc1Class 
+/* _GstTIImgdecClass object */
+struct _GstTIImgdecClass 
 {
   GstElementClass parent_class;
 };
 
 /* External function declarations */
-GType gst_tiimgenc1_get_type(void);
+GType gst_tiimgdec_get_type(void);
 
 G_END_DECLS
 
-#endif /* __GST_TIIMGENC1_H__ */
+#endif /* __GST_TIIMGDEC_H__ */
 
 
 /******************************************************************************

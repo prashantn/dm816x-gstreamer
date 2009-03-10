@@ -1,3 +1,12 @@
+2009-03-10  Chase Maupin, Texas Instruments, Inc.
+	* src/{gsttiimgenc1.{c,h},gsttiimgenc.{c,h},gsttiimgdec1.{c,h},gsttiimgdec.:
+	- Add support for the DM357 processor
+	- Add xDM 0.9 image encoder and decoder elements used by the DM357
+	- Fix issue in image elements where they may put too much data on
+	  the FIFO which can cause an Out-Of-Memory issue.
+	- Add test scripts for DM357
+	
+
 2009-02-25  Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividenc1.{c,h},gsttividenc.{c,h},gsttividdec1.{c,h},gsttividdec.
 	{c,h},gsttiauddec1.{c,h},gsttiauddec.{c,h},gsttiimgdec1.{c,h},gsttiimgenc1.

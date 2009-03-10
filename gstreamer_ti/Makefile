@@ -65,9 +65,14 @@ gstreamer_demo:
 	fi
 	
 	@echo copying codec combos if platform needs it
-	$(CMD_PREFIX) for file in `find $(CODEC_INSTALL_DIR) -name "*.x64P"`; do \
+	$(CMD_PREFIX) if [ $(PLATFORM) = "dm357" ]; then \
+	    file=`find $(CODEC_INSTALL_DIR) -name "hmjcp.accel"`; \
+	    install $${file} $(TARGET_DEMO_DIR)/$(PLATFORM);\
+	else \
+	    for file in `find $(CODEC_INSTALL_DIR) -name "*.x64P"`; do \
 	    install $${file} $(TARGET_DEMO_DIR)/$(PLATFORM); \
-	done
+	    done \
+	fi
 
 install:
 
