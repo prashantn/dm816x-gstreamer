@@ -1,3 +1,8 @@
+2009-03-15  Brijesh Singh, Texas Instruments, Inc.
+	* src/{gstticodecplugin.c}:
+	Added environment variable to control element registration process.
+	e.g To un-register TIAuddec1 use "export GST_TI_TIAuddec1_DISABLE=1".
+
 2009-03-10  Chase Maupin, Texas Instruments, Inc.
 	* src/{gsttiimgenc1.{c,h},gsttiimgenc.{c,h},gsttiimgdec1.{c,h},gsttiimgdec.:
 	- Add support for the DM357 processor
