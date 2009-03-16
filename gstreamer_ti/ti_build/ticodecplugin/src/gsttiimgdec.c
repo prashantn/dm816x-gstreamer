@@ -785,14 +785,6 @@ static char *gst_tiimgdec_codec_color_space_to_str(int cspace) {
             GST_LOG("Finish");
             return "YUV422P";
             break;
-        case XDM_YUV_444P:
-            GST_LOG("Finish");
-            return "YUV444P";
-            break;
-        case XDM_GRAY:
-            GST_LOG("Finish");
-            return "GRAY";
-            break;
         default:
             GST_ERROR("Unknown xDM color space");
             GST_LOG("Finish");
@@ -902,14 +894,6 @@ static int gst_tiimgdec_codec_color_space_to_dmai(int cspace) {
         case XDM_YUV_422P:
             GST_LOG("Finish");
             return ColorSpace_YUV422P;
-            break;
-        case XDM_YUV_444P:
-            GST_LOG("Finish");
-            return ColorSpace_YUV444P;
-            break;
-        case XDM_GRAY:
-            GST_LOG("Finish");
-            return ColorSpace_GRAY;
             break;
         default:
             GST_ERROR("Unsupported Color Space\n");

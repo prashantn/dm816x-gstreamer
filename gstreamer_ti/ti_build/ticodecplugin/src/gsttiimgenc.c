@@ -77,8 +77,6 @@ enum
  *   - UYVY
  *   - 420P
  *   - 422P
- *   - 444P
- *   - GRAY
  */
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     "sink",
@@ -87,9 +85,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     GST_STATIC_CAPS
     (GST_VIDEO_CAPS_YUV("UYVY")";"
      GST_VIDEO_CAPS_YUV("I420")";"
-     GST_VIDEO_CAPS_YUV("Y42B")";"
-     GST_VIDEO_CAPS_YUV("IYU2")";"
-     GST_VIDEO_CAPS_YUV("Y800")
+     GST_VIDEO_CAPS_YUV("Y42B")
     )
 );
 
@@ -301,13 +297,13 @@ static void gst_tiimgenc_class_init(GstTIImgencClass *klass)
     g_object_class_install_property(gobject_class, PROP_ICOLORSPACE,
         g_param_spec_string("iColorSpace", "Input Color Space",
             "Colorspace of the input image\n"
-            "\tYUV422P, YUV420P, UYVY, YUV444P, GRAY",
+            "\tYUV422P, YUV420P, UYVY" ,
             "UYVY", G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_OCOLORSPACE,
         g_param_spec_string("oColorSpace", "Output Color Space",
             "Colorspace of the output image\n"
-            "\tYUV422P, YUV420P, UYVY, YUV444P, GRAY",
+            "\tYUV422P, YUV420P, UYVY",
             "YUV422P", G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_RESOLUTION,
@@ -930,12 +926,6 @@ static int gst_tiimgenc_convert_fourcc(guint32 fourcc) {
     } else if (!strcmp(format, "I420")) {
         GST_LOG("Finish\n");
         return gst_tiimgenc_convert_color_space(ColorSpace_YUV420P);
-    } else if (!strcmp(format, "IYU2")) {
-        GST_LOG("Finish\n");
-        return gst_tiimgenc_convert_color_space(ColorSpace_YUV444P);
-    } else if (!strcmp(format, "Y800")) {
-        GST_LOG("Finish\n");
-        return gst_tiimgenc_convert_color_space(ColorSpace_GRAY);
     } else {
         GST_LOG("Finish\n");
         return -1;
@@ -960,13 +950,9 @@ static int gst_tiimgenc_convert_attrs(int attr, GstTIImgenc *imgenc)
           return ColorSpace_YUV420P;
       else if (!strcmp(imgenc->iColor, "YUV422P"))
           return ColorSpace_YUV422P;
-      else if (!strcmp(imgenc->iColor, "YUV444P"))
-          return ColorSpace_YUV444P;
-      else if (!strcmp(imgenc->iColor, "GRAY"))
-          return ColorSpace_GRAY;
       else {
         GST_ERROR("Invalid iColorSpace entered (%s).  Please choose from:\n"
-                "\tUYVY, YUV420P, YUV422P, YUV444P, GRAY\n", imgenc->iColor);
+                "\tUYVY, YUV420P, YUV422P\n", imgenc->iColor);
         return -1;
       }
     break;
@@ -977,13 +963,9 @@ static int gst_tiimgenc_convert_attrs(int attr, GstTIImgenc *imgenc)
           return ColorSpace_YUV420P;
       else if (!strcmp(imgenc->oColor, "YUV422P"))
           return ColorSpace_YUV422P;
-      else if (!strcmp(imgenc->oColor, "YUV444P"))
-          return ColorSpace_YUV444P;
-      else if (!strcmp(imgenc->oColor, "GRAY"))
-          return ColorSpace_GRAY;
       else {
         GST_ERROR("Invalid oColorSpace entered (%s).  Please choose from:\n"
-                "\tUYVY, YUV420P, YUV422P, YUV444P, GRAY\n", imgenc->oColor);
+                "\tUYVY, YUV420P, YUV422P\n", imgenc->oColor);
         return -1;
       }
     break;
@@ -1016,14 +998,6 @@ static char *gst_tiimgenc_codec_color_space_to_str(int cspace) {
             GST_LOG("Finish");
             return "YUV422P";
             break;
-        case XDM_YUV_444P:
-            GST_LOG("Finish");
-            return "YUV444P";
-            break;
-        case XDM_GRAY:
-            GST_LOG("Finish");
-            return "GRAY";
-            break;
         default:
             GST_ERROR("Unknown xDM color space");
             GST_LOG("Finish");
@@ -1050,14 +1024,6 @@ static int gst_tiimgenc_codec_color_space_to_fourcc(int cspace) {
         case XDM_YUV_422P:
             GST_LOG("Finish");
             return GST_MAKE_FOURCC('Y', '4', '2', 'B');
-            break;
-        case XDM_YUV_444P:
-            GST_LOG("Finish");
-            return GST_MAKE_FOURCC('I', 'Y', 'U', '2');
-            break;
-        case XDM_GRAY:
-            GST_LOG("Finish");
-            return GST_MAKE_FOURCC('Y', '8', '0', '0');
             break;
         default:
             GST_ERROR("Unknown xDM color space");
@@ -1087,14 +1053,6 @@ static int gst_tiimgenc_codec_color_space_to_dmai(int cspace) {
             GST_LOG("Finish");
             return ColorSpace_YUV422P;
             break;
-        case XDM_YUV_444P:
-            GST_LOG("Finish");
-            return ColorSpace_YUV444P;
-            break;
-        case XDM_GRAY:
-            GST_LOG("Finish");
-            return ColorSpace_GRAY;
-            break;
         default:
             GST_ERROR("Unsupported Color Space\n");
             GST_LOG("Finish");
@@ -1121,14 +1079,6 @@ static int gst_tiimgenc_convert_color_space(int cspace) {
         case ColorSpace_YUV422P:
             GST_LOG("Finish");
             return XDM_YUV_422P;
-            break;
-        case ColorSpace_YUV444P:
-            GST_LOG("Finish");
-            return XDM_YUV_444P;
-            break;
-        case ColorSpace_GRAY:
-            GST_LOG("Finish");
-            return XDM_GRAY;
             break;
         default:
             GST_ERROR("Unsupported Color Space\n");
