@@ -99,6 +99,9 @@ ifndef CROSS_COMPILER
     ifeq ($(PLATFORM), dm6467)
         CROSS_COMPILER=MVL_4_0_1
     endif
+    ifeq ($(PLATFORM), dm357)
+        CROSS_COMPILER=MVL_5_0
+    endif
     ifeq ($(PLATFORM), omap3530)
         CROSS_COMPILER=CS_2007Q3
     endif
