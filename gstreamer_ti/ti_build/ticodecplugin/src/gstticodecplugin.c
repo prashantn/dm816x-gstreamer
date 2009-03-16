@@ -95,11 +95,25 @@ TICodecPlugin_init (GstPlugin * TICodecPlugin)
         GST_TYPE_TIIMGENC1))
         return FALSE;
 
+    env_value = getenv("GST_TI_TIImgenc_DISABLE");
+
+    if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
+        TICodecPlugin, "TIImgenc", GST_RANK_PRIMARY,
+        GST_TYPE_TIIMGENC))
+        return FALSE;
+
     env_value = getenv("GST_TI_TIImgdec1_DISABLE");
 
     if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
         TICodecPlugin, "TIImgdec1", GST_RANK_PRIMARY,
         GST_TYPE_TIIMGDEC1))
+        return FALSE;
+
+    env_value = getenv("GST_TI_TIImgdec_DISABLE");
+
+    if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
+        TICodecPlugin, "TIImgdec", GST_RANK_PRIMARY,
+        GST_TYPE_TIIMGDEC))
         return FALSE;
 
     env_value = getenv("GST_TI_TIAuddec_DISABLE");
