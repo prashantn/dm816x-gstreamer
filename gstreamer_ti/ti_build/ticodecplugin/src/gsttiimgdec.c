@@ -44,6 +44,7 @@
 #include "gsttidmaibuffertransport.h"
 #include "gstticodecs.h"
 #include "gsttithreadprops.h"
+#include "gsttivideo_utils.h"
 
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC (gst_tiimgdec_debug);
@@ -1257,7 +1258,6 @@ static gboolean gst_tiimgdec_codec_start (GstTIImgdec  *imgdec)
     return TRUE;
 }
 
-
 /******************************************************************************
  * gst_tiimgdec_decode_thread
  *     Call the image codec to process a full input buffer
@@ -1397,7 +1397,7 @@ static void* gst_tiimgdec_decode_thread(void *arg)
          */
         outBuf = gst_tidmaibuffertransport_new(hDstBuf);
         gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
-            Buffer_getNumBytesUsed(hDstBuf));
+             gst_calculate_display_bufSize(hDstBuf));
         gst_buffer_set_caps(outBuf, GST_PAD_CAPS(imgdec->srcpad));
 
         /* If we have a valid time stamp, set it on the buffer */

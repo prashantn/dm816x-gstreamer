@@ -54,6 +54,7 @@
 #include "gstticodecs.h"
 #include "gsttithreadprops.h"
 #include "gsttiquicktime_h264.h"
+#include "gsttivideo_utils.h"
 
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC (gst_tividdec_debug);
@@ -1241,7 +1242,7 @@ static void* gst_tividdec_decode_thread(void *arg)
              */
             outBuf = gst_tidmaibuffertransport_new(hDstBuf);
             gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
-                Buffer_getNumBytesUsed(hDstBuf));
+                 gst_calculate_display_bufSize(hDstBuf));
             gst_buffer_set_caps(outBuf, GST_PAD_CAPS(viddec->srcpad));
 
             /* If we have a valid time stamp, set it on the buffer */
