@@ -1,3 +1,7 @@
+2009-03-10  Chase Maupin, Texas Instruments, Inc.
+	* src/gsttiimgenc.c,gsttiimgdec.c:
+	- Fixed build issue with xDM 0.9 image elements when using DMAI 1.16
+	
 2009-03-15  Brijesh Singh, Texas Instruments, Inc.
 	* src/{gstticodecplugin.c}:
 	Added environment variable to control element registration process.
