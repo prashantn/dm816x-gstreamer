@@ -871,7 +871,7 @@ static gboolean gst_tividdec2_init_video(GstTIViddec2 *viddec2)
  ******************************************************************************/
 static gboolean gst_tividdec2_exit_video(GstTIViddec2 *viddec2)
 {
-    void*    thread_ret;
+    void    *queue_thread_ret, *decode_thread_ret;
     gboolean checkResult;
 
     GST_LOG("begin exit_video\n");
@@ -886,8 +886,8 @@ static gboolean gst_tividdec2_exit_video(GstTIViddec2 *viddec2)
             viddec2, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down decode thread\n");
 
-        if (pthread_join(viddec2->decodeThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
+        if (pthread_join(viddec2->decodeThread, &decode_thread_ret) == 0) {
+            if (decode_thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("decode thread exited with an error condition\n");
             }
         }
@@ -901,8 +901,8 @@ static gboolean gst_tividdec2_exit_video(GstTIViddec2 *viddec2)
         /* Unstop the queue thread if needed, and wait for it to finish */
         Fifo_flush(viddec2->hInFifo);
 
-        if (pthread_join(viddec2->queueThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
+        if (pthread_join(viddec2->queueThread, &queue_thread_ret) == 0) {
+            if (queue_thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("queue thread exited with an error condition\n");
             }
         }
@@ -963,6 +963,11 @@ static gboolean gst_tividdec2_exit_video(GstTIViddec2 *viddec2)
         GST_LOG("reseting nal length to zero\n");
         viddec2->nal_length = 0;
     }
+
+    /* If decode or queue thread does not exit gracefully then return FALSE */
+    if ((decode_thread_ret == GstTIThreadFailure) || 
+            (queue_thread_ret == GstTIThreadFailure))
+        return FALSE;
 
     GST_LOG("end exit_video\n");
     return TRUE;

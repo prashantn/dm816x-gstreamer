@@ -1027,7 +1027,7 @@ static gboolean gst_tiimgdec_init_image(GstTIImgdec *imgdec)
  ******************************************************************************/
 static gboolean gst_tiimgdec_exit_image(GstTIImgdec *imgdec)
 {
-    void*    thread_ret;
+    void    *decode_thread_ret, *queue_thread_ret;
     gboolean checkResult;
 
     GST_LOG("Begin\n");
@@ -1042,8 +1042,8 @@ static gboolean gst_tiimgdec_exit_image(GstTIImgdec *imgdec)
             imgdec, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down decode thread\n");
 
-        if (pthread_join(imgdec->decodeThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
+        if (pthread_join(imgdec->decodeThread, &decode_thread_ret) == 0) {
+            if (decode_thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("decode thread exited with an error condition\n");
             }
         }
@@ -1057,8 +1057,8 @@ static gboolean gst_tiimgdec_exit_image(GstTIImgdec *imgdec)
         /* Unstop the queue thread if needed, and wait for it to finish */
         Fifo_flush(imgdec->hInFifo);
 
-        if (pthread_join(imgdec->queueThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
+        if (pthread_join(imgdec->queueThread, &queue_thread_ret) == 0) {
+            if (queue_thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("queue thread exited with an error condition\n");
             }
         }
@@ -1102,6 +1102,11 @@ static gboolean gst_tiimgdec_exit_image(GstTIImgdec *imgdec)
         BufTab_delete(imgdec->hOutBufTab);
         imgdec->hOutBufTab = NULL;
     }
+
+    /* If decode or queue thread does not exit gracefully then return FALSE */
+    if ((decode_thread_ret == GstTIThreadFailure) || 
+            (queue_thread_ret == GstTIThreadFailure))
+        return FALSE;
 
     GST_LOG("Finish\n");
     return TRUE;

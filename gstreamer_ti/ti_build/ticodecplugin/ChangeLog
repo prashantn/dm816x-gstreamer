@@ -1,3 +1,9 @@
+2009-03-20  Brijesh Singh, Texas Instruments, Inc.
+  * src/{gsttiauddec.c,gsttiauddec1.c,gsttiimgdec1.c,gsttividdec2.c,
+	gsttividdec.c,gsttiimgenc1.c, gsttiimgdec.c gsttiimgenc.c}:
+  Return correct exit code of the queue and decode/encoder threads during state
+  transition. Application may check status code during state transition.    
+   	
 2009-03-15  Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividdec.c, gsttividdec2, gsttiimgdec.c}:
 	Calculate output buffer size using video resolution so that it can work 
