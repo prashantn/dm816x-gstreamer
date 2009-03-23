@@ -893,7 +893,7 @@ static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
  ******************************************************************************/
 static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
 {
-    void    *encode_thread_ret, *queue_thread_ret;
+    void*    thread_ret;
     gboolean checkResult;
 
     GST_LOG("begin exit_video\n");
@@ -908,8 +908,8 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
             videnc, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down encode thread\n");
 
-        if (pthread_join(videnc->encodeThread, &encode_thread_ret) == 0) {
-            if (encode_thread_ret == GstTIThreadFailure) {
+        if (pthread_join(videnc->encodeThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("encode thread exited with an error condition\n");
             }
         }
@@ -923,8 +923,8 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
         /* Unstop the queue thread if needed, and wait for it to finish */
         Fifo_flush(videnc->hInFifo);
 
-        if (pthread_join(videnc->queueThread, &queue_thread_ret) == 0) {
-            if (queue_thread_ret == GstTIThreadFailure) {
+        if (pthread_join(videnc->queueThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("queue thread exited with an error condition\n");
             }
         }
@@ -968,11 +968,6 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
         BufTab_delete(videnc->hOutBufTab);
         videnc->hOutBufTab = NULL;
     }
-
-    /* If encode or queue thread does not exit gracefully then return FALSE */
-    if ((encode_thread_ret == GstTIThreadFailure) || 
-            (queue_thread_ret == GstTIThreadFailure))
-        return FALSE;
 
     GST_LOG("end exit_video\n");
     return TRUE;
