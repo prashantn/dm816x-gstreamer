@@ -54,7 +54,7 @@
 #include "gstticodecs.h"
 #include "gsttithreadprops.h"
 #include "gsttiquicktime_h264.h"
-#include "gsttivideo_utils.h"
+#include "gstticommonutils.h"
 
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC (gst_tividdec_debug);
@@ -155,6 +155,8 @@ static gboolean
     gst_tividdec_codec_start (GstTIViddec  *viddec);
 static gboolean 
     gst_tividdec_codec_stop (GstTIViddec  *viddec);
+static void 
+    gst_tividdec_init_env(GstTIViddec *viddec);
 
 /******************************************************************************
  * gst_tividdec_class_init_trampoline
@@ -283,6 +285,53 @@ static void gst_tividdec_class_init(GstTIViddecClass *klass)
 
 
 /******************************************************************************
+ * gst_tividdec_init_env
+ *****************************************************************************/
+static void gst_tividdec_init_env(GstTIViddec *viddec)
+{
+    GST_LOG("gst_tividdec_init_env - begin\n");
+
+    if (gst_ti_env_is_defined("GST_TI_TIViddec_engineName")) {
+        viddec->engineName = gst_ti_env_get_string("GST_TI_TIViddec_engineName");
+        GST_LOG("Setting engineName=%s\n", viddec->engineName);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIViddec_codecName")) {
+        viddec->codecName = gst_ti_env_get_string("GST_TI_TIViddec_codecName");
+        GST_LOG("Setting codecName=%s\n", viddec->codecName);
+    }
+    
+    if (gst_ti_env_is_defined("GST_TI_TIViddec_numOutputBufs")) {
+        viddec->numOutputBufs = 
+                            gst_ti_env_get_int("GST_TI_TIViddec_numOutputBufs");
+        GST_LOG("Setting numOutputBufs=%ld\n", viddec->numOutputBufs);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIViddec_displayBuffer")) {
+        viddec->displayBuffer = 
+                gst_ti_env_get_boolean("GST_TI_TIViddec_displayBuffer");
+        GST_LOG("Setting displayBuffer=%s\n",
+                 viddec->displayBuffer  ? "TRUE" : "FALSE");
+    }
+ 
+    if (gst_ti_env_is_defined("GST_TI_TIViddec_genTimeStamps")) {
+        viddec->genTimeStamps = 
+                gst_ti_env_get_boolean("GST_TI_TIViddec_genTimeStamps");
+        GST_LOG("Setting genTimeStamps =%s\n", 
+                    viddec->genTimeStamps ? "TRUE" : "FALSE");
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIViddec_frameRate")) {
+        viddec->framerateNum = 
+            gst_ti_env_get_int("GST_TI_TIViddec_frameRate");
+        GST_LOG("Setting frameRate=%d\n", viddec->framerateNum);
+    }
+
+    GST_LOG("gst_tividdec_init_env - end\n");
+}
+
+
+/******************************************************************************
  * gst_tividdec_init
  *    Initializes a new element instance, instantiates pads and sets the pad
  *    callback functions.
@@ -351,6 +400,8 @@ static void gst_tividdec_init(GstTIViddec *viddec, GstTIViddecClass *gclass)
     viddec->sps_pps_data        = NULL;
     viddec->nal_code_prefix     = NULL;
     viddec->nal_length          = 0;
+
+    gst_tividdec_init_env(viddec);
 }
 
 
@@ -1242,7 +1293,7 @@ static void* gst_tividdec_decode_thread(void *arg)
              */
             outBuf = gst_tidmaibuffertransport_new(hDstBuf);
             gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
-                 gst_calculate_display_bufSize(hDstBuf));
+                 gst_ti_calculate_display_bufSize(hDstBuf));
             gst_buffer_set_caps(outBuf, GST_PAD_CAPS(viddec->srcpad));
 
             /* If we have a valid time stamp, set it on the buffer */

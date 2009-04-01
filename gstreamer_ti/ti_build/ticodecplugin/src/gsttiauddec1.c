@@ -57,6 +57,7 @@
 #include "gstticodecs.h"
 #include "gsttithreadprops.h"
 #include "gsttiquicktime_aac.h"
+#include "gstticommonutils.h"
 
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC (gst_tiauddec1_debug);
@@ -144,6 +145,8 @@ static gboolean
     gst_tiauddec1_codec_start (GstTIAuddec1  *auddec);
 static gboolean 
     gst_tiauddec1_codec_stop (GstTIAuddec1  *auddec1);
+static void 
+    gst_tiauddec1_init_env(GstTIAuddec1 *auddec1);
 
 /******************************************************************************
  * gst_tiauddec1_class_init_trampoline
@@ -262,6 +265,46 @@ static void gst_tiauddec1_class_init(GstTIAuddec1Class *klass)
             TRUE, G_PARAM_WRITABLE));
 }
 
+/******************************************************************************
+ * gst_tiauddec1_init_env
+ *  Initialize element property default by reading environment variables.
+ *****************************************************************************/
+static void gst_tiauddec1_init_env(GstTIAuddec1 *auddec1)
+{
+    GST_LOG("gst_tiauddec1_init_env - begin");
+    
+    if (gst_ti_env_is_defined("GST_TI_TIAuddec1_engineName")) {
+        auddec1->engineName = gst_ti_env_get_string("GST_TI_TIAuddec1_engineName");
+        GST_LOG("Setting engineName=%s\n", auddec1->engineName);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIAuddec1_codecName")) {
+        auddec1->codecName = gst_ti_env_get_string("GST_TI_TIAuddec1_codecName");
+        GST_LOG("Setting codecName=%s\n", auddec1->codecName);
+    }
+    
+    if (gst_ti_env_is_defined("GST_TI_TIAuddec1_numOutputBufs")) {
+        auddec1->numOutputBufs = 
+                            gst_ti_env_get_int("GST_TI_TIAuddec1_numOutputBufs");
+        GST_LOG("Setting numOutputBufs=%ld\n", auddec1->numOutputBufs);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIAuddec1_displayBuffer")) {
+        auddec1->displayBuffer = 
+                gst_ti_env_get_boolean("GST_TI_TIAuddec1_displayBuffer");
+        GST_LOG("Setting displayBuffer=%s\n",
+                 auddec1->displayBuffer  ? "TRUE" : "FALSE");
+    }
+ 
+    if (gst_ti_env_is_defined("GST_TI_TIAuddec1_genTimeStamps")) {
+        auddec1->genTimeStamps = 
+                gst_ti_env_get_boolean("GST_TI_TIAuddec1_genTimeStamps");
+        GST_LOG("Setting genTimeStamps =%s\n", 
+                    auddec1->genTimeStamps ? "TRUE" : "FALSE");
+    }
+
+    GST_LOG("gst_tiauddec1_init_env - end");
+}
 
 /******************************************************************************
  * gst_tiauddec1_init
@@ -329,6 +372,8 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
     auddec1->circBuf            = NULL;
 
     auddec1->aac_header_data    = NULL;
+
+    gst_tiauddec1_init_env(auddec1);
 }
 
 

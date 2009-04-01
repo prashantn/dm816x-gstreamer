@@ -45,6 +45,7 @@
 #include "gsttidmaibuffertransport.h"
 #include "gstticodecs.h"
 #include "gsttithreadprops.h"
+#include "gstticommonutils.h"
 
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC (gst_tiimgenc_debug);
@@ -178,6 +179,10 @@ static gboolean
     gst_tiimgenc_codec_start (GstTIImgenc  *imgenc);
 static gboolean 
     gst_tiimgenc_codec_stop (GstTIImgenc  *imgenc);
+static void 
+    gst_tiimgenc_string_cap(gchar *str);
+static void 
+    gst_tiimgenc_init_env(GstTIImgenc *imgenc);
 
 /******************************************************************************
  * gst_tiimgenc_class_init_trampoline
@@ -346,6 +351,81 @@ static void gst_tiimgenc_class_init(GstTIImgencClass *klass)
     GST_LOG("Finish\n");
 }
 
+/******************************************************************************
+ * gst_tiimgenc_init_env
+ *  Initialize element property default by reading environment variables.
+ *****************************************************************************/
+static void gst_tiimgenc_init_env(GstTIImgenc *imgenc)
+{
+    GST_LOG("gst_tiimgenc_init_env - begin");
+
+    if (gst_ti_env_is_defined("GST_TI_TIImgenc_engineName")) {
+        imgenc->engineName = gst_ti_env_get_string("GST_TI_TIImgenc_engineName");
+        GST_LOG("Setting engineName=%s\n", imgenc->engineName);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIImgenc_codecName")) {
+        imgenc->codecName = gst_ti_env_get_string("GST_TI_TIImgenc_codecName");
+        GST_LOG("Setting codecName=%s\n", imgenc->codecName);
+    }
+    
+    if (gst_ti_env_is_defined("GST_TI_TIImgenc_numOutputBufs")) {
+        imgenc->numOutputBufs = 
+                            gst_ti_env_get_int("GST_TI_TIImgenc_numOutputBufs");
+        GST_LOG("Setting numOutputBufs=%ld\n", imgenc->numOutputBufs);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIImgenc_displayBuffer")) {
+        imgenc->displayBuffer = 
+                gst_ti_env_get_boolean("GST_TI_TIImgenc_displayBuffer");
+        GST_LOG("Setting displayBuffer=%s\n",
+                 imgenc->displayBuffer  ? "TRUE" : "FALSE");
+    }
+ 
+    if (gst_ti_env_is_defined("GST_TI_TIImgenc_genTimeStamps")) {
+        imgenc->genTimeStamps = 
+                gst_ti_env_get_boolean("GST_TI_TIImgenc_genTimeStamps");
+        GST_LOG("Setting genTimeStamps =%s\n", 
+                    imgenc->genTimeStamps ? "TRUE" : "FALSE");
+    }
+    
+    if (gst_ti_env_is_defined("GST_TI_TIImgenc_framerate")) {
+        imgenc->framerateNum = gst_ti_env_get_int("GST_TI_TIImgenc_framerate");
+        imgenc->framerateDen = 1;
+        
+        /* If 30fps was specified, use 29.97 */        
+        if (imgenc->framerateNum == 30) {
+            imgenc->framerateNum = 30000;
+            imgenc->framerateDen = 1001;
+        }
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIImgenc_qValue")) {
+        imgenc->qValue =  gst_ti_env_get_int("GST_TI_TIImgenc_qValue");
+        GST_LOG("Setting qValue=%d\n", imgenc->qValue);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIImgenc_iColorSpace")) {
+        imgenc->iColor = gst_ti_env_get_string("GST_TI_TIImgenc_iColorSpace") ;
+        gst_tiimgenc_string_cap(imgenc->iColor);
+        GST_LOG("Setting engineName=%s\n", imgenc->iColor);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIImgenc_oColorSpace")) {
+        imgenc->oColor = gst_ti_env_get_string("GST_TI_TIImgenc_oColorSpace");
+        gst_tiimgenc_string_cap(imgenc->oColor);
+        GST_LOG("Setting engineName=%s\n", imgenc->oColor);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIImgenc_resolution")) {
+        sscanf(gst_ti_env_get_string("GST_TI_TIImgenc_resolution"), "%dx%d", 
+                &imgenc->width,&imgenc->height);
+        GST_LOG("Setting resolution=%dx%d\n", imgenc->width, imgenc->height);
+    }
+    
+    GST_LOG("gst_tiimgenc_init_env - end");
+}
+
 
 /******************************************************************************
  * gst_tiimgenc_init
@@ -421,6 +501,8 @@ static void gst_tiimgenc_init(GstTIImgenc *imgenc, GstTIImgencClass *gclass)
     imgenc->numOutputBufs      = 0UL;
     imgenc->hOutBufTab         = NULL;
     imgenc->circBuf            = NULL;
+
+    gst_tiimgenc_init_env(imgenc);
 
     GST_LOG("Finish\n");
 }

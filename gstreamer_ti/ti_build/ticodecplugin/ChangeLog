@@ -1,3 +1,10 @@
+2009-03-27  Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttividenc1.c,gsttividenc.c,gsttividdec1.c,gsttividdec.c,
+	gsttiauddec1.c,gsttiauddec.c,gsttiimgdec1.c,gsttiimgenc1.c}:
+	Added support to configure elements properties using environment variables.
+	e.g To set codecName="h624dec" for TIAuddec element, use 
+	$export GST_TI_TIAuddec_codecName=h264dec 
+
 2009-03-15  Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividdec.c, gsttividdec2, gsttiimgdec.c}:
 	Calculate output buffer size using video resolution so that it can work 

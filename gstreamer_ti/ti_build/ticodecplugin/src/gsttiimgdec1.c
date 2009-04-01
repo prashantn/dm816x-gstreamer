@@ -44,7 +44,7 @@
 #include "gsttidmaibuffertransport.h"
 #include "gstticodecs.h"
 #include "gsttithreadprops.h"
-#include "gsttivideo_utils.h"
+#include "gstticommonutils.h"
 
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC (gst_tiimgdec1_debug);
@@ -144,6 +144,8 @@ static gboolean
     gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1);
 static gboolean 
     gst_tiimgdec1_codec_stop (GstTIImgdec1  *imgdec1);
+static void 
+    gst_tiimgdec1_init_env(GstTIImgdec1 *imgdec1);
 
 /******************************************************************************
  * gst_tiimgdec1_class_init_trampoline
@@ -293,6 +295,63 @@ static void gst_tiimgdec1_class_init(GstTIImgdec1Class *klass)
     GST_LOG("Finish\n");
 }
 
+/*****************************************************************************
+ * gst_tiimgdec1_init_env
+ *  Initialize element property default by reading environment variables.
+ *****************************************************************************/
+static void gst_tiimgdec1_init_env(GstTIImgdec1 *imgdec1)
+{
+    GST_LOG("gst_tiimgdec1_init_env - begin");
+
+    if (gst_ti_env_is_defined("GST_TI_TIImgdec1_engineName")) {
+        imgdec1->engineName = gst_ti_env_get_string("GST_TI_TIImgdec1_engineName");
+        GST_LOG("Setting engineName=%s\n", imgdec1->engineName);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIImgdec1_codecName")) {
+        imgdec1->codecName = gst_ti_env_get_string("GST_TI_TIImgdec1_codecName");
+        GST_LOG("Setting codecName=%s\n", imgdec1->codecName);
+    }
+    
+    if (gst_ti_env_is_defined("GST_TI_TIImgdec1_numOutputBufs")) {
+        imgdec1->numOutputBufs = 
+                            gst_ti_env_get_int("GST_TI_TIImgdec1_numOutputBufs");
+        GST_LOG("Setting numOutputBufs=%ld\n", imgdec1->numOutputBufs);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIImgdec1_displayBuffer")) {
+        imgdec1->displayBuffer = 
+                gst_ti_env_get_boolean("GST_TI_TIImgdec1_displayBuffer");
+        GST_LOG("Setting displayBuffer=%s\n",
+                 imgdec1->displayBuffer  ? "TRUE" : "FALSE");
+    }
+ 
+    if (gst_ti_env_is_defined("GST_TI_TIImgdec1_genTimeStamps")) {
+        imgdec1->genTimeStamps = 
+                gst_ti_env_get_boolean("GST_TI_TIImgdec1_genTimeStamps");
+        GST_LOG("Setting genTimeStamps =%s\n", 
+                    imgdec1->genTimeStamps ? "TRUE" : "FALSE");
+    }
+    
+    if (gst_ti_env_is_defined("GST_TI_TIImgdec1_framerate")) {
+        imgdec1->framerateNum = gst_ti_env_get_int("GST_TI_TIImgdec1_framerate");
+        imgdec1->framerateDen = 1;
+        
+        /* If 30fps was specified, use 29.97 */        
+        if (imgdec1->framerateNum == 30) {
+            imgdec1->framerateNum = 30000;
+            imgdec1->framerateDen = 1001;
+        }
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIImgdec1_resolution")) {
+        sscanf(gst_ti_env_get_string("GST_TI_TIImgdec1_resolution"), "%dx%d", 
+                &imgdec1->width,&imgdec1->height);
+        GST_LOG("Setting resolution=%dx%d\n", imgdec1->width, imgdec1->height);
+    }
+    
+    GST_LOG("gst_tiimgdec_init_env - end");
+}
 
 /******************************************************************************
  * gst_tiimgdec1_init
@@ -368,6 +427,8 @@ static void gst_tiimgdec1_init(GstTIImgdec1 *imgdec1, GstTIImgdec1Class *gclass)
     imgdec1->numOutputBufs      = 0UL;
     imgdec1->hOutBufTab         = NULL;
     imgdec1->circBuf            = NULL;
+
+    gst_tiimgdec1_init_env(imgdec1);
 
     GST_LOG("Finish\n");
 }
@@ -1398,7 +1459,7 @@ static void* gst_tiimgdec1_decode_thread(void *arg)
          */
         outBuf = gst_tidmaibuffertransport_new(hDstBuf);
         gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
-            gst_calculate_display_bufSize(hDstBuf));
+            gst_ti_calculate_display_bufSize(hDstBuf));
         gst_buffer_set_caps(outBuf, GST_PAD_CAPS(imgdec1->srcpad));
 
         /* If we have a valid time stamp, set it on the buffer */

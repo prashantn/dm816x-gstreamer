@@ -57,6 +57,7 @@
 #include "gstticodecs.h"
 #include "gsttithreadprops.h"
 #include "gsttiquicktime_aac.h"
+#include "gstticommonutils.h"
 
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC (gst_tiauddec_debug);
@@ -144,6 +145,8 @@ static gboolean
     gst_tiauddec_codec_start (GstTIAuddec  *auddec);
 static gboolean 
     gst_tiauddec_codec_stop (GstTIAuddec  *auddec);
+static void 
+    gst_tiauddec_init_env(GstTIAuddec *auddec);
 
 /******************************************************************************
  * gst_tiauddec_class_init_trampoline
@@ -264,6 +267,48 @@ static void gst_tiauddec_class_init(GstTIAuddecClass *klass)
 
 
 /******************************************************************************
+ * gst_tiauddec_init_env
+ *  Initialize element property default by reading environment variables.
+ *****************************************************************************/
+static void gst_tiauddec_init_env(GstTIAuddec *auddec)
+{
+    GST_LOG("gst_tiauddec_init_env - begin\n");
+
+    if (gst_ti_env_is_defined("GST_TI_TIAuddec_engineName")) {
+        auddec->engineName = gst_ti_env_get_string("GST_TI_TIAuddec_engineName");
+        GST_LOG("Setting engineName=%s\n", auddec->engineName);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIAuddec_codecName")) {
+        auddec->codecName = gst_ti_env_get_string("GST_TI_TIAuddec_codecName");
+        GST_LOG("Setting codecName=%s\n", auddec->codecName);
+    }
+    
+    if (gst_ti_env_is_defined("GST_TI_TIAuddec_numOutputBufs")) {
+        auddec->numOutputBufs = 
+                            gst_ti_env_get_int("GST_TI_TIAuddec_numOutputBufs");
+        GST_LOG("Setting numOutputBufs=%ld\n", auddec->numOutputBufs);
+    }
+    
+    if (gst_ti_env_is_defined("GST_TI_TIAuddec_displayBuffer")) {
+        auddec->displayBuffer = 
+                gst_ti_env_get_boolean("GST_TI_TIAuddec_displayBuffer");
+        GST_LOG("Setting displayBuffer=%s\n",
+                 auddec->displayBuffer  ? "TRUE" : "FALSE");
+    }
+ 
+    if (gst_ti_env_is_defined("GST_TI_TIAuddec_genTimeStamps")) {
+        auddec->genTimeStamps = 
+                gst_ti_env_get_boolean("GST_TI_TIAuddec_genTimeStamps");
+        GST_LOG("Setting genTimeStamps =%s\n", 
+                    auddec->genTimeStamps ? "TRUE" : "FALSE");
+    }
+
+    GST_LOG("gst_tiauddec_init_env - end\n");
+}
+ 
+
+/******************************************************************************
  * gst_tiauddec_init
  *    Initializes a new element instance, instantiates pads and sets the pad
  *    callback functions.
@@ -326,6 +371,8 @@ static void gst_tiauddec_init(GstTIAuddec *auddec, GstTIAuddecClass *gclass)
     auddec->circBuf             = NULL;
 
     auddec->aac_header_data     = NULL;
+
+    gst_tiauddec_init_env(auddec);
 }
 
 

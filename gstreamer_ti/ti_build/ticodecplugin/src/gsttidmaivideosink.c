@@ -23,6 +23,8 @@
 #endif
 
 #include "gsttidmaivideosink.h"
+#include "gstticommonutils.h"
+
 #include <gst/gstmarshal.h>
 
 /* Define sink (input) pad capabilities.
@@ -143,6 +145,8 @@ static GstFlowReturn
  gst_tidmaivideosink_render(GstBaseSink * bsink, GstBuffer * buffer);
 static gboolean
  gst_tidmaivideosink_event(GstBaseSink * bsink, GstEvent * event);
+static void 
+    gst_tidmaivideosink_init_env(GstTIDmaiVideoSink *sink);
 
 static guint gst_tidmaivideosink_signals[LAST_SIGNAL] = { 0 };
 
@@ -304,6 +308,69 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
 
 
 /******************************************************************************
+ * gst_tidmaivideosink_init_env
+ *  Initialize element property default by reading environment variables.
+ *****************************************************************************/
+static void gst_tidmaivideosink_init_env(GstTIDmaiVideoSink *sink)
+{
+    GST_LOG("gst_tidmaivideosink_init_env - begin\n");
+
+    if (gst_ti_env_is_defined("GST_TI_TIDmaiVideoSink_displayStd")) {
+        sink->displayStd = 
+            gst_ti_env_get_string("GST_TI_TIDmaiVideoSink_displayStd");
+        GST_LOG("Setting displayStd=%s\n", sink->displayStd);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIDmaiVideoSink_displayDevice")) {
+        sink->displayDevice = 
+            gst_ti_env_get_string("GST_TI_TIDmaiVideoSink_displayDevice");
+        GST_LOG("Setting displayDevice=%s\n", sink->displayDevice);
+    }
+    
+    if (gst_ti_env_is_defined("GST_TI_TIDmaiVideoSink_videoStd")) {
+        sink->videoStd = gst_ti_env_get_string("GST_TI_TIDmaiVideoSink_videoStd");
+        GST_LOG("Setting videoStd=%s\n", sink->videoStd);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIDmaiVideoSink_videoOutput")) {
+        sink->videoOutput =  
+                gst_ti_env_get_string("GST_TI_TIDmaiVideoSink_videoOutput");
+        GST_LOG("Setting displayBuffer=%s\n", sink->videoOutput);
+    }
+ 
+    if (gst_ti_env_is_defined("GST_TI_TIDmaiVideoSink_rotation")) {
+        sink->rotation = gst_ti_env_get_int("GST_TI_TIDmaiVideoSink_rotation");
+        GST_LOG("Setting rotation =%d\n", sink->rotation);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIDmaiVideoSink_numBufs")) {
+        sink->numBufs = gst_ti_env_get_int("GST_TI_TIDmaiVideoSink_numBufs");
+        GST_LOG("Setting numBufs=%d\n",sink->numBufs);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIDmaiVideoSink_resizer")) {
+        sink->resizer = gst_ti_env_get_boolean("GST_TI_TIDmaiVideoSink_resizer");
+        GST_LOG("Setting resizer=%s\n",sink->resizer ? "TRUE" : "FALSE");
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIDmaiVideoSink_autoselect")) {
+        sink->autoselect = 
+                gst_ti_env_get_boolean("GST_TI_TIDmaiVideoSink_autoselect");
+        GST_LOG("Setting autoselect=%s\n",sink->autoselect ? "TRUE" : "FALSE");
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIDmaiVideoSink_accelFrameCopy")) {
+        sink->accelFrameCopy = 
+                gst_ti_env_get_boolean("GST_TI_TIDmaiVideoSink_accelFrameCopy");
+        GST_LOG("Setting accelFrameCopy=%s\n",
+                sink->accelFrameCopy ? "TRUE" : "FALSE");
+    }
+    
+    GST_LOG("gst_tidmaivideosink_init_env - end\n");
+}
+
+
+/******************************************************************************
  * gst_tidmaivideosink_init
  ******************************************************************************/
 static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
@@ -327,6 +394,8 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     dmaisink->prevVideoStd   = 0;
 
     dmaisink->signal_handoffs = DEFAULT_SIGNAL_HANDOFFS;
+
+    gst_tidmaivideosink_init_env(dmaisink);
 }
 
 /*******************************************************************************
