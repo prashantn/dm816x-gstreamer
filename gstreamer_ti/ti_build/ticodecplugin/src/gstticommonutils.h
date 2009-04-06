@@ -31,6 +31,13 @@
 #include <ti/sdo/dmai/Dmai.h>
 #include <ti/sdo/dmai/Buffer.h>
 
+/* This variable is used to flush the fifo.  It is pushed to the
+ * fifo when we want to flush it.  When the encode/decode thread
+ * receives the address of this variable the fifo is flushed and
+ * the thread can exit.  The value of this variable is not used.
+ */
+extern int gst_ti_flush_fifo;
+
 /* Function to calculate the display buffer size */
 gint gst_ti_calculate_display_bufSize (Buffer_Handle hDstBuf);
 

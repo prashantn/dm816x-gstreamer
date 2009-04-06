@@ -1,3 +1,13 @@
+2009-03-27  Chase Maupin, Texas Instruments, Inc.
+	* src/{gsttividenc1.c,gsttividenc.c,gsttividdec2.c,gsttividdec.c,
+	gsttiauddec1.c,gsttiauddec.c,gsttiimgdec1.c,gsttiimgenc1.c,
+	gstticommonutils.c, gstticommonutils.h, gsttiimgdec.c,
+	gsttiimgenc.c}:
+	Fixed issue where buffers on the Fifo were not flushed and freed
+	when the queue and encode/decode threads were being cleaned up.
+	This led to a memory leak when switching the pipeline from
+	PLAYING -> NULL and NULL -> PLAYING states.
+
 2009-03-27  Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividenc1.c,gsttividenc.c,gsttividdec1.c,gsttividdec.c,
 	gsttiauddec1.c,gsttiauddec.c,gsttiimgdec1.c,gsttiimgenc1.c}:

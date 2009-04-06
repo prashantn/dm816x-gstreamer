@@ -31,6 +31,13 @@
 
 #include "gsttidmaibuffertransport.h"
 
+/* This variable is used to flush the fifo.  It is pushed to the
+ * fifo when we want to flush it.  When the encode/decode thread
+ * receives the address of this variable the fifo is flushed and
+ * the thread can exit.  The value of this variable is not used.
+ */
+int gst_ti_flush_fifo = 0;
+
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC(gst_ticommonutils_debug);
 #define GST_CAT_DEFAULT gst_ticommonutils_debug
