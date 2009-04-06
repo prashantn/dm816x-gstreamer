@@ -507,10 +507,10 @@ static void gst_tidmaivideosink_get_property(GObject * object, guint prop_id,
             g_value_set_string(value, sink->videoOutput);
             break;
         case PROP_RESIZER:
-            g_value_set_int(value, sink->resizer);
+            g_value_set_boolean(value, sink->resizer);
             break;
         case PROP_AUTOSELECT:
-            g_value_set_int(value, sink->autoselect);
+            g_value_set_boolean(value, sink->autoselect);
             break;
         case PROP_ROTATION:
             g_value_set_int(value, sink->rotation);
