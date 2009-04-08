@@ -153,9 +153,11 @@ Prerequisites
   earlier than 1.30 are not supported.
 - The DVSDK is configured to use the Linux kernel provided by the LSP package
   associated with the DVSDK being used.
-- DMAI 1.16 or later is installed on the Linux host for DaVinci targets.
-  DMAI 1.20 or later is required for OMAP35xx targets.  This DMAI version is
-  included with DVSDK 3.00.
+- The minimum version of DMAI must be installed.  The minimum version for
+  each platform is given below.
+	* DM644x/DM6467/DM355 - DMAI 1.16
+	* DM357		      - DMAI 1.20
+	* OMAP35x	      - DMAI 1.20
 - For OMAP35xx platforms, the "zlib" library needs to be installed on the
   target filesystem.  To instal it, please cd to the root of the target
   filesystem and extract OMAP35x_SDK/bin/zlib-1.2.3.tar.gz.
