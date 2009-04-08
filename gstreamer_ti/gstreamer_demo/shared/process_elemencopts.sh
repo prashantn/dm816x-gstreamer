@@ -143,8 +143,14 @@ case "$streamType" in
 
         # if codecname is passed then we assume its TI encoder and set the
         # codecname and other informations
+        if [ "${PLATFORM}" = "dm357" ]; then
+            engineName="hmjcp"
+        else
+            engineName="encode"
+        fi
+
         test -z $codecname || video_encoder_codec_name=$codecname
-        encoder_plugin_args="codecName=$video_encoder_codec_name engineName=encode $video_encoder_args" 
+        encoder_plugin_args="codecName=$video_encoder_codec_name engineName=$engineName $video_encoder_args" 
     
         # if live source is not selected then ad colorspace and resolution 
         # properties.
