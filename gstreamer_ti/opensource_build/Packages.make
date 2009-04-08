@@ -110,6 +110,7 @@ PACKAGE_plugins_good_BUILD_DIRS          = gst/avi
 PACKAGE_plugins_good_BUILD_DIRS         += gst/qtdemux
 PACKAGE_plugins_good_BUILD_DIRS         += sys/oss
 PACKAGE_plugins_good_BUILD_DIRS         += sys/v4l2
+PACKAGE_plugins_good_BUILD_DIRS         += gst/autodetect
 PACKAGE_plugins_good_DESCRIPTION         = \
     Select plugins from GStreamer good-plugins (avi, oss, v4l2)
 PLUGIN_PACKAGES += $(PACKAGE_plugins_good_BUILD_TARGET)
