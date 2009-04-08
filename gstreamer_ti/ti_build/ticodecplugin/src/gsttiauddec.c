@@ -364,6 +364,7 @@ static void gst_tiauddec_init(GstTIAuddec *auddec, GstTIAuddecClass *gclass)
     auddec->waitQueueSize       = 0;
 
     auddec->waitOnDecodeThread  = NULL;
+    auddec->waitOnBufTab        = NULL;
 
     auddec->waitQueueSize       = 0;
     auddec->numOutputBufs       = 0UL;
@@ -789,6 +790,7 @@ static gboolean gst_tiauddec_init_audio(GstTIAuddec * auddec)
     auddec->waitOnDecodeDrain   = Rendezvous_create(100, &rzvAttrs);
     auddec->waitOnQueueThread   = Rendezvous_create(100, &rzvAttrs);
     auddec->waitOnDecodeThread  = Rendezvous_create(2, &rzvAttrs);
+    auddec->waitOnBufTab        = Rendezvous_create(100, &rzvAttrs);
     auddec->drainingEOS         = FALSE;
 
     /* Initialize the custom thread attributes */
@@ -939,6 +941,11 @@ static gboolean gst_tiauddec_exit_audio(GstTIAuddec *auddec)
     if (auddec->waitOnDecodeDrain) {
         Rendezvous_delete(auddec->waitOnDecodeDrain);
         auddec->waitOnDecodeDrain = NULL;
+    }
+
+    if (auddec->waitOnBufTab) {
+        Rendezvous_delete(auddec->waitOnBufTab);
+        auddec->waitOnBufTab = NULL;
     }
 
     if (auddec->circBuf) {
@@ -1142,11 +1149,24 @@ static void* gst_tiauddec_decode_thread(void *arg)
         }
 
         /* Obtain a free output buffer for the decoded data */
+        /* If we are not able to find free buffer from BufTab then decoder 
+         * thread will be blocked on waitOnBufTab rendezvous. And this will be 
+         * woke-up by dmaitransportbuffer finalize method.
+         */
         hDstBuf = BufTab_getFreeBuf(auddec->hOutBufTab);
         if (hDstBuf == NULL) {
-            GST_ERROR("failed to get a free contiguous buffer from BufTab\n");
-            goto thread_failure;
+            Rendezvous_meet(auddec->waitOnBufTab);
+            hDstBuf = BufTab_getFreeBuf(auddec->hOutBufTab);
+
+            if (hDstBuf == NULL) {
+                GST_ERROR("failed to get a free contiguous buffer"
+                          " from BufTab\n");
+                    goto thread_failure;
+            }
         }
+
+        /* Reset waitOnBufTab rendezvous handle to its orignal state */
+        Rendezvous_reset(auddec->waitOnBufTab);
 
         /* Invoke the audio decoder */
         GST_LOG("Invoking the audio decoder at 0x%08lx with %u bytes\n",
@@ -1204,7 +1224,8 @@ static void* gst_tiauddec_decode_thread(void *arg)
          * buffer for re-use in this element when the source pad calls
          * gst_buffer_unref().
          */
-        outBuf = gst_tidmaibuffertransport_new(hDstBuf);
+        outBuf = gst_tidmaibuffertransport_new(hDstBuf, 
+                                                auddec->waitOnBufTab);
         gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
             Buffer_getNumBytesUsed(hDstBuf));
         gst_buffer_set_caps(outBuf, GST_PAD_CAPS(auddec->srcpad));
@@ -1248,7 +1269,6 @@ thread_failure:
     Rendezvous_force(auddec->waitOnQueueThread);
 
 thread_exit:
- 
     /* Stop codec engine */
     if (gst_tiauddec_codec_stop(auddec) < 0) {
         GST_ERROR("failed to stop codec\n");

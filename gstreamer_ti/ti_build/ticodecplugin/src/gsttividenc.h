@@ -89,6 +89,7 @@ struct _GstTIVidenc
   pthread_t         encodeThread;
   gboolean          encodeDrained;
   Rendezvous_Handle waitOnEncodeDrain;
+  Rendezvous_Handle waitOnBufTab;
 
   /* Queue thread */
   pthread_t         queueThread;

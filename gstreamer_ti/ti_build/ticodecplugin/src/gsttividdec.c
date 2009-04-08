@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <gst/gst.h>
+#include <semaphore.h>
 
 #include <ti/sdo/dmai/Dmai.h>
 #include <ti/sdo/dmai/VideoStd.h>
@@ -384,6 +385,7 @@ static void gst_tividdec_init(GstTIViddec *viddec, GstTIViddecClass *gclass)
     viddec->decodeDrained       = FALSE;
     viddec->waitOnDecodeDrain   = NULL;
     viddec->waitOnDecodeThread  = NULL;
+    viddec->waitOnBufTab        = NULL;
 
     viddec->hInFifo             = NULL;
 
@@ -830,6 +832,7 @@ static gboolean gst_tividdec_init_video(GstTIViddec *viddec)
     viddec->waitOnDecodeDrain   = Rendezvous_create(100, &rzvAttrs);
     viddec->waitOnQueueThread   = Rendezvous_create(100, &rzvAttrs);
     viddec->waitOnDecodeThread  = Rendezvous_create(2, &rzvAttrs);
+    viddec->waitOnBufTab        = Rendezvous_create(100, &rzvAttrs);
     viddec->drainingEOS         = FALSE;
 
     /* Initialize custom thread attributes */
@@ -980,6 +983,11 @@ static gboolean gst_tividdec_exit_video(GstTIViddec *viddec)
     if (viddec->waitOnDecodeThread) {
         Rendezvous_delete(viddec->waitOnDecodeThread);
         viddec->waitOnDecodeThread = NULL;
+    }
+
+    if (viddec->waitOnBufTab) {
+        Rendezvous_delete(viddec->waitOnBufTab);
+        viddec->waitOnBufTab = NULL;
     }
 
     if (viddec->circBuf) {
@@ -1242,11 +1250,25 @@ static void* gst_tividdec_decode_thread(void *arg)
         }
 
         /* Obtain a free output buffer for the decoded data */
+        /* If we are not able to find free buffer from BufTab then decoder 
+         * thread will be blocked on waitOnBufTab rendezvous. And this will be 
+         * woke-up by dmaitransportbuffer finalize method.
+         */
         hDstBuf = BufTab_getFreeBuf(viddec->hOutBufTab);
         if (hDstBuf == NULL) {
-            GST_ERROR("failed to get a free contiguous buffer from BufTab\n");
-            goto thread_failure;
+            GST_LOG("Failed to get free buffer, waiting on bufTab\n");
+            Rendezvous_meet(viddec->waitOnBufTab);
+            hDstBuf = BufTab_getFreeBuf(viddec->hOutBufTab);
+
+            if (hDstBuf == NULL) {
+                GST_ERROR("failed to get a free contiguous buffer"
+                          " from BufTab\n");
+                goto thread_failure;
+            }
         }
+        
+        /* Reset waitOnBufTab rendezvous handle to its orignal state */
+        Rendezvous_reset(viddec->waitOnBufTab);
 
         /* Make sure the whole buffer is used for output */
         BufferGfx_resetDimensions(hDstBuf);
@@ -1301,7 +1323,8 @@ static void* gst_tividdec_decode_thread(void *arg)
              * buffer for re-use in this element when the source pad calls
              * gst_buffer_unref().
              */
-            outBuf = gst_tidmaibuffertransport_new(hDstBuf);
+            outBuf = gst_tidmaibuffertransport_new(hDstBuf,
+                                                    viddec->waitOnBufTab);
             gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
                  gst_ti_calculate_display_bufSize(hDstBuf));
             gst_buffer_set_caps(outBuf, GST_PAD_CAPS(viddec->srcpad));
@@ -1349,8 +1372,7 @@ thread_failure:
     Rendezvous_force(viddec->waitOnQueueThread);
 
 thread_exit:
- 
-    /* Initialize codec engine */
+    /* stop codec engine */
     if (gst_tividdec_codec_stop(viddec) < 0) {
         GST_ERROR("failed to stop codec\n");
     }

@@ -413,6 +413,7 @@ static void gst_tiimgdec_init(GstTIImgdec *imgdec, GstTIImgdecClass *gclass)
 
     imgdec->decodeDrained      = FALSE;
     imgdec->waitOnDecodeDrain  = NULL;
+    imgdec->waitOnBufTab       = NULL;
 
     imgdec->waitOnDecodeThread = NULL;
 
@@ -1007,6 +1008,7 @@ static gboolean gst_tiimgdec_init_image(GstTIImgdec *imgdec)
     imgdec->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
     imgdec->waitOnQueueThread  = Rendezvous_create(100, &rzvAttrs);
     imgdec->waitOnDecodeThread = Rendezvous_create(2, &rzvAttrs);
+    imgdec->waitOnBufTab       = Rendezvous_create(100, &rzvAttrs);
     imgdec->drainingEOS        = FALSE;
 
     /* Initialize custom thread attributes */
@@ -1153,6 +1155,11 @@ static gboolean gst_tiimgdec_exit_image(GstTIImgdec *imgdec)
     if (imgdec->waitOnDecodeThread) {
         Rendezvous_delete(imgdec->waitOnDecodeThread);
         imgdec->waitOnDecodeThread = NULL;
+    }
+
+    if (imgdec->waitOnBufTab) {
+        Rendezvous_delete(imgdec->waitOnBufTab);
+        imgdec->waitOnBufTab = NULL;
     }
 
     /* Shut down thread status management */
@@ -1388,11 +1395,24 @@ static void* gst_tiimgdec_decode_thread(void *arg)
         }
 
         /* Obtain a free output buffer for the decoded data */
+        /* If we are not able to find free buffer from BufTab then decoder 
+         * thread will be blocked on waitOnBufTab rendezvous. And this will be 
+         * woke-up by dmaitransportbuffer finalize method.
+         */
         hDstBuf = BufTab_getFreeBuf(imgdec->hOutBufTab);
         if (hDstBuf == NULL) {
-            GST_ERROR("failed to get a free contiguous buffer from BufTab\n");
-            goto thread_failure;
+            Rendezvous_meet(imgdec->waitOnBufTab);
+            hDstBuf = BufTab_getFreeBuf(imgdec->hOutBufTab);
+
+            if (hDstBuf == NULL) {
+                GST_ERROR("failed to get a free contiguous buffer from"
+                            " BufTab\n");
+                goto thread_failure;
+            }
         }
+
+        /* Reset waitOnBufTab rendezvous handle to its orignal state */
+        Rendezvous_reset(imgdec->waitOnBufTab);
 
         /* Make sure the whole buffer is used for output */
         BufferGfx_resetDimensions(hDstBuf);
@@ -1466,7 +1486,7 @@ static void* gst_tiimgdec_decode_thread(void *arg)
          * buffer for re-use in this element when the source pad calls
          * gst_buffer_unref().
          */
-        outBuf = gst_tidmaibuffertransport_new(hDstBuf);
+        outBuf = gst_tidmaibuffertransport_new(hDstBuf, imgdec->waitOnBufTab);
         gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
              gst_ti_calculate_display_bufSize(hDstBuf));
         gst_buffer_set_caps(outBuf, GST_PAD_CAPS(imgdec->srcpad));

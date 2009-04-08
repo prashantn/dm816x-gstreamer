@@ -27,6 +27,8 @@
 
 #include <gst/gstmarshal.h>
 
+#include <unistd.h>
+
 /* Define sink (input) pad capabilities.
  *
  * UYVY - YUV 422 interleaved corresponding to V4L2_PIX_FMT_UYVY in v4l2

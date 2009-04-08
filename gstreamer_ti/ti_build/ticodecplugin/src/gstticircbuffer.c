@@ -586,7 +586,7 @@ GstBuffer* gst_ticircbuffer_get_data(GstTICircBuffer *circBuf)
     GST_LOG("returning data at offset %u\n", circBuf->readPtr - 
         Buffer_getUserPtr(circBuf->hBuf));
 
-    result = (GstBuffer*)(gst_tidmaibuffertransport_new(hCircBufWindow));
+    result = (GstBuffer*)(gst_tidmaibuffertransport_new(hCircBufWindow, NULL));
     GST_BUFFER_TIMESTAMP(result) = circBuf->dataTimeStamp;
     GST_BUFFER_DURATION(result)  = GST_CLOCK_TIME_NONE;
     return result;

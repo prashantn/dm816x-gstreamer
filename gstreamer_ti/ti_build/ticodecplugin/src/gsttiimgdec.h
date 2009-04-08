@@ -76,15 +76,15 @@ struct _GstTIImgdec
 
   /* Element state */
   Engine_Handle             hEngine;
-  Idec_Handle              hIe;
+  Idec_Handle               hIe;
   gboolean                  drainingEOS;
   pthread_mutex_t           threadStatusMutex;
   UInt32                    threadStatus;
   gboolean                  capsSet;
 
   /* Codec Parameters */
-  IMGDEC_Params            params;
-  IMGDEC_DynamicParams     dynParams;
+  IMGDEC_Params             params;
+  IMGDEC_DynamicParams      dynParams;
 
   /* Decode thread */
   pthread_t                 decodeThread;
@@ -101,6 +101,7 @@ struct _GstTIImgdec
 
   /* Blocking conditions for decodeThread */
   Rendezvous_Handle         waitOnDecodeThread;
+  Rendezvous_Handle         waitOnBufTab;
   
   /* Framerate (Num/Den) */
   gint                      framerateNum;

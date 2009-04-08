@@ -364,6 +364,7 @@ static void gst_tividenc_init(GstTIVidenc *videnc, GstTIVidencClass *gclass)
     videnc->waitQueueSize           = 0;
 
     videnc->waitOnEncodeThread      = NULL;
+    videnc->waitOnBufTab            = NULL;
 
     videnc->framerateNum            = 0;
     videnc->framerateDen            = 0;
@@ -810,6 +811,7 @@ static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
     videnc->waitOnEncodeDrain   = Rendezvous_create(100, &rzvAttrs);
     videnc->waitOnQueueThread   = Rendezvous_create(100, &rzvAttrs);
     videnc->waitOnEncodeThread  = Rendezvous_create(2, &rzvAttrs);
+    videnc->waitOnBufTab        = Rendezvous_create(100, &rzvAttrs);
     videnc->drainingEOS         = FALSE;
 
     /* Initialize thread status management */
@@ -964,6 +966,11 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
     if (videnc->waitOnEncodeDrain) {
         Rendezvous_delete(videnc->waitOnEncodeDrain);
         videnc->waitOnEncodeDrain = NULL;
+    }
+
+    if (videnc->waitOnBufTab) {
+        Rendezvous_delete(videnc->waitOnBufTab);
+        videnc->waitOnBufTab = NULL;
     }
 
     if (videnc->circBuf) {
@@ -1237,11 +1244,24 @@ static void* gst_tividenc_encode_thread(void *arg)
         }
 
         /* Obtain a free output buffer for the encoded data */
+        /* If we are not able to find free buffer from BufTab then decoder 
+         * thread will be blocked on waitOnBufTab rendezvous. And this will be 
+         * woke-up by dmaitransportbuffer finalize method.
+         */
         hDstBuf = BufTab_getFreeBuf(videnc->hOutBufTab);
         if (hDstBuf == NULL) {
-            GST_ERROR("failed to get a free contiguous buffer from BufTab\n");
-            goto thread_failure;
+            Rendezvous_meet(videnc->waitOnBufTab);
+            hDstBuf = BufTab_getFreeBuf(videnc->hOutBufTab);
+
+            if (hDstBuf == NULL) {
+                GST_ERROR("failed to get a free contiguous buffer from"
+                            " BufTab\n");
+                goto thread_failure;
+            }
         }
+
+        /* Reset waitOnBufTab rendezvous handle to its orignal state */
+        Rendezvous_reset(videnc->waitOnBufTab);
 
         /* Make sure the whole buffer is used for output */
         BufferGfx_resetDimensions(hDstBuf);
@@ -1307,7 +1327,7 @@ static void* gst_tividenc_encode_thread(void *arg)
          * buffer for re-use in this element when the source pad calls
          * gst_buffer_unref().
          */
-        outBuf = gst_tidmaibuffertransport_new(hDstBuf);
+        outBuf = gst_tidmaibuffertransport_new(hDstBuf, videnc->waitOnBufTab);
         gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
             Buffer_getNumBytesUsed(hDstBuf));
         gst_buffer_set_caps(outBuf, GST_PAD_CAPS(videnc->srcpad));

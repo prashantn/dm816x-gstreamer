@@ -106,6 +106,7 @@ struct _GstTIImgenc1
 
   /* Blocking conditions for encode thread */
   Rendezvous_Handle         waitOnEncodeThread;
+  Rendezvous_Handle         waitOnBufTab;
 
   /* Framerate (Num/Den) */
   gint                      framerateNum;

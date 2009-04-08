@@ -102,6 +102,7 @@ struct _GstTIImgenc
 
   /* Blocking Conditions to Throttle I/O */
   Rendezvous_Handle         waitOnQueueThread;
+  Rendezvous_Handle         waitOnBufTab;
   Int32                     waitQueueSize;
 
   /* Blocking conditions for encode thread */

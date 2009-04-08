@@ -103,6 +103,7 @@ struct _GstTIVidenc1
 
   /* Blocking Condition for encode thread */
   Rendezvous_Handle  waitOnEncodeThread;
+  Rendezvous_Handle  waitOnBufTab;
 
   /* Framerate (Num/Den) */
   gint               framerateNum;

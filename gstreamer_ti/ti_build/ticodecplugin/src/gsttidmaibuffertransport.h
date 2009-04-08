@@ -28,6 +28,7 @@
 
 #include <ti/sdo/dmai/Dmai.h>
 #include <ti/sdo/dmai/Buffer.h>
+#include <ti/sdo/dmai/Rendezvous.h>
 
 G_BEGIN_DECLS
 
@@ -48,13 +49,14 @@ typedef struct _GstTIDmaiBufferTransport GstTIDmaiBufferTransport;
 
 /* _GstTIDmaiBufferTransport object */
 struct _GstTIDmaiBufferTransport {
-  GstBuffer      buffer;
-  Buffer_Handle  dmaiBuffer;
+  GstBuffer         buffer;
+  Buffer_Handle     dmaiBuffer;
+  Rendezvous_Handle hRv;
 };
 
 /* External function declarations */
 GType      gst_tidmaibuffertransport_get_type(void);
-GstBuffer* gst_tidmaibuffertransport_new(Buffer_Handle hBuf);
+GstBuffer* gst_tidmaibuffertransport_new(Buffer_Handle hBuf,Rendezvous_Handle);
 
 G_END_DECLS 
 

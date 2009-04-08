@@ -90,6 +90,7 @@ struct _GstTIImgdec1
   pthread_t                 decodeThread;
   gboolean                  decodeDrained;
   Rendezvous_Handle         waitOnDecodeDrain;
+  Rendezvous_Handle         waitOnBufTab;
 
   /* Queue thread */
   pthread_t                 queueThread;

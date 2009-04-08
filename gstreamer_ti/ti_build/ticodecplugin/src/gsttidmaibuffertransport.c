@@ -36,6 +36,7 @@
 #include <ti/sdo/dmai/Dmai.h>
 #include <ti/sdo/dmai/Buffer.h>
 #include <ti/sdo/dmai/BufTab.h>
+#include <ti/sdo/dmai/Rendezvous.h>
 
 #include "gsttidmaibuffertransport.h"
 
@@ -123,6 +124,7 @@ static void gst_tidmaibuffertransport_init(GTypeInstance *instance,
     GST_LOG("begin init\n");
 
     buf->dmaiBuffer = NULL;
+    buf->hRv        = NULL;
 
     GST_LOG("end init\n");
 }
@@ -148,15 +150,24 @@ static void gst_tidmaibuffertransport_finalize(GstTIDmaiBufferTransport *cbuf)
         Buffer_delete(cbuf->dmaiBuffer);
     }
 
+    /* If rendezvous handle is set then wake-up caller */
+    if (cbuf->hRv) {
+         Rendezvous_force(cbuf->hRv);
+    }
+
     GST_LOG("end finalize\n");
 }
 
 
 /******************************************************************************
  * gst_tidmaibuffertransport_new
- *    Create a new DMAI buffer transport object
+ *    Create a new DMAI buffer transport object.
+ *
+ * Note: If rendenzvous handle is set then Rendenzvous_force will be called for 
+ *       this handle during finalize method.
  ******************************************************************************/
-GstBuffer *gst_tidmaibuffertransport_new(Buffer_Handle hBuf)
+GstBuffer *gst_tidmaibuffertransport_new(Buffer_Handle hBuf, 
+     Rendezvous_Handle hRv)
 {
     GstTIDmaiBufferTransport *buf;
 
@@ -176,6 +187,7 @@ GstBuffer *gst_tidmaibuffertransport_new(Buffer_Handle hBuf)
     }
 
     buf->dmaiBuffer = hBuf;
+    buf->hRv = hRv;
 
     GST_LOG("end new\n");
 
