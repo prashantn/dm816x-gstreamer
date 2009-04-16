@@ -1157,6 +1157,10 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
     }
     else {
         params.inputChromaFormat = XDM_YUV_422ILE;
+
+        if (videnc1->device == Cpu_Device_DM355) {
+            params.reconChromaFormat = XDM_YUV_420P;
+        }
     }
 
     /* Set up codec parameters depending on bit rate */
