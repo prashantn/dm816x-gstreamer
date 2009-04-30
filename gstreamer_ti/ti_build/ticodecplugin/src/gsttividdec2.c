@@ -932,18 +932,6 @@ static gboolean gst_tividdec2_exit_video(GstTIViddec2 *viddec2)
        gst_tividdec2_drain_pipeline(viddec2);
      }
 
-    /* Shut down the decode thread */
-    if (gst_tithread_check_status(
-            viddec2, TIThread_DECODE_CREATED, checkResult)) {
-        GST_LOG("shutting down decode thread\n");
-
-        if (pthread_join(viddec2->decodeThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("decode thread exited with an error condition\n");
-            }
-        }
-    }
-
     /* Shut down the queue thread */
     if (gst_tithread_check_status(
             viddec2, TIThread_QUEUE_CREATED, checkResult)) {
@@ -965,6 +953,21 @@ static gboolean gst_tividdec2_exit_video(GstTIViddec2 *viddec2)
         if (pthread_join(viddec2->queueThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("queue thread exited with an error condition\n");
+            }
+        }
+    }
+
+    /* Shut down the decode thread */
+    /* NOTE: Shutting down decode thread frees the circular buffer being used
+     * by the queue thread. So we *must* shut down queue thread first.
+     */
+    if (gst_tithread_check_status(
+            viddec2, TIThread_DECODE_CREATED, checkResult)) {
+        GST_LOG("shutting down decode thread\n");
+
+        if (pthread_join(viddec2->decodeThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
+                GST_DEBUG("decode thread exited with an error condition\n");
             }
         }
     }
@@ -997,20 +1000,6 @@ static gboolean gst_tividdec2_exit_video(GstTIViddec2 *viddec2)
     if (viddec2->waitOnBufTab) {
         Rendezvous_delete(viddec2->waitOnBufTab);
         viddec2->waitOnBufTab = NULL;
-    }
-
-    if (viddec2->circBuf) {
-        GST_LOG("freeing cicrular input buffer\n");
-        gst_ticircbuffer_unref(viddec2->circBuf);
-        viddec2->circBuf      = NULL;
-        viddec2->framerateNum = 0;
-        viddec2->framerateDen = 0;
-    }
-
-    if (viddec2->hOutBufTab) {
-        GST_LOG("freeing output buffers\n");
-        BufTab_delete(viddec2->hOutBufTab);
-        viddec2->hOutBufTab = NULL;
     }
 
     if (viddec2->sps_pps_data) {
@@ -1087,6 +1076,20 @@ static GstStateChangeReturn gst_tividdec2_change_state(GstElement *element,
  *****************************************************************************/
 static gboolean gst_tividdec2_codec_stop (GstTIViddec2  *viddec2)
 {
+    if (viddec2->circBuf) {
+        GST_LOG("freeing cicrular input buffer\n");
+        gst_ticircbuffer_unref(viddec2->circBuf);
+        viddec2->circBuf      = NULL;
+        viddec2->framerateNum = 0;
+        viddec2->framerateDen = 0;
+    }
+
+    if (viddec2->hOutBufTab) {
+        GST_LOG("freeing output buffers\n");
+        BufTab_delete(viddec2->hOutBufTab);
+        viddec2->hOutBufTab = NULL;
+    }
+
     /* Shut down remaining items */
     if (viddec2->hVd) {
         GST_LOG("closing video decoder\n");

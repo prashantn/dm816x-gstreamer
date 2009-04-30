@@ -906,18 +906,6 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
        gst_tividenc_drain_pipeline(videnc);
      }
 
-    /* Shut down the encode thread */
-    if (gst_tithread_check_status(
-            videnc, TIThread_DECODE_CREATED, checkResult)) {
-        GST_LOG("shutting down encode thread\n");
-
-        if (pthread_join(videnc->encodeThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("encode thread exited with an error condition\n");
-            }
-        }
-    }
-
     /* Shut down the queue thread */
     if (gst_tithread_check_status(
             videnc, TIThread_QUEUE_CREATED, checkResult)) {
@@ -939,6 +927,21 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
         if (pthread_join(videnc->queueThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("queue thread exited with an error condition\n");
+            }
+        }
+    }
+
+    /* Shut down the encode thread */
+    /* NOTE: Shutting down encode thread frees the circular buffer being used
+     * by the queue thread. So we *must* shut down queue thread first.
+     */
+    if (gst_tithread_check_status(
+            videnc, TIThread_DECODE_CREATED, checkResult)) {
+        GST_LOG("shutting down encode thread\n");
+
+        if (pthread_join(videnc->encodeThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
+                GST_DEBUG("encode thread exited with an error condition\n");
             }
         }
     }
@@ -971,20 +974,6 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
     if (videnc->waitOnBufTab) {
         Rendezvous_delete(videnc->waitOnBufTab);
         videnc->waitOnBufTab = NULL;
-    }
-
-    if (videnc->circBuf) {
-        GST_LOG("freeing cicrular input buffer\n");
-        gst_ticircbuffer_unref(videnc->circBuf);
-        videnc->circBuf      = NULL;
-        videnc->framerateNum = 0;
-        videnc->framerateDen = 0;
-    }
-
-    if (videnc->hOutBufTab) {
-        GST_LOG("freeing output buffers\n");
-        BufTab_delete(videnc->hOutBufTab);
-        videnc->hOutBufTab = NULL;
     }
 
     GST_LOG("end exit_video\n");
@@ -1044,6 +1033,20 @@ static GstStateChangeReturn gst_tividenc_change_state(GstElement *element,
  *****************************************************************************/
 static gboolean gst_tividenc_codec_stop (GstTIVidenc *videnc)
 {
+    if (videnc->circBuf) {
+        GST_LOG("freeing cicrular input buffer\n");
+        gst_ticircbuffer_unref(videnc->circBuf);
+        videnc->circBuf      = NULL;
+        videnc->framerateNum = 0;
+        videnc->framerateDen = 0;
+    }
+
+    if (videnc->hOutBufTab) {
+        GST_LOG("freeing output buffers\n");
+        BufTab_delete(videnc->hOutBufTab);
+        videnc->hOutBufTab = NULL;
+    }
+
     if (videnc->hVe) {
         GST_LOG("closing video encoder\n");
         Venc_delete(videnc->hVe);

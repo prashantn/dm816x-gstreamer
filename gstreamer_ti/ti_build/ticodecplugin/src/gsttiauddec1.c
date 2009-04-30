@@ -883,18 +883,6 @@ static gboolean gst_tiauddec1_exit_audio(GstTIAuddec1 *auddec1)
        gst_tiauddec1_drain_pipeline(auddec1);
      }
 
-    /* Shut down the decode thread */
-    if (gst_tithread_check_status(
-            auddec1, TIThread_DECODE_CREATED, checkResult)) {
-        GST_LOG("shutting down decode thread\n");
-
-        if (pthread_join(auddec1->decodeThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("decode thread exited with an error condition\n");
-            }
-        }
-    }
-
     /* Shut down the queue thread */
     if (gst_tithread_check_status(
             auddec1, TIThread_QUEUE_CREATED, checkResult)) {
@@ -916,6 +904,21 @@ static gboolean gst_tiauddec1_exit_audio(GstTIAuddec1 *auddec1)
         if (pthread_join(auddec1->queueThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("queue thread exited with an error condition\n");
+            }
+        }
+    }
+
+    /* Shut down the decode thread */
+    /* NOTE: Shutting down decode thread frees the circular buffer being used
+     * by the queue thread. So we *must* shut down queue thread first.
+     */
+    if (gst_tithread_check_status(
+            auddec1, TIThread_DECODE_CREATED, checkResult)) {
+        GST_LOG("shutting down decode thread\n");
+
+        if (pthread_join(auddec1->decodeThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
+                GST_DEBUG("decode thread exited with an error condition\n");
             }
         }
     }
@@ -948,18 +951,6 @@ static gboolean gst_tiauddec1_exit_audio(GstTIAuddec1 *auddec1)
     if (auddec1->waitOnBufTab) {
         Rendezvous_delete(auddec1->waitOnBufTab);
         auddec1->waitOnBufTab = NULL;
-    }
-
-    if (auddec1->circBuf) {
-        GST_LOG("freeing cicrular input buffer\n");
-        gst_ticircbuffer_unref(auddec1->circBuf);
-        auddec1->circBuf       = NULL;
-    }
-
-    if (auddec1->hOutBufTab) {
-        GST_LOG("freeing output buffer\n");
-        BufTab_delete(auddec1->hOutBufTab);
-        auddec1->hOutBufTab = NULL;
     }
 
     GST_LOG("end exit_audio\n");
@@ -1019,6 +1010,18 @@ static GstStateChangeReturn gst_tiauddec1_change_state(GstElement *element,
  *****************************************************************************/
 static gboolean gst_tiauddec1_codec_stop (GstTIAuddec1  *auddec1)
 {
+    if (auddec1->circBuf) {
+        GST_LOG("freeing cicrular input buffer\n");
+        gst_ticircbuffer_unref(auddec1->circBuf);
+        auddec1->circBuf       = NULL;
+    }
+
+    if (auddec1->hOutBufTab) {
+        GST_LOG("freeing output buffer\n");
+        BufTab_delete(auddec1->hOutBufTab);
+        auddec1->hOutBufTab = NULL;
+    }
+
     if (auddec1->hAd) {
         GST_LOG("closing audio decoder\n");
         Adec1_delete(auddec1->hAd);

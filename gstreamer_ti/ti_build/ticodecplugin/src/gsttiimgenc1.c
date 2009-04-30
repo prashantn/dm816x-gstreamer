@@ -1403,18 +1403,6 @@ static gboolean gst_tiimgenc1_exit_image(GstTIImgenc1 *imgenc1)
        gst_tiimgenc1_drain_pipeline(imgenc1);
      }
 
-    /* Shut down the encode thread */
-    if (gst_tithread_check_status(
-            imgenc1, TIThread_DECODE_CREATED, checkResult)) {
-        GST_LOG("shutting down encode thread\n");
-
-        if (pthread_join(imgenc1->encodeThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("encode thread exited with an error condition\n");
-            }
-        }
-    }
-
     /* Shut down the queue thread */
     if (gst_tithread_check_status(
             imgenc1, TIThread_QUEUE_CREATED, checkResult)) {
@@ -1436,6 +1424,21 @@ static gboolean gst_tiimgenc1_exit_image(GstTIImgenc1 *imgenc1)
         if (pthread_join(imgenc1->queueThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("queue thread exited with an error condition\n");
+            }
+        }
+    }
+
+    /* Shut down the encode thread */
+    /* NOTE: Shutting encode decode thread frees the circular buffer being used
+     * by the queue thread. So we *must* shut down queue thread first.
+     */
+    if (gst_tithread_check_status(
+            imgenc1, TIThread_DECODE_CREATED, checkResult)) {
+        GST_LOG("shutting down encode thread\n");
+
+        if (pthread_join(imgenc1->encodeThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
+                GST_DEBUG("encode thread exited with an error condition\n");
             }
         }
     }
@@ -1468,21 +1471,6 @@ static gboolean gst_tiimgenc1_exit_image(GstTIImgenc1 *imgenc1)
     /* Shut down thread status management */
     imgenc1->threadStatus = 0UL;
     pthread_mutex_destroy(&imgenc1->threadStatusMutex);
-
-    /* Shut down remaining items */
-    if (imgenc1->circBuf) {
-        GST_LOG("freeing cicrular input buffer\n");
-        gst_ticircbuffer_unref(imgenc1->circBuf);
-        imgenc1->circBuf      = NULL;
-        imgenc1->framerateNum = 0;
-        imgenc1->framerateDen = 0;
-    }
-
-    if (imgenc1->hOutBufTab) {
-        GST_LOG("freeing output buffers\n");
-        BufTab_delete(imgenc1->hOutBufTab);
-        imgenc1->hOutBufTab = NULL;
-    }
 
     GST_LOG("Finish\n");
     return TRUE;
@@ -1542,6 +1530,21 @@ static GstStateChangeReturn gst_tiimgenc1_change_state(GstElement *element,
  *****************************************************************************/
 static gboolean gst_tiimgenc1_codec_stop (GstTIImgenc1  *imgenc1)
 {
+    /* Shut down remaining items */
+    if (imgenc1->circBuf) {
+        GST_LOG("freeing cicrular input buffer\n");
+        gst_ticircbuffer_unref(imgenc1->circBuf);
+        imgenc1->circBuf      = NULL;
+        imgenc1->framerateNum = 0;
+        imgenc1->framerateDen = 0;
+    }
+
+    if (imgenc1->hOutBufTab) {
+        GST_LOG("freeing output buffers\n");
+        BufTab_delete(imgenc1->hOutBufTab);
+        imgenc1->hOutBufTab = NULL;
+    }
+
     if (imgenc1->hIe) {
         GST_LOG("closing image encoder\n");
         Ienc1_delete(imgenc1->hIe);

@@ -1,3 +1,10 @@
+2009-04-27  Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttividenc1.c,gsttividenc.c,gsttividdec2.c,gsttividdec.c,
+	gsttiauddec1.c,gsttiauddec.c,gsttiimgdec1.c,gsttiimgenc1.c,
+	gsttiimgdec.c, gsttiimgenc.c}:
+	The CMEM module requires that buffers allocated from a CMEM pool *must* 
+	be freed by the same thread.
+	
 2009-03-27  Chase Maupin, Texas Instruments, Inc.
 	* src/{gsttividenc1.c,gsttividenc.c,gsttividdec2.c,gsttividdec.c,
 	gsttiauddec1.c,gsttiauddec.c,gsttiimgdec1.c,gsttiimgenc1.c,
