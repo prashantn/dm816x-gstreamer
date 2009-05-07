@@ -189,7 +189,6 @@ GType gst_tiauddec1_get_type(void)
             "TI xDM 1.x Audio Decoder");
 
         GST_LOG("initialized get_type\n");
-
     }
 
     return object_type;

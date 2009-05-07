@@ -170,7 +170,6 @@ GType gst_tiimgdec1_get_type(void)
 {
     static GType object_type = 0;
 
-    GST_LOG("Begin\n");
     if (G_UNLIKELY(object_type == 0)) {
         static const GTypeInfo object_info = {
             sizeof(GstTIImgdec1Class),
@@ -192,10 +191,8 @@ GType gst_tiimgdec1_get_type(void)
             "TI xDM 1.0 Image Decoder");
 
         GST_LOG("initialized get_type\n");
-
     }
 
-    GST_LOG("Finish\n");
     return object_type;
 };
 

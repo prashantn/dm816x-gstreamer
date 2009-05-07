@@ -206,7 +206,6 @@ GType gst_tividdec2_get_type(void)
             "TI xDM 1.2 Video Decoder");
 
         GST_LOG("initialized get_type\n");
-
     }
 
     return object_type;

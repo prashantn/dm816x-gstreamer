@@ -214,7 +214,6 @@ GType gst_tividenc1_get_type(void)
             "TI xDM 1.x Video Encoder");
 
         GST_LOG("initialized get_type\n");
-
     }
 
     return object_type;

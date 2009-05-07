@@ -198,7 +198,6 @@ GType gst_tividenc_get_type(void)
             "TI xDM 0.9 Video Encoder");
 
         GST_LOG("initialized get_type\n");
-
     }
 
     return object_type;

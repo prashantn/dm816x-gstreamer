@@ -1,3 +1,10 @@
+2009-05-07  Chase Maupin, Texas Instruments, Inc.
+	* src/{gsttividenc1.c,gsttividenc.c,gsttividdec2.c,gsttividdec.c,
+	gsttiauddec1.c,gsttiauddec.c,gsttiimgdec1.c,gsttiimgenc1.c,
+	gsttiimgdec.c, gsttiimgenc.c}:
+	Applied patch from Tommy supplied in bug tracker 555.  This patch
+	removes GStreamer assertions when LOG level 5 is specified.
+
 2009-04-27  Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividenc1.c,gsttividenc.c,gsttividdec2.c,gsttividdec.c,
 	gsttiauddec1.c,gsttiauddec.c,gsttiimgdec1.c,gsttiimgenc1.c,
