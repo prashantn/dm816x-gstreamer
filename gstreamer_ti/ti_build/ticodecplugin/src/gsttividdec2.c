@@ -163,6 +163,10 @@ static gboolean
     gst_tividdec2_codec_stop (GstTIViddec2  *viddec2);
 static void 
     gst_tividdec2_init_env(GstTIViddec2 *viddec2);
+static void
+    gst_tividdec2_dispose(GObject * object);
+static gboolean 
+    gst_tividdec2_set_query_pad(GstPad * pad, GstQuery * query);
 
 /******************************************************************************
  * gst_tividdec2_class_init_trampoline
@@ -236,6 +240,22 @@ static void gst_tividdec2_base_init(gpointer gclass)
 
 }
 
+/******************************************************************************
+ * gst_tividdec2_dispose
+ *****************************************************************************/
+static void gst_tividdec2_dispose(GObject * object)
+{
+    GstTIViddec2 *viddec2 = GST_TIVIDDEC2(object);
+
+    if (viddec2->segment) {
+        gst_segment_free(viddec2->segment);
+        viddec2->segment = NULL;
+    }
+
+    G_OBJECT_CLASS(parent_class)->dispose (object);
+}
+
+
 
 /******************************************************************************
  * gst_tividdec2_class_init
@@ -252,6 +272,7 @@ static void gst_tividdec2_class_init(GstTIViddec2Class *klass)
 
     gobject_class->set_property = gst_tividdec2_set_property;
     gobject_class->get_property = gst_tividdec2_get_property;
+    gobject_class->dispose      = GST_DEBUG_FUNCPTR(gst_tividdec2_dispose);
 
     gstelement_class->change_state = gst_tividdec2_change_state;
 
@@ -369,6 +390,8 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     gst_pad_fixate_caps(viddec2->srcpad,
         gst_caps_make_writable(
             gst_caps_copy(gst_pad_get_pad_template_caps(viddec2->srcpad))));
+    gst_pad_set_query_function(viddec2->srcpad,
+            GST_DEBUG_FUNCPTR(gst_tividdec2_set_query_pad));
 
     /* Add pads to TIViddec2 element */
     gst_element_add_pad(GST_ELEMENT(viddec2), viddec2->sinkpad);
@@ -407,7 +430,30 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     viddec2->nal_code_prefix    = NULL;
     viddec2->nal_length         = 0;
 
+    viddec2->segment            = gst_segment_new();
+    viddec2->totalDuration      = 0;
+    viddec2->totalBytes         = 0;
+
     gst_tividdec2_init_env(viddec2);
+}
+
+/******************************************************************************
+ * gst_tividdec_set_query_pad
+ *   This function reuturn stream duration and position.
+ *****************************************************************************/
+static gboolean gst_tividdec2_set_query_pad(GstPad *pad, GstQuery *query)
+{
+    GstTIViddec2  *viddec2;
+    gboolean     ret = FALSE;
+
+    viddec2    = GST_TIVIDDEC2(gst_pad_get_parent(pad));
+   
+    ret = gst_ti_query_srcpad(pad, query, viddec2->sinkpad, 
+             viddec2->totalDuration, viddec2->totalBytes);
+
+    gst_object_unref(viddec2);
+
+    return ret;
 }
 
 
@@ -669,11 +715,11 @@ static gboolean gst_tividdec2_sink_event(GstPad *pad, GstEvent *event)
     switch (GST_EVENT_TYPE(event)) {
 
         case GST_EVENT_NEWSEGMENT:
-            /* maybe save and/or update the current segment (e.g. for output
-             * clipping) or convert the event into one in a different format
-             * (e.g. BYTES to TIME) or drop it and set a flag to send a
-             * newsegment event in a different format later
-             */
+            /* if event format is byte then convert in time format */
+            gst_ti_parse_newsegment(&event, viddec2->segment, 
+                &viddec2->totalDuration, viddec2->totalBytes);
+
+            /* Propagate NEWSEGMENT to downstream elements */
             ret = gst_pad_push_event(viddec2->srcpad, event);
             break;
 
@@ -1061,6 +1107,15 @@ static GstStateChangeReturn gst_tividdec2_change_state(GstElement *element,
             }
             break;
 
+        case GST_STATE_CHANGE_READY_TO_PAUSED:
+            gst_segment_init(viddec2->segment, GST_FORMAT_TIME);
+            break;
+
+        case GST_STATE_CHANGE_PAUSED_TO_READY:
+            viddec2->totalBytes       = 0;
+            viddec2->totalDuration    = 0;
+            break;
+
         default:
             break;
     }
@@ -1333,6 +1388,9 @@ static void* gst_tividdec2_decode_thread(void *arg)
             GST_LOG("Vdec2_process returned success code %d\n", ret); 
         }
 
+        /* Increment total bytes recieved */
+        viddec2->totalBytes += encDataConsumed;
+
         /* Release the reference buffer, and tell the circular buffer how much
          * data was consumed.
          */
@@ -1381,12 +1439,11 @@ static void* gst_tividdec2_decode_thread(void *arg)
                 gst_ti_calculate_display_bufSize(hDstBuf));
             gst_buffer_set_caps(outBuf, GST_PAD_CAPS(viddec2->srcpad));
 
-            /* If we have a valid time stamp, set it on the buffer */
-            if (viddec2->genTimeStamps &&
-                GST_CLOCK_TIME_IS_VALID(encDataTime)) {
-                GST_LOG("video timestamp value: %llu\n", encDataTime);
-                GST_BUFFER_TIMESTAMP(outBuf) = encDataTime;
-                GST_BUFFER_DURATION(outBuf)  = frameDuration;
+            /* Set output buffer timestamp */ 
+            if (viddec2->genTimeStamps) {
+                GST_BUFFER_TIMESTAMP(outBuf) = viddec2->totalDuration;
+                GST_BUFFER_DURATION(outBuf)  = frameDuration; 
+                viddec2->totalDuration       += GST_BUFFER_DURATION(outBuf);
             }
             else {
                 GST_BUFFER_TIMESTAMP(outBuf) = GST_CLOCK_TIME_NONE;
@@ -1396,7 +1453,10 @@ static void* gst_tividdec2_decode_thread(void *arg)
             gst_ticircbuffer_time_consumed(viddec2->circBuf, frameDuration);
 
             /* Push the transport buffer to the source pad */
-            GST_LOG("pushing display buffer to source pad\n");
+            GST_LOG("pushing buffer to source pad with timestamp : %" 
+                    GST_TIME_FORMAT ", duration: %" GST_TIME_FORMAT,
+                    GST_TIME_ARGS (GST_BUFFER_TIMESTAMP(outBuf)),
+                    GST_TIME_ARGS (GST_BUFFER_DURATION(outBuf)));
 
             if (gst_pad_push(viddec2->srcpad, outBuf) != GST_FLOW_OK) {
                 GST_DEBUG("push to source pad failed\n");

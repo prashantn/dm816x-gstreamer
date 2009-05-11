@@ -53,6 +53,19 @@ gint gst_ti_env_get_int (gchar *env);
 /* Function to check if the environment variable is defined */
 gboolean gst_ti_env_is_defined (gchar *env);
 
+/* Function to convert one format to another */
+gboolean gst_ti_src_convert_format(GstFormat src_format, gint64 src_val,
+    GstFormat dest_format, gint64 * dest_val, gint64 elapsed_duration, 
+    guint64 consumed_bytes);
+
+/* Function to parse and prepare newsegment for srcpad */ 
+void gst_ti_parse_newsegment(GstEvent **event, GstSegment *segment,
+    gint64 *elapsedDuration, guint64 consumedBytes);
+
+/* Function to query position and duration of the stream. */ 
+gboolean gst_ti_query_srcpad(GstPad * pad, GstQuery * query, 
+    GstPad *sinkpad, gint64 totalDuration, guint64 totalBytes);
+
 #endif 
 
 /******************************************************************************

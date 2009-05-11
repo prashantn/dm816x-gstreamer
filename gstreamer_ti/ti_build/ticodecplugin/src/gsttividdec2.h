@@ -107,6 +107,13 @@ struct _GstTIViddec2
   GstBuffer       *sps_pps_data;
   GstBuffer       *nal_code_prefix;
   guint           nal_length;
+
+  /* Segment handling */
+  GstSegment      *segment;
+
+  /* Buffer timestamp */
+  gint64          totalDuration;
+  guint64         totalBytes;
 };
 
 /* _GstTIViddec2Class object */

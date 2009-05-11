@@ -45,6 +45,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <gst/gst.h>
+#include <gst/audio/audio.h>
 
 #include <pthread.h>
 
@@ -147,6 +148,10 @@ static gboolean
     gst_tiauddec1_codec_stop (GstTIAuddec1  *auddec1);
 static void 
     gst_tiauddec1_init_env(GstTIAuddec1 *auddec1);
+static void
+    gst_tiauddec1_dispose(GObject * object);
+static gboolean 
+    gst_tiauddec1_set_query_pad(GstPad * pad, GstQuery * query);
 
 /******************************************************************************
  * gst_tiauddec1_class_init_trampoline
@@ -194,6 +199,21 @@ GType gst_tiauddec1_get_type(void)
     return object_type;
 };
 
+/******************************************************************************
+ * gst_tiauddec_dispose
+ *****************************************************************************/
+static void gst_tiauddec1_dispose(GObject * object)
+{
+    GstTIAuddec1 *auddec1 = GST_TIAUDDEC1(object);
+
+    if (auddec1->segment) {
+        gst_segment_free(auddec1->segment);
+        auddec1->segment = NULL;
+    }
+
+    G_OBJECT_CLASS(parent_class)->dispose (object);
+}
+
 
 /******************************************************************************
  * gst_tiauddec1_base_init
@@ -235,6 +255,7 @@ static void gst_tiauddec1_class_init(GstTIAuddec1Class *klass)
 
     gobject_class->set_property = gst_tiauddec1_set_property;
     gobject_class->get_property = gst_tiauddec1_get_property;
+    gobject_class->dispose      = GST_DEBUG_FUNCPTR (gst_tiauddec1_dispose);
 
     gstelement_class->change_state = gst_tiauddec1_change_state;
 
@@ -339,6 +360,8 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
     gst_pad_fixate_caps(auddec1->srcpad,
         gst_caps_make_writable(
             gst_caps_copy(gst_pad_get_pad_template_caps(auddec1->srcpad))));
+    gst_pad_set_query_function(auddec1->srcpad,
+            GST_DEBUG_FUNCPTR(gst_tiauddec1_set_query_pad));
 
     /* Add pads to TIAuddec1 element */
     gst_element_add_pad(GST_ELEMENT(auddec1), auddec1->sinkpad);
@@ -373,7 +396,30 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
 
     auddec1->aac_header_data    = NULL;
 
+    auddec1->segment            = gst_segment_new();
+    auddec1->totalDuration      = 0;
+    auddec1->totalBytes         = 0;
+
     gst_tiauddec1_init_env(auddec1);
+}
+
+/******************************************************************************
+ * gst_tiauddec_set_query_pad
+ *   This function reuturn stream duration and position.
+ *****************************************************************************/
+static gboolean gst_tiauddec1_set_query_pad(GstPad *pad, GstQuery *query)
+{
+    GstTIAuddec1  *auddec1;
+    gboolean     ret = FALSE;
+
+    auddec1    = GST_TIAUDDEC1(gst_pad_get_parent(pad));
+   
+    ret = gst_ti_query_srcpad(pad, query, auddec1->sinkpad, 
+             auddec1->totalDuration, auddec1->totalBytes);
+
+    gst_object_unref(auddec1);
+
+    return ret;
 }
 
 
@@ -627,11 +673,13 @@ static gboolean gst_tiauddec1_sink_event(GstPad *pad, GstEvent *event)
     switch (GST_EVENT_TYPE(event)) {
 
         case GST_EVENT_NEWSEGMENT:
-            /* maybe save and/or update the current segment (e.g. for output
-             * clipping) or convert the event into one in a different format
-             * (e.g. BYTES to TIME) or drop it and set a flag to send a
-             * newsegment event in a different format later
+            /* Parse new segment event (if needed then convert from byte format
+             * to time format).
              */
+            gst_ti_parse_newsegment(&event, auddec1->segment,
+                &auddec1->totalDuration, auddec1->totalBytes);
+
+            /* Propagate NEWSEGMENT to downstream elements */
             ret = gst_pad_push_event(auddec1->srcpad, event);
             break;
 
@@ -995,6 +1043,15 @@ static GstStateChangeReturn gst_tiauddec1_change_state(GstElement *element,
             }
             break;
 
+        case GST_STATE_CHANGE_READY_TO_PAUSED:
+            gst_segment_init(auddec1->segment, GST_FORMAT_TIME);
+            break;
+
+        case GST_STATE_CHANGE_PAUSED_TO_READY:
+            auddec1->totalBytes      = 0;
+            auddec1->totalDuration   = 0;
+            break;
+
         default:
             break;
     }
@@ -1124,6 +1181,8 @@ static void* gst_tiauddec1_decode_thread(void *arg)
     guint          sampleDataSize;
     GstClockTime   sampleDuration;
     guint          sampleRate;
+    guint          numSamples;
+    guint          offset;
 
     GST_LOG("starting auddec decode thread\n");
 
@@ -1200,12 +1259,14 @@ static void* gst_tiauddec1_decode_thread(void *arg)
          * now, derive the duration from the number of bytes decoded by the
          * codec.
          */
+
         sampleDataSize = Buffer_getNumBytesUsed(hDstBuf);
         sampleRate     = Adec1_getSampleRate(auddec1->hAd);
-        sampleDuration = (GstClockTime)
-            (((gdouble)(sampleDataSize) / (gdouble)auddec1->channels /
-              (gdouble) 2 / (gdouble)sampleRate)
-            * GST_SECOND);
+        numSamples     = sampleDataSize / (2 * auddec1->channels) ;
+        sampleDuration = GST_FRAMES_TO_CLOCK_TIME(numSamples, sampleRate);
+        encDataTime    = auddec1->totalDuration;
+        offset         = GST_CLOCK_TIME_TO_FRAMES(auddec1->totalDuration,
+                                                    sampleRate);
 
         /* Release the reference buffer, and tell the circular buffer how much
          * data was consumed.
@@ -1235,21 +1296,25 @@ static void* gst_tiauddec1_decode_thread(void *arg)
             Buffer_getNumBytesUsed(hDstBuf));
         gst_buffer_set_caps(outBuf, GST_PAD_CAPS(auddec1->srcpad));
 
-        /* If we have a valid time stamp, set it on the buffer */
-        if (auddec1->genTimeStamps && GST_CLOCK_TIME_IS_VALID(encDataTime)) {
-            GST_LOG("audio timestamp value: %llu\n", encDataTime);
-            GST_BUFFER_TIMESTAMP(outBuf) = encDataTime;
-            GST_BUFFER_DURATION(outBuf)  = sampleDuration;
+        /* Set timestamp on output buffer */
+        if (auddec1->genTimeStamps) {
+            GST_BUFFER_OFFSET(outBuf)       = offset;
+            GST_BUFFER_DURATION(outBuf)     = sampleDuration;
+            GST_BUFFER_TIMESTAMP(outBuf)    = encDataTime;
+            auddec1->totalDuration  += GST_BUFFER_DURATION (outBuf);
         }
         else {
-            GST_BUFFER_TIMESTAMP(outBuf) = GST_CLOCK_TIME_NONE;
+            GST_BUFFER_TIMESTAMP(outBuf)    = GST_CLOCK_TIME_NONE;
         }
 
         /* Tell circular buffer how much time we consumed */
         gst_ticircbuffer_time_consumed(auddec1->circBuf, sampleDuration);
 
         /* Push the transport buffer to the source pad */
-        GST_LOG("pushing buffer to source pad\n");
+        GST_LOG("pushing buffer to source pad with timestamp : %"
+                GST_TIME_FORMAT ", duration: %" GST_TIME_FORMAT,
+                GST_TIME_ARGS (GST_BUFFER_TIMESTAMP(outBuf)),
+                GST_TIME_ARGS (GST_BUFFER_DURATION(outBuf)));
 
         if (gst_pad_push(auddec1->srcpad, outBuf) != GST_FLOW_OK) {
             GST_DEBUG("push to source pad failed\n");

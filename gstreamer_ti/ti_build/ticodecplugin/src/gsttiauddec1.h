@@ -100,6 +100,13 @@ struct _GstTIAuddec1
 
   /* AAC header (qtdemuxer) */
   GstBuffer       *aac_header_data;
+
+  /* Segment handling */
+  GstSegment      *segment;
+
+  /* Buffer timestamp */
+  gint64          totalDuration;
+  guint64         totalBytes;
 };
 
 /* _GstTIAuddec1Class object */
