@@ -226,22 +226,7 @@ multimedia files:
 Note that you may need to specify command line arguments to some scripts for
 them to work properly.  Run a script with -h to see what options are available.
 
-Known Issues
-============
-- If you don't have "gperf" installed on your system, it may manifest as a
-  mysterious run issue with libid3tag involving unresolved symbols.  The gperf
-  package that comes with RHEL 4.6 is sufficient, but you need to make sure
-  it is installed.
-- The JPEG image elements support multiple color spaces.  However, not every
-  codec supports every color space.  If you specify a color space that is
-  not supported you will get an error message indicating that the plugin
-  failed to create the codec.  Check the codec user's guide to determine
-  if your codec supports the color spaces used for the input and output.
-- If clip size is smaller and dmaivideosink element reports "assertion" then
-  try disabling hw accelerated framecopy. This can be disabled with -c option
-  in scripts. Note: disabling hw accel framecopy will affect performance.
-
-The above are some high level issues and limitations.  For specific issues
-please the the tracker items on the GStreamer project site at:
+Known issues are listed in the RELEASE_NOTES.TXT file.  For a list of all 
+issues please the the tracker items on the GStreamer project site at:
 https://gstreamer.ti.com/gf/project/gstreamer_ti/tracker/
 
