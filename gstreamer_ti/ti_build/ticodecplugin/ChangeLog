@@ -1,3 +1,7 @@
+2009-05-27  Don Darling, Texas Instruments, Inc.
+	* src/gsttiauddec.c:
+	Correct issue when shutting down the codec and audio element.
+
 2009-05-22  Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec.c,gsttiauddec1.c,gsttiimgdec.c,gsttiimgdec1.c,
 	gsttiimgenc.c,gsttiimgenc1.c,gsttividdec.c,gsttividdec2.c,gsttividenc.c,

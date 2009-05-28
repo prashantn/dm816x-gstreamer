@@ -1008,10 +1008,9 @@ static gboolean gst_tiauddec_exit_audio(GstTIAuddec *auddec)
         auddec->waitOnDecodeDrain = NULL;
     }
 
-    if (auddec->hOutBufTab) {
-        GST_LOG("freeing output buffer\n");
-        BufTab_delete(auddec->hOutBufTab);
-        auddec->hOutBufTab = NULL;
+    if (auddec->waitOnBufTab) {
+        Rendezvous_delete(auddec->waitOnBufTab);
+        auddec->waitOnBufTab = NULL;
     }
 
     GST_LOG("end exit_audio\n");
@@ -1081,15 +1080,16 @@ static GstStateChangeReturn gst_tiauddec_change_state(GstElement *element,
  *****************************************************************************/
 static gboolean gst_tiauddec_codec_stop (GstTIAuddec  *auddec)
 {
-    if (auddec->waitOnBufTab) {
-        Rendezvous_delete(auddec->waitOnBufTab);
-        auddec->waitOnBufTab = NULL;
-    }
-
     if (auddec->circBuf) {
         GST_LOG("freeing cicrular input buffer\n");
         gst_ticircbuffer_unref(auddec->circBuf);
         auddec->circBuf       = NULL;
+    }
+
+    if (auddec->hOutBufTab) {
+        GST_LOG("freeing output buffer\n");
+        BufTab_delete(auddec->hOutBufTab);
+        auddec->hOutBufTab = NULL;
     }
 
     if (auddec->hAd) {
