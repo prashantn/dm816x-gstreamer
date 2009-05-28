@@ -893,6 +893,13 @@ static gboolean gst_tiauddec_init_audio(GstTIAuddec * auddec)
     }
     gst_tithread_set_status(auddec, TIThread_DECODE_CREATED);
 
+    /* Destroy the custom thread attributes */
+    if (pthread_attr_destroy(&attr)) {
+        GST_WARNING("failed to destroy thread attrs\n");
+        gst_tiauddec_exit_audio(auddec);
+        return FALSE;
+    }
+
     /* Wait for decoder thread to finish initilization before creating queue
      * thread.
      */

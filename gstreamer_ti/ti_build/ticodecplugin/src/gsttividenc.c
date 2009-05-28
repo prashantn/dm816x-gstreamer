@@ -861,6 +861,12 @@ static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
     }
     gst_tithread_set_status(videnc, TIThread_DECODE_CREATED);
 
+    /* Destroy the custom thread attributes */
+    if (pthread_attr_destroy(&attr)) {
+        GST_WARNING("failed to destroy thread attrs\n");
+        gst_tividenc_exit_video(videnc);
+        return FALSE;
+    }
 
     /* Wait for encoder thread to finish initilization before creating queue
      * thread.

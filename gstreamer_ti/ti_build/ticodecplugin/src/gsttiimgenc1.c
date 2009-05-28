@@ -1356,6 +1356,13 @@ static gboolean gst_tiimgenc1_init_image(GstTIImgenc1 *imgenc1)
     }
     gst_tithread_set_status(imgenc1, TIThread_DECODE_CREATED);
 
+    /* Destroy the custom thread attributes */
+    if (pthread_attr_destroy(&attr)) {
+        GST_WARNING("failed to destroy thread attrs\n");
+        gst_tiimgenc1_exit_image(imgenc1);
+        return FALSE;
+    }
+
     /* Wait for decoder thread to finish initilization before creating queue
      * thread.
      */

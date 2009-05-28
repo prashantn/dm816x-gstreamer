@@ -1,4 +1,10 @@
 2009-05-22  Don Darling, Texas Instruments, Inc.
+	* src/{gsttiauddec.c,gsttiauddec1.c,gsttiimgdec.c,gsttiimgdec1.c,
+	gsttiimgenc.c,gsttiimgenc1.c,gsttividdec.c,gsttividdec2.c,gsttividenc.c,
+	gsttividenc1.c}:
+	Destroy custom thread attribute object after we're done using it.
+
+2009-05-22  Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec.c,gsttiauddec1.c}:
 	Fix issue where we were always setting audio source caps to 2 channels.
 
