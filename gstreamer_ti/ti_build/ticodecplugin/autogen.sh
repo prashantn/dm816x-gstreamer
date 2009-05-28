@@ -28,6 +28,10 @@ version_check "automake" "$AUTOMAKE automake automake-1.9 automake19 automake-1.
               "ftp://ftp.gnu.org/pub/gnu/automake/" 1 7 || DIE=1
 ###version_check "autopoint" "autopoint" \
 ###              "ftp://ftp.gnu.org/pub/gnu/gettext/" 0 11 5 || DIE=1
+LTVER="unknown"
+version_check "libtoolize" "$LIBTOOLIZE libtoolize glibtoolize" \
+              "ftp://ftp.gnu.org/pub/gnu/libtool/" 2 2 0 > /dev/null \
+              && LTVER=2_2
 version_check "libtoolize" "$LIBTOOLIZE libtoolize glibtoolize" \
               "ftp://ftp.gnu.org/pub/gnu/libtool/" 1 5 0 || DIE=1
 version_check "pkg-config" "" \
@@ -50,8 +54,14 @@ if test -z "$*"; then
   echo "  command line."
 fi
 
-tool_run "$aclocal" "-I m4/ $ACLOCAL_FLAGS"
-tool_run "$libtoolize" "--copy --force"
+if [ ${LTVER} = "2_2" ]
+then
+    tool_run "$libtoolize" "--copy --force"
+    tool_run "$aclocal" "-I m4/ $ACLOCAL_FLAGS"
+else
+    tool_run "$aclocal" "-I m4/ $ACLOCAL_FLAGS"
+    tool_run "$libtoolize" "--copy --force"
+fi
 tool_run "$autoheader"
 tool_run "$autoconf"
 tool_run "$automake" "-a -c"

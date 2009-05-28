@@ -1,3 +1,7 @@
+2009-05-21  Don Darling, Texas Instruments, Inc.
+	* Makefile.am,autogen.sh,configure.ac:
+	- Add support for libtool 2.2.x.
+
 2009-05-01  Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividdec2.c,gsttividdec.c,gsttividdec2.h,gsttividdec.h
 	gsttiauddec1.c,gsttiauddec.c,gsttiauddec1.h,gsttiauddec.h,
@@ -6,7 +10,6 @@
 	  This function parses new segment event and covert from BYTE to TIME 
 	  format.  
 	- Added common function to update position and duration on pad query event.
-	
 
 2009-05-07  Chase Maupin, Texas Instruments, Inc.
 	* src/{gsttividenc1.c,gsttividenc.c,gsttividdec2.c,gsttividdec.c,
@@ -60,7 +63,6 @@
 	- Fix issue in image elements where they may put too much data on
 	  the FIFO which can cause an Out-Of-Memory issue.
 	- Add test scripts for DM357
-	
 
 2009-02-25  Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividenc1.{c,h},gsttividenc.{c,h},gsttividdec1.{c,h},gsttividdec.
@@ -143,6 +145,5 @@
 	value. Default number of buffers for audio decoders will be 2.
 
 2008-11-17  Don Darling, Texas Instruments, Inc.
-
 	Initial creation.
 
