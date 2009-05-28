@@ -1513,20 +1513,17 @@ static void* gst_tividenc1_encode_thread(void *arg)
 
 thread_failure:
 
-    /* If encDataWindow is non-NULL, something bad happened before we had a
-     * chance to release it.  Release it now so we don't block the pipeline.
-     * We release it by telling the circular buffer that we're done with it and
-     * consumed no data.
-     */
-    if (encDataWindow) {
-        gst_ticircbuffer_data_consumed(videnc1->circBuf, encDataWindow, 0);
-    }
-
     gst_tithread_set_status(videnc1, TIThread_DECODE_ABORTED);
     threadRet = GstTIThreadFailure;
     gst_ticircbuffer_consumer_aborted(videnc1->circBuf);
 
 thread_exit: 
+
+    /* Release the last buffer we retrieved from the circular buffer */
+    if (encDataWindow) {
+        gst_ticircbuffer_data_consumed(videnc1->circBuf, encDataWindow, 0);
+    }
+
     if (hCcvBuf) {
         Buffer_delete(hCcvBuf);
     }

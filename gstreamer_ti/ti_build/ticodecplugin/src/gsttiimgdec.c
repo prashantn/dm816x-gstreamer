@@ -1526,15 +1526,6 @@ static void* gst_tiimgdec_decode_thread(void *arg)
 
 thread_failure:
 
-    /* If decDataWindow is non-NULL, something bad happened before we had a
-     * chance to release it.  Release it now so we don't block the pipeline.
-     * We release it by telling the circular buffer that we're done with it and
-     * consumed no data.
-     */
-    if (encDataWindow) {
-        gst_ticircbuffer_data_consumed(imgdec->circBuf, encDataWindow, 0);
-    }
-
     gst_tithread_set_status(imgdec, TIThread_DECODE_ABORTED);
     threadRet = GstTIThreadFailure;
     gst_ticircbuffer_consumer_aborted(imgdec->circBuf);
@@ -1542,6 +1533,11 @@ thread_failure:
 
 thread_exit:
  
+    /* Release the last buffer we retrieved from the circular buffer */
+    if (encDataWindow) {
+        gst_ticircbuffer_data_consumed(imgdec->circBuf, encDataWindow, 0);
+    }
+
     /* Stop codec engine */
     if (gst_tiimgdec_codec_stop(imgdec) < 0) {
         GST_ERROR("failed to stop codec\n");

@@ -1484,21 +1484,18 @@ static void* gst_tividdec2_decode_thread(void *arg)
 
 thread_failure:
 
-    /* If encDataWindow is non-NULL, something bad happened before we had a
-     * chance to release it.  Release it now so we don't block the pipeline.
-     * We release it by telling the circular buffer that we're done with it and
-     * consumed no data.
-     */
-    if (encDataWindow) {
-        gst_ticircbuffer_data_consumed(viddec2->circBuf, encDataWindow, 0);
-    }
-
     gst_tithread_set_status(viddec2, TIThread_DECODE_ABORTED);
     threadRet = GstTIThreadFailure;
     gst_ticircbuffer_consumer_aborted(viddec2->circBuf);
     Rendezvous_force(viddec2->waitOnQueueThread);
 
 thread_exit:
+
+    /* Release the last buffer we retrieved from the circular buffer */
+    if (encDataWindow) {
+        gst_ticircbuffer_data_consumed(viddec2->circBuf, encDataWindow, 0);
+    }
+
     /* stop codec engine */
     if (gst_tividdec2_codec_stop(viddec2) < 0) {
         GST_ERROR("failed to stop codec\n");
