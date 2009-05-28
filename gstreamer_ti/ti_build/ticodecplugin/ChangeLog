@@ -1,5 +1,9 @@
 2009-05-22  Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec.c,gsttiauddec1.c}:
+	Fix issue where we were always setting audio source caps to 2 channels.
+
+2009-05-22  Don Darling, Texas Instruments, Inc.
+	* src/{gsttiauddec.c,gsttiauddec1.c}:
 	Correct the number of channels setting when playing elementary streams.
 
 2009-05-21  Don Darling, Texas Instruments, Inc.

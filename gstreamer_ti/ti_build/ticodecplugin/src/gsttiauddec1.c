@@ -122,7 +122,7 @@ static void
 static gboolean
  gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps);
 static gboolean
- gst_tiauddec1_set_source_caps(GstPad *pad, gint sampleRate);
+ gst_tiauddec1_set_source_caps(GstTIAuddec1 *auddec1);
 static gboolean
  gst_tiauddec1_sink_event(GstPad *pad, GstEvent *event);
 static GstFlowReturn
@@ -634,7 +634,7 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
  * gst_tiauddec1_set_source_caps
  *     Negotiate our source pad capabilities.
  ******************************************************************************/
-static gboolean gst_tiauddec1_set_source_caps(GstPad *pad, gint sampleRate)
+static gboolean gst_tiauddec1_set_source_caps(GstTIAuddec1* auddec1)
 {
     GstCaps  *caps;
     gboolean  ret;
@@ -646,8 +646,8 @@ static gboolean gst_tiauddec1_set_source_caps(GstPad *pad, gint sampleRate)
             "signed",     G_TYPE_BOOLEAN, TRUE,
             "width",      G_TYPE_INT,     16,
             "depth",      G_TYPE_INT,     16,
-            "rate",       G_TYPE_INT,     sampleRate,
-            "channels",   G_TYPE_INT,     2,
+            "rate",       G_TYPE_INT,     Adec1_getSampleRate(auddec1->hAd),
+            "channels",   G_TYPE_INT,     auddec1->channels,
             NULL);
 
     /* Set the source pad caps */
@@ -655,7 +655,7 @@ static gboolean gst_tiauddec1_set_source_caps(GstPad *pad, gint sampleRate)
     GST_LOG("setting source caps to RAW:  %s", string);
     g_free(string);
 
-    if (!gst_pad_set_caps(pad, caps)) {
+    if (!gst_pad_set_caps(auddec1->srcpad, caps)) {
         ret = FALSE;
     }
     gst_caps_unref(caps);
@@ -1302,8 +1302,7 @@ static void* gst_tiauddec1_decode_thread(void *arg)
         /* Set the source pad capabilities based on the decoded frame
          * properties.
          */
-        gst_tiauddec1_set_source_caps(
-            auddec1->srcpad, Adec1_getSampleRate(auddec1->hAd));
+        gst_tiauddec1_set_source_caps(auddec1);
 
         /* Create a DMAI transport buffer object to carry a DMAI buffer to
          * the source pad.  The transport buffer knows how to release the
