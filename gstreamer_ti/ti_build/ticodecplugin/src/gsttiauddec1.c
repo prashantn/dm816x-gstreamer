@@ -70,6 +70,7 @@ enum
   PROP_0,
   PROP_ENGINE_NAME,     /* engineName     (string)  */
   PROP_CODEC_NAME,      /* codecName      (string)  */
+  PROP_NUM_CHANNELS,    /* numChannels    (int)     */
   PROP_NUM_OUTPUT_BUFS, /* numOutputBufs  (int)     */
   PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
   PROP_GEN_TIMESTAMPS   /* genTimeStamps  (boolean) */
@@ -268,6 +269,12 @@ static void gst_tiauddec1_class_init(GstTIAuddec1Class *klass)
         g_param_spec_string("codecName", "Codec Name", "Name of audio codec",
             "unspecified", G_PARAM_READWRITE));
 
+    g_object_class_install_property(gobject_class, PROP_NUM_CHANNELS,
+        g_param_spec_int("numChannels",
+            "Number of Channels",
+            "Number of audio channels",
+            1, G_MAXINT32, 2, G_PARAM_WRITABLE));
+
     g_object_class_install_property(gobject_class, PROP_NUM_OUTPUT_BUFS,
         g_param_spec_int("numOutputBufs",
             "Number of Ouput Buffers",
@@ -453,6 +460,11 @@ static void gst_tiauddec1_set_property(GObject *object, guint prop_id,
             strcpy((gchar*)auddec1->codecName, g_value_get_string(value));
             GST_LOG("setting \"codecName\" to \"%s\"\n", auddec1->codecName);
             break;
+        case PROP_NUM_CHANNELS:
+            auddec1->channels = g_value_get_int(value);
+            GST_LOG("setting \"numChannels\" to \"%d\"\n",
+                auddec1->channels);
+            break;
         case PROP_NUM_OUTPUT_BUFS:
             auddec1->numOutputBufs = g_value_get_int(value);
             GST_LOG("setting \"numOutputBufs\" to \"%ld\"\n",
@@ -532,8 +544,7 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
         }
 
         if (!gst_structure_get_int(capStruct, "channels", &auddec1->channels)) {
-            /* Default to 2 channels if not specified */
-            auddec1->channels = 2;
+            auddec1->channels = 0;
         }
 
     }
@@ -1144,6 +1155,16 @@ static gboolean gst_tiauddec1_codec_start (GstTIAuddec1  *auddec1)
         auddec1->numOutputBufs = 2;
     }
 
+    /* If we're still showing 0 channels, we were not able to determine the
+     * number of channels from the input stream.  Default to 2 channels and
+     * generate a warning.
+     */
+    if (auddec1->channels == 0) {
+        GST_WARNING("Could not determine the number of channels in the "
+            "input stream; defaulting to 2");
+        auddec1->channels = 2;
+    }
+
     /* Create codec output buffers.  
      */
     GST_LOG("creating output buffers\n");
@@ -1259,7 +1280,6 @@ static void* gst_tiauddec1_decode_thread(void *arg)
          * now, derive the duration from the number of bytes decoded by the
          * codec.
          */
-
         sampleDataSize = Buffer_getNumBytesUsed(hDstBuf);
         sampleRate     = Adec1_getSampleRate(auddec1->hAd);
         numSamples     = sampleDataSize / (2 * auddec1->channels) ;
