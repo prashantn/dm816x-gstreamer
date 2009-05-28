@@ -63,12 +63,13 @@ ifeq ($(PLATFORM), omap3530)
 endif
 
 CPPFLAGS=-DPlatform_$(PLATFORM) 
+HOST=arm-none-linux-gnueabi
 
 configure:
 	./autogen.sh --noconfigure
 
 Makefile: configure
-	./configure CPPFLAGS="$(CPPFLAGS)" --host=arm-none-linux-gnueabi
+	./configure CPPFLAGS="$(CPPFLAGS)" --host=$(HOST)
 
 omap3530: Makefile
 	$(MAKE) -f Makefile
