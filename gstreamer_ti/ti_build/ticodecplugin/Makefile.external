@@ -9,7 +9,7 @@
 # Copyright (C) 2009 Ridgerun 
 #
 
-.PHONY: default dm6446 omap3530 dm355 dm6467
+.PHONY: default configure dm6446 omap3530 dm355 dm6467
 
 DVSDK_PATH=undefined
 DMAI_INSTALL_DIR=undefined
