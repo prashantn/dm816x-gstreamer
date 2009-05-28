@@ -487,7 +487,7 @@ gboolean gst_ticircbuffer_data_consumed(
     /* In fixedBlockSize mode, ensure that we always consume exactly one
      *  window.
      */
-    if (circBuf->fixedBlockSize && bytesConsumed != circBuf->windowSize) {
+    if (circBuf->fixedBlockSize && bytesConsumed != GST_BUFFER_SIZE(buf)) {
         GST_ERROR("when circular buffer is created with fixedBlockSize=TRUE "
            "consumers must always consume an entire window at a time");
         return FALSE;
