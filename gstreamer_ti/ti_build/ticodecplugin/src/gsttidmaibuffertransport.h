@@ -21,8 +21,8 @@
  *
  */
 
-#ifndef __GST_DMAIBUFFERTRANSPORT_H__
-#define __GST_DMAIBUFFERTRANSPORT_H__
+#ifndef __GST_TIDMAIBUFFERTRANSPORT_H__
+#define __GST_TIDMAIBUFFERTRANSPORT_H__
 
 #include <gst/gst.h>
 
@@ -32,35 +32,49 @@
 
 G_BEGIN_DECLS
 
-typedef struct _GstTIDmaiBufferTransport GstTIDmaiBufferTransport;
-
-/* Standard macros for manipulating transport objects */
+/* Type macros for GST_TYPE_TIDMAIBUFFERTRANSPORT */
 #define GST_TYPE_TIDMAIBUFFERTRANSPORT \
     (gst_tidmaibuffertransport_get_type())
-#define GST_IS_TIDMAIBUFFERTRANSPORT(obj) \
-    (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_TIDMAIBUFFERTRANSPORT))
 #define GST_TIDMAIBUFFERTRANSPORT(obj) \
-    (G_TYPE_CHECK_INSTANCE_CAST ((obj), GST_TYPE_TIDMAIBUFFERTRANSPORT, \
-     GstTIDmaiBufferTransport))
+    (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_TIDMAIBUFFERTRANSPORT, \
+    GstTIDmaiBufferTransport))
+#define GST_IS_TIDMAIBUFFERTRANSPORT(obj) \
+    (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_TIDMAIBUFFERTRANSPORT))
+#define GST_TIDMAIBUFFERTRANSPORT_CLASS(klass) \
+    (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_TIDMAIBUFFERTRANSPORT, \
+    GstTIDmaiBufferTransportClass))
+#define GST_IS_TIDMAIBUFFERTRANSPORT_CLASS(klass) \
+    (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_TIDMAIBUFFERTRANSPORT))
+#define GST_TIDMAIBUFFERTRANSPORT_GET_CLASS(obj) \
+    (G_TYPE_INSTANCE_GET_CLASS ((obj), GST_TYPE_TIDMAIBUFFERTRANSPORT, \
+    GstTIDmaiBufferTransportClass))
+
+typedef struct _GstTIDmaiBufferTransport      GstTIDmaiBufferTransport;
+typedef struct _GstTIDmaiBufferTransportClass GstTIDmaiBufferTransportClass;
+
+/* Utility macros for GST_TYPE_TIDMAIBUFFERTRANSPORT */
 #define GST_TIDMAIBUFFERTRANSPORT_DMAIBUF(obj) \
     (GST_TIDMAIBUFFERTRANSPORT(obj)->dmaiBuffer)
-
 #define gst_tidmaibuffertransport_GST_FREE  0x1
 
 /* _GstTIDmaiBufferTransport object */
 struct _GstTIDmaiBufferTransport {
-  GstBuffer         buffer;
-  Buffer_Handle     dmaiBuffer;
-  Rendezvous_Handle hRv;
+    GstBuffer         parent_instance;
+    Buffer_Handle     dmaiBuffer;
+    Rendezvous_Handle hRv;
+};
+
+struct _GstTIDmaiBufferTransportClass {
+    GstBufferClass    derived_methods;
 };
 
 /* External function declarations */
 GType      gst_tidmaibuffertransport_get_type(void);
-GstBuffer* gst_tidmaibuffertransport_new(Buffer_Handle hBuf,Rendezvous_Handle);
+GstBuffer* gst_tidmaibuffertransport_new(Buffer_Handle, Rendezvous_Handle);
 
 G_END_DECLS 
 
-#endif /* __GST_DMAIBUFFERTRANSPORT_H__ */
+#endif /* __GST_TIDMAIBUFFERTRANSPORT_H__ */
 
 
 /******************************************************************************

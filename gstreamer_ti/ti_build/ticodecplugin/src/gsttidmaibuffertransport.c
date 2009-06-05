@@ -48,67 +48,28 @@ GST_DEBUG_CATEGORY_STATIC (gst_tidmaibuffertransport_debug);
 static GstBufferClass *parent_class;
 
 /* Static Function Declarations */
-static void gst_tidmaibuffertransport_init(GTypeInstance *instance,
-                gpointer g_class);
-static void gst_tidmaibuffertransport_class_init(gpointer g_class,
-                gpointer class_data);
-static void gst_tidmaibuffertransport_finalize(GstTIDmaiBufferTransport *nbuf);
+static void
+    gst_tidmaibuffertransport_init(GstTIDmaiBufferTransport *self);
+static void
+    gst_tidmaibuffertransport_log_init(void);
+static void
+    gst_tidmaibuffertransport_class_init(GstTIDmaiBufferTransportClass *klass);
+static void
+    gst_tidmaibuffertransport_finalize(GstBuffer *gstbuffer);
+
+/* Define GST_TYPE_TIDMAIBUFFERTRANSPORT */
+G_DEFINE_TYPE_WITH_CODE (GstTIDmaiBufferTransport, gst_tidmaibuffertransport, \
+    GST_TYPE_BUFFER, gst_tidmaibuffertransport_log_init());
 
 
 /******************************************************************************
- * gst_tidmaibuffertransport_get_type
- *    Defines function pointers for initialization routines for this buffer.
+ * gst_tidmaibuffertransport_log_init
+ *    Initialize the GST_LOG for this type
  ******************************************************************************/
-GType gst_tidmaibuffertransport_get_type(void)
+static void gst_tidmaibuffertransport_log_init(void)
 {
-    static GType object_type = 0;
-
-    if (G_UNLIKELY(object_type == 0)) {
-        static const GTypeInfo object_info = {
-            sizeof(GstBufferClass),
-            NULL,
-            NULL,
-            gst_tidmaibuffertransport_class_init,
-            NULL,
-            NULL,
-            sizeof(GstTIDmaiBufferTransport),
-            0,
-            gst_tidmaibuffertransport_init,
-            NULL
-        };
-
-        object_type =
-            g_type_register_static(GST_TYPE_BUFFER, "GstTIDmaiBufferTransport",
-                &object_info, (GTypeFlags) 0);
-
-        /* Initialize GST_LOG for this object */
-        GST_DEBUG_CATEGORY_INIT(gst_tidmaibuffertransport_debug,
-                                "TIDmaiBufferTransport", 0,
-                                "TI DMAI Buffer Transport");
-
-        GST_LOG("initialized get_type\n");
-    }
-
-    return object_type;
-}
-
-
-/******************************************************************************
- * gst_tidmaibuffertransport_class_init
- *    Initializes the GstTIDmaiBufferTransport class.
- ******************************************************************************/
-static void gst_tidmaibuffertransport_class_init(gpointer g_class,
-                gpointer class_data)
-{
-    GstMiniObjectClass *mo_class = GST_MINI_OBJECT_CLASS(g_class);
-
-    GST_LOG("begin class_init\n");
-    parent_class = (GstBufferClass *) g_type_class_peek_parent(g_class);
-
-    mo_class->finalize =
-        (GstMiniObjectFinalizeFunction) gst_tidmaibuffertransport_finalize;
-
-    GST_LOG("end class_init\n");
+    GST_DEBUG_CATEGORY_INIT(gst_tidmaibuffertransport_debug,
+        "TIDmaiBufferTransport", 0, "TI DMAI Buffer Transport");
 }
 
 
@@ -116,44 +77,74 @@ static void gst_tidmaibuffertransport_class_init(gpointer g_class,
  * gst_tidmaibuffertransport_init
  *    Initializes a new transport buffer instance.
  ******************************************************************************/
-static void gst_tidmaibuffertransport_init(GTypeInstance *instance,
-                gpointer g_class)
+static void gst_tidmaibuffertransport_init(GstTIDmaiBufferTransport *self)
 {
-    GstTIDmaiBufferTransport *buf = GST_TIDMAIBUFFERTRANSPORT(instance);
-
     GST_LOG("begin init\n");
 
-    buf->dmaiBuffer = NULL;
-    buf->hRv        = NULL;
+    self->dmaiBuffer = NULL;
+    self->hRv        = NULL;
 
     GST_LOG("end init\n");
 }
 
 
 /******************************************************************************
- * gst_tidmaibuffertransport_finalize
- *    Release a DMAI buffer transport object
+ * gst_tidmaibuffertransport_class_init
+ *    Initializes the GstTIDmaiBufferTransport class.
  ******************************************************************************/
-static void gst_tidmaibuffertransport_finalize(GstTIDmaiBufferTransport *cbuf)
+static void gst_tidmaibuffertransport_class_init(
+                GstTIDmaiBufferTransportClass *klass)
 {
+    GST_LOG("begin class_init\n");
+
+    parent_class = g_type_class_peek_parent(klass);
+
+    /* Override the mini-object's finalize routine so we can do cleanup when
+     * a GstTIDmaiBufferTransport is unref'd.
+     */
+    klass->derived_methods.mini_object_class.finalize =
+        (GstMiniObjectFinalizeFunction) gst_tidmaibuffertransport_finalize;
+
+    GST_LOG("end class_init\n");
+}
+
+
+/******************************************************************************
+ * gst_tidmaibuffertransport_finalize
+ *    Dispose a DMAI buffer transport object
+ ******************************************************************************/
+static void gst_tidmaibuffertransport_finalize(GstBuffer *gstbuffer)
+{
+    GstTIDmaiBufferTransport *self = GST_TIDMAIBUFFERTRANSPORT(gstbuffer);
+
     GST_LOG("begin finalize\n");
 
     /* If the DMAI buffer is part of a BufTab, free it for re-use.  Otherwise,
      * destroy the buffer.
      */
-    if (Buffer_getBufTab(cbuf->dmaiBuffer) != NULL) {
+    if (Buffer_getBufTab(self->dmaiBuffer) != NULL) {
         GST_LOG("clearing GStreamer useMask bit so buffer can be reused\n");
-        Buffer_freeUseMask(cbuf->dmaiBuffer,
+        Buffer_freeUseMask(self->dmaiBuffer,
             gst_tidmaibuffertransport_GST_FREE);
     } else {
         GST_LOG("calling Buffer_delete()\n");
-        Buffer_delete(cbuf->dmaiBuffer);
+        Buffer_delete(self->dmaiBuffer);
     }
 
     /* If rendezvous handle is set then wake-up caller */
-    if (cbuf->hRv) {
-         Rendezvous_force(cbuf->hRv);
+    if (self->hRv) {
+        Rendezvous_force(self->hRv);
     }
+
+    self->dmaiBuffer = NULL;
+    self->hRv        = NULL;
+
+    /* Call GstBuffer's finalize routine, so our base class can do it's cleanup
+     * as well.  If we don't do this, we'll have a memory leak that is very
+     * difficult to track down.
+     */
+    GST_BUFFER_CLASS(parent_class)->
+        mini_object_class.finalize(GST_MINI_OBJECT(gstbuffer));
 
     GST_LOG("end finalize\n");
 }
@@ -163,35 +154,35 @@ static void gst_tidmaibuffertransport_finalize(GstTIDmaiBufferTransport *cbuf)
  * gst_tidmaibuffertransport_new
  *    Create a new DMAI buffer transport object.
  *
- * Note: If rendenzvous handle is set then Rendenzvous_force will be called for 
+ * Note: If Rendezvous_Handle is set then Rendenzvous_force will be called for 
  *       this handle during finalize method.
  ******************************************************************************/
-GstBuffer *gst_tidmaibuffertransport_new(Buffer_Handle hBuf, 
-     Rendezvous_Handle hRv)
+GstBuffer* gst_tidmaibuffertransport_new(
+               Buffer_Handle dmaiBuffer, Rendezvous_Handle hRv)
 {
-    GstTIDmaiBufferTransport *buf;
+    GstTIDmaiBufferTransport *tdt_buf;
 
     GST_LOG("begin new\n");
 
-    buf = (GstTIDmaiBufferTransport*)gst_mini_object_new(
-                                         GST_TYPE_TIDMAIBUFFERTRANSPORT);
+    tdt_buf = (GstTIDmaiBufferTransport*)
+              gst_mini_object_new(GST_TYPE_TIDMAIBUFFERTRANSPORT);
 
-    g_return_val_if_fail(buf != NULL, NULL);
+    g_return_val_if_fail(tdt_buf != NULL, NULL);
 
-    GST_BUFFER_SIZE(buf) = Buffer_getSize(hBuf);
-    GST_BUFFER_DATA(buf) = (Void*)Buffer_getUserPtr(hBuf);
+    GST_BUFFER_SIZE(tdt_buf) = Buffer_getSize(dmaiBuffer);
+    GST_BUFFER_DATA(tdt_buf) = (Void*)Buffer_getUserPtr(dmaiBuffer);
 
-    if (GST_BUFFER_DATA(buf) == NULL) {
-        gst_mini_object_unref(GST_MINI_OBJECT(buf));
+    if (GST_BUFFER_DATA(tdt_buf) == NULL) {
+        gst_mini_object_unref(GST_MINI_OBJECT(tdt_buf));
         return NULL;
     }
 
-    buf->dmaiBuffer = hBuf;
-    buf->hRv = hRv;
+    tdt_buf->dmaiBuffer = dmaiBuffer;
+    tdt_buf->hRv        = hRv;
 
     GST_LOG("end new\n");
 
-    return GST_BUFFER(buf);
+    return GST_BUFFER(tdt_buf);
 }
 
 
