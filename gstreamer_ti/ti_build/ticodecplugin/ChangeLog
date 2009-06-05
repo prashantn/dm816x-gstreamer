@@ -1,5 +1,5 @@
 2009-05-27  Don Darling, Texas Instruments, Inc.
-	* src/gstticircbuffer.c
+	* src/gstticircbuffer.c:
 	Correct circular buffer error check when in fixedBlockSize mode.
 	It now allows zero-length buffers to be consumed without error.
 
