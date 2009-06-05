@@ -469,9 +469,6 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
 gboolean gst_ticircbuffer_data_consumed(
              GstTICircBuffer *circBuf, GstBuffer *buf, Int32 bytesConsumed)
 {
-    /* Release the reference buffer */
-    gst_buffer_unref(buf);
-
     /* Make sure the client didn't consume more data than we gave out */
     if (GST_BUFFER_SIZE(buf) < bytesConsumed) {
         GST_WARNING("%ld bytes reported consumed from the circular buffer "
@@ -479,6 +476,9 @@ gboolean gst_ticircbuffer_data_consumed(
             GST_BUFFER_SIZE(buf));
         bytesConsumed = GST_BUFFER_SIZE(buf);
     }
+
+    /* Release the reference buffer */
+    gst_buffer_unref(buf);
 
     /* Update the read pointer */
     GST_LOG("%ld bytes consumed\n", bytesConsumed);
