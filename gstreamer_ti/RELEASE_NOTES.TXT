@@ -5,11 +5,20 @@ Release 1.00:
 	- Added support for video encoding elements TIVidenc and TIVidenc1.
 	  These elements support the DM355, DM6446, DM357 and OMAP35x
 	  devices.
-
+        - Patches for v4l2src element in the GST good plugin collection
+        - Patch 503 Support decodebin and playbin
 
 Fixed Issues
 ------------
 
+Release 1.00:
+        - Patch 499 Fix memory leak during Fifo flush
+        - Patch 506 Fix data type mismatch int / bool for resizer and 
+          autoselect properties in TIDmaiVideoSink
+        - Bug 303 Playback of audio and video increments VmallocUsed
+        - Bug 389 Memory leak in gsttividdec.c and gsttiauddec.c 
+          (and probably others)
+        - Bug 707 Decode of mp4 file plays back with skips
 
 Known Issues
 ------------
@@ -35,3 +44,5 @@ Release 1.00:
 	  "assertion" then try disabling hw accelerated framecopy. This can 
 	  be disabled with -c option in scripts. Note: disabling hw accel 
 	  framecopy will affect performance.
+        - H264 encoded video from TIVidenc may not play with some media
+          players (like VLC)
