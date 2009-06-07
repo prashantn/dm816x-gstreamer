@@ -38,7 +38,6 @@
 #include <ti/sdo/dmai/Rendezvous.h>
 #include <ti/sdo/dmai/ce/Venc.h>
 #include <ti/sdo/dmai/ColorSpace.h>
-#include <ti/sdo/dmai/Framecopy.h>
 
 G_BEGIN_DECLS
 
@@ -72,6 +71,7 @@ struct _GstTIVidenc
   const gchar*      iColor;
   gboolean          displayBuffer;
   gboolean          genTimeStamps;
+  gint              numInputBufs;
   gint              numOutputBufs;
   glong             bitRate;
   gboolean          contiguousInputFrame;
@@ -79,6 +79,7 @@ struct _GstTIVidenc
   /* Element state */
   Engine_Handle     hEngine;
   Venc_Handle       hVe;
+  gboolean          drainingEOS;
   pthread_mutex_t   threadStatusMutex;
   UInt32            threadStatus;
   gint              queueMaxBuffers;
@@ -86,15 +87,16 @@ struct _GstTIVidenc
               
   /* Encode thread */
   pthread_t         encodeThread;
+  gboolean          encodeDrained;
+  Rendezvous_Handle waitOnEncodeDrain;
   Rendezvous_Handle waitOnBufTab;
-  Rendezvous_Handle waitOnFreeMmapBuf;
 
   /* Queue thread */
   pthread_t         queueThread;
   Fifo_Handle       hInFifo;
 
   /* Blocking Conditions to Throttle I/O */
-  Rendezvous_Handle waitOnFifoThreashold;
+  Rendezvous_Handle waitOnQueueThread;
   Int32             waitQueueSize;
 
   /* Blocking Condition for encode thread */
@@ -103,7 +105,6 @@ struct _GstTIVidenc
   /* Framerate (Num/Den) */
   gint              framerateNum;
   gint              framerateDen;
-  gint              frameSize;
 
   /* Frame resolution */
   gint              width;
@@ -114,6 +115,8 @@ struct _GstTIVidenc
 
   /* Buffer management */
   BufTab_Handle     hOutBufTab;
+  GstTICircBuffer   *circBuf;
+
 };
 
 /* _GstTIVidencClass object */

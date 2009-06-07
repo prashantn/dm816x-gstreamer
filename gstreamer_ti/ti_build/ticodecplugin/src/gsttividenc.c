@@ -65,9 +65,11 @@ enum
   PROP_ENGINE_NAME,     /* engineName     (string)  */
   PROP_CODEC_NAME,      /* codecName      (string)  */
   PROP_NUM_OUTPUT_BUFS, /* numOutputBuf   (int)     */
+  PROP_NUM_INPUT_BUFS,  /* numInputBuf    (int)     */
   PROP_RESOLUTION,      /* resolution     (string)  */
   PROP_IN_COLORSPACE,   /* colorSpace     (string)  */
   PROP_BITRATE,         /* bitRate        (int)     */
+  PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
   PROP_CONTIG_INPUT_BUF,/* contiguousInputFrame  (boolean) */
   PROP_GEN_TIMESTAMPS   /* genTimeStamps  (boolean) */
 };
@@ -139,10 +141,14 @@ static GstStateChangeReturn
  gst_tividenc_change_state(GstElement *element, GstStateChange transition);
 static void*
  gst_tividenc_encode_thread(void *arg);
+static void*
+ gst_tividenc_queue_thread(void *arg);
 static void
- gst_tividenc_unblock_fifo(GstTIVidenc *videnc);
+ gst_tividenc_broadcast_queue_thread(GstTIVidenc *videnc);
 static void
- gst_tividenc_wait_on_fifo_threashold(GstTIVidenc *videnc, Int32 waitQueueSize);
+ gst_tividenc_wait_on_queue_thread(GstTIVidenc *videnc, Int32 waitQueueSize);
+static void
+ gst_tividenc_drain_pipeline(GstTIVidenc *videnc);
 static GstClockTime
  gst_tividenc_frame_duration(GstTIVidenc *videnc);
 static ColorSpace_Type 
@@ -151,14 +157,6 @@ static gboolean
     gst_tividenc_codec_start (GstTIVidenc *videnc);
 static gboolean
     gst_tividenc_codec_stop (GstTIVidenc *videnc);
-
-/* This variable is used to flush the fifo.  It is pushed to the
- * fifo when we want to flush it.  When the encode/decode thread
- * receives the address of this variable the fifo is flushed and
- * the thread can exit.  The value of this variable is not used.
- */
-static int gst_ti_fifo_exit    = 0;
-static int gst_ti_fifo_eos     = 0;
 
 /******************************************************************************
  * gst_tividenc_class_init_trampoline
@@ -277,6 +275,13 @@ static void gst_tividenc_class_init(GstTIVidencClass *klass)
             "Set encoder bit rate",
             1, G_MAXINT32, 2000000, G_PARAM_WRITABLE));
 
+    /* Number of input buffers in the circular queue.*/
+    g_object_class_install_property(gobject_class, PROP_NUM_INPUT_BUFS,
+        g_param_spec_int("numInputBufs",
+            "Number of Input buffers",
+            "Number of input buffers in circular queue",
+            1, G_MAXINT32, 1, G_PARAM_WRITABLE));
+
     /* We allow more than two  output buffer because this is the buffer that
      * is sent to the downstream element.  It may be that we need to have
      * more than 2 buffer if the downstream element doesn't give the buffer
@@ -287,6 +292,11 @@ static void gst_tividenc_class_init(GstTIVidencClass *klass)
             "Number of Ouput Buffers",
             "Number of output buffers to allocate for codec",
             3, G_MAXINT32, 3, G_PARAM_WRITABLE));
+
+    g_object_class_install_property(gobject_class, PROP_DISPLAY_BUFFER,
+        g_param_spec_boolean("displayBuffer", "Display Buffer",
+            "Display circular buffer status while processing",
+            FALSE, G_PARAM_WRITABLE));
 
     g_object_class_install_property(gobject_class, PROP_GEN_TIMESTAMPS,
         g_param_spec_boolean("genTimeStamps", "Generate Time Stamps",
@@ -340,11 +350,16 @@ static void gst_tividenc_init(GstTIVidenc *videnc, GstTIVidencClass *gclass)
     videnc->genTimeStamps           = TRUE;
 
     videnc->hEngine                 = NULL;
+    videnc->hVe                     = NULL;
+    videnc->drainingEOS             = FALSE;
     videnc->threadStatus            = 0UL;
+
+    videnc->encodeDrained           = FALSE;
+    videnc->waitOnEncodeDrain       = NULL;
 
     videnc->hInFifo                 = NULL;
 
-    videnc->waitOnEncodeThread      = NULL;
+    videnc->waitOnQueueThread       = NULL;
     videnc->waitQueueSize           = 0;
 
     videnc->waitOnEncodeThread      = NULL;
@@ -353,15 +368,16 @@ static void gst_tividenc_init(GstTIVidenc *videnc, GstTIVidencClass *gclass)
     videnc->framerateNum            = 0;
     videnc->framerateDen            = 0;
     videnc->hOutBufTab              = NULL;
+    videnc->circBuf                 = NULL;
 
     videnc->bitRate                 = -1;
     videnc->numOutputBufs           = 0;
+    videnc->numInputBufs            = 0;
     videnc->width                   = -1;
     videnc->height                  = -1;
     videnc->colorSpace              = -1;
 
     videnc->contiguousInputFrame    = FALSE;
-    videnc->waitOnFreeMmapBuf       = NULL;
 }
 /******************************************************************************
  * gst_tividenc_find_colorSpace 
@@ -438,10 +454,20 @@ static void gst_tividenc_set_property(GObject *object, guint prop_id,
             GST_LOG("setting \"bitRate\" to \"%ld\" \n",
                      videnc->bitRate);
             break;
+        case PROP_NUM_INPUT_BUFS:
+            videnc->numInputBufs = g_value_get_int(value);
+            GST_LOG("setting \"numInputBufs\" to \"%d\" \n",
+                     videnc->numInputBufs);
+            break;
         case PROP_CONTIG_INPUT_BUF:
             videnc->contiguousInputFrame = g_value_get_boolean(value);
             GST_LOG("setting \"contiguousInputFrame\" to \"%s\"\n",
                 videnc->contiguousInputFrame ? "TRUE" : "FALSE");
+            break;
+        case PROP_DISPLAY_BUFFER:
+            videnc->displayBuffer = g_value_get_boolean(value);
+            GST_LOG("setting \"displayBuffer\" to \"%s\"\n",
+                videnc->displayBuffer ? "TRUE" : "FALSE");
             break;
         case PROP_GEN_TIMESTAMPS:
             videnc->genTimeStamps = g_value_get_boolean(value);
@@ -655,14 +681,10 @@ static gboolean gst_tividenc_sink_event(GstPad *pad, GstEvent *event)
             /* end-of-stream: process any remaining encoded frame data */
             GST_LOG("no more input; draining remaining encoded video data\n");
 
-            /* Push the gst_ti_fifo_eos buffer to let the encode thread know 
-             * that we have recieved EOS and it need to reset temporary 
-             * variables and discard the saved data.
-             */
-            if (Fifo_put(videnc->hInFifo,&gst_ti_fifo_eos) < 0) {
-                GST_ERROR("Could not put flush value to Fifo\n");
-            }
-            
+            if (!videnc->drainingEOS) {
+               gst_tividenc_drain_pipeline(videnc);
+             }
+
             /* Propagate EOS to downstream elements */
             ret = gst_pad_push_event(videnc->srcpad, event);
             break;
@@ -722,17 +744,21 @@ static GstFlowReturn gst_tividenc_chain(GstPad * pad, GstBuffer * buf)
             gst_buffer_unref(buf);
             return GST_FLOW_UNEXPECTED;
         }
+
+        GST_TICIRCBUFFER_TIMESTAMP(videnc->circBuf) =
+            GST_CLOCK_TIME_IS_VALID(GST_BUFFER_TIMESTAMP(buf)) ?
+            GST_BUFFER_TIMESTAMP(buf) : 0ULL;
     }
 
     /* Don't queue up too many buffers -- if we collect too many input buffers
      * without consuming them we'll run out of memory.  Once we reach a
      * threshold, block until the queue thread removes some buffers.
      */
-    Rendezvous_reset(videnc->waitOnFifoThreashold);
+    Rendezvous_reset(videnc->waitOnQueueThread);
     if (Fifo_getNumEntries(videnc->hInFifo) > videnc->queueMaxBuffers) {
         GST_LOG("Blocking upstream and waiting for encoder to process \
                 some buffers\n");
-        gst_tividenc_wait_on_fifo_threashold(videnc, 2);
+        gst_tividenc_wait_on_queue_thread(videnc, 2);
     }
 
     /* Queue up the encoded data stream into a circular buffer */
@@ -742,17 +768,6 @@ static GstFlowReturn gst_tividenc_chain(GstPad * pad, GstBuffer * buf)
         return GST_FLOW_UNEXPECTED;
     }
 
-    /* If we are configured to recieve contiguousInputFrame (which is driver
-     * mmap buffer from v4l2src) then wait for encoder thread to consume this
-     * buffer before unrefing. 
-     * If we unref this buffer in encoder thread then it results deadlock
-     * somewhere in v4l2 driver.  We will use this workaround until we get
-     * driver fixes in mainline kernel.
-     */
-    if (videnc->contiguousInputFrame) {
-        Rendezvous_meet(videnc->waitOnFreeMmapBuf);
-    }
-   
     return GST_FLOW_OK;
 }
 
@@ -792,10 +807,11 @@ static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
     videnc->hInFifo = Fifo_create(&fAttrs);
 
     /* Initialize rendezvous objects for making threads wait on conditions */
-    videnc->waitOnFifoThreashold    = Rendezvous_create(100, &rzvAttrs);
-    videnc->waitOnEncodeThread      = Rendezvous_create(2, &rzvAttrs);
-    videnc->waitOnBufTab            = Rendezvous_create(100, &rzvAttrs);
-    videnc->waitOnFreeMmapBuf       = Rendezvous_create(2, &rzvAttrs);
+    videnc->waitOnEncodeDrain   = Rendezvous_create(100, &rzvAttrs);
+    videnc->waitOnQueueThread   = Rendezvous_create(100, &rzvAttrs);
+    videnc->waitOnEncodeThread  = Rendezvous_create(2, &rzvAttrs);
+    videnc->waitOnBufTab        = Rendezvous_create(100, &rzvAttrs);
+    videnc->drainingEOS         = FALSE;
 
     /* Initialize thread status management */
     videnc->threadStatus = 0UL;
@@ -852,8 +868,28 @@ static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
         return FALSE;
     }
 
-    /* Wait for encoder thread to create the open the engine */
+    /* Wait for encoder thread to finish initilization before creating queue
+     * thread.
+     */
     Rendezvous_meet(videnc->waitOnEncodeThread);
+
+    /* Make sure circular buffer and display buffer handles are created by
+     * decoder thread.
+     */
+    if (videnc->circBuf == NULL || videnc->hOutBufTab == NULL) {
+        GST_ERROR("encode thread failed to create circbuf or display buffer"
+                  " handles\n");
+        return FALSE;
+    }
+
+    /* Create queue thread */
+    if (pthread_create(&videnc->queueThread, NULL,
+            gst_tividenc_queue_thread, (void*)videnc)) {
+        GST_ERROR("failed to create queue thread\n");
+        gst_tividenc_exit_video(videnc);
+        return FALSE;
+    }
+    gst_tithread_set_status(videnc, TIThread_QUEUE_CREATED);
 
     GST_LOG("end init_video\n");
     return TRUE;
@@ -870,17 +906,43 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
 
     GST_LOG("begin exit_video\n");
 
+    /* Drain the pipeline if it hasn't already been drained */
+    if (!videnc->drainingEOS) {
+       gst_tividenc_drain_pipeline(videnc);
+     }
+
+    /* Shut down the queue thread */
+    if (gst_tithread_check_status(
+            videnc, TIThread_QUEUE_CREATED, checkResult)) {
+        GST_LOG("shutting down queue thread\n");
+
+        /* Unstop the queue thread if needed, and wait for it to finish */
+        /* Push the gst_ti_flush_fifo buffer to let the queue thread know
+         * when the Fifo has finished draining.  If the Fifo is currently
+         * empty when we get to this point, then pushing this buffer will
+         * also unblock the encode/decode thread if it is currently blocked
+         * on a Fifo_get().  Our first thought was to use DMAI's Fifo_flush()
+         * routine here, but this method assumes the Fifo to be empty and
+         * will leak any buffer still in the Fifo.
+         */
+        if (Fifo_put(videnc->hInFifo,&gst_ti_flush_fifo) < 0) {
+            GST_ERROR("Could not put flush value to Fifo\n");
+        }
+
+        if (pthread_join(videnc->queueThread, &thread_ret) == 0) {
+            if (thread_ret == GstTIThreadFailure) {
+                GST_DEBUG("queue thread exited with an error condition\n");
+            }
+        }
+    }
+
     /* Shut down the encode thread */
+    /* NOTE: Shutting down encode thread frees the circular buffer being used
+     * by the queue thread. So we *must* shut down queue thread first.
+     */
     if (gst_tithread_check_status(
             videnc, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down encode thread\n");
-
-        /* Push the gst_ti_fifo_exit buffer to let the encode thread know
-         * that it need to release resource and shut down itself.
-         */
-        if (Fifo_put(videnc->hInFifo,&gst_ti_fifo_exit) < 0) {
-            GST_ERROR("Could not put flush value to Fifo\n");
-        }
 
         if (pthread_join(videnc->encodeThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
@@ -899,19 +961,19 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
         videnc->hInFifo = NULL;
     }
 
-    if (videnc->waitOnFifoThreashold) {
-        Rendezvous_delete(videnc->waitOnFifoThreashold);
-        videnc->waitOnFifoThreashold = NULL;
-    }
-
-    if (videnc->waitOnFreeMmapBuf) {
-        Rendezvous_delete(videnc->waitOnFreeMmapBuf);
-        videnc->waitOnFreeMmapBuf = NULL;
+    if (videnc->waitOnQueueThread) {
+        Rendezvous_delete(videnc->waitOnQueueThread);
+        videnc->waitOnQueueThread = NULL;
     }
 
     if (videnc->waitOnEncodeThread) {
         Rendezvous_delete(videnc->waitOnEncodeThread);
         videnc->waitOnEncodeThread = NULL;
+    }
+
+    if (videnc->waitOnEncodeDrain) {
+        Rendezvous_delete(videnc->waitOnEncodeDrain);
+        videnc->waitOnEncodeDrain = NULL;
     }
 
     if (videnc->waitOnBufTab) {
@@ -976,6 +1038,20 @@ static GstStateChangeReturn gst_tividenc_change_state(GstElement *element,
  *****************************************************************************/
 static gboolean gst_tividenc_codec_stop (GstTIVidenc *videnc)
 {
+    if (videnc->circBuf) {
+        GST_LOG("freeing cicrular input buffer\n");
+        gst_ticircbuffer_unref(videnc->circBuf);
+        videnc->circBuf      = NULL;
+        videnc->framerateNum = 0;
+        videnc->framerateDen = 0;
+    }
+
+    if (videnc->hOutBufTab) {
+        GST_LOG("freeing output buffers\n");
+        BufTab_delete(videnc->hOutBufTab);
+        videnc->hOutBufTab = NULL;
+    }
+
     if (videnc->hVe) {
         GST_LOG("closing video encoder\n");
         Venc_delete(videnc->hVe);
@@ -987,13 +1063,6 @@ static gboolean gst_tividenc_codec_stop (GstTIVidenc *videnc)
         Engine_close(videnc->hEngine);
         videnc->hEngine = NULL;
     }
-
-    if (videnc->hOutBufTab) {
-        GST_LOG("freeing output buffers\n");
-        BufTab_delete(videnc->hOutBufTab);
-        videnc->hOutBufTab = NULL;
-    }
-
 
     return TRUE;
 }
@@ -1008,6 +1077,7 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
     VIDENC_Params         params    = Venc_Params_DEFAULT;
     VIDENC_DynamicParams  dynParams = Venc_DynamicParams_DEFAULT;
     BufferGfx_Attrs       gfxAttrs  = BufferGfx_Attrs_DEFAULT;
+    Int                   inBufSize, outBufSize;
 
     /* Open the codec engine */
     GST_LOG("opening codec engine \"%s\"\n", videnc->engineName);
@@ -1058,19 +1128,32 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
         return FALSE;
     }
 
-    /* Calculate input frame size */
-    videnc->frameSize = BufferGfx_calcLineLength(videnc->width, 
-                            videnc->colorSpace) * videnc->height;
-    GST_LOG("configuring to recieve input frame size %d\n",videnc->frameSize);
+    inBufSize = BufferGfx_calcLineLength(videnc->width, 
+                videnc->colorSpace) * videnc->height;
+    outBufSize = inBufSize;
+    
+    /* Create a circular input buffer */
+    if (videnc->numInputBufs == 0) {
+        videnc->numInputBufs = 2;
+    }
+    GST_LOG("creating %d buffers in circular buffer with size %d\n", 
+                videnc->numInputBufs, inBufSize);
 
+    videnc->circBuf =
+        gst_ticircbuffer_new(inBufSize, videnc->numInputBufs, TRUE);
+
+    if (videnc->circBuf == NULL) {
+        GST_ERROR("failed to create circular input buffer\n");
+        return FALSE;
+    }
+    
     /* Calculate the maximum number of buffers allowed in queue before
      * blocking upstream.
      */
-    videnc->queueMaxBuffers = (videnc->frameSize/videnc->upstreamBufSize) + 3;
+    videnc->queueMaxBuffers = (inBufSize / videnc->upstreamBufSize) + 3;
     GST_LOG("setting max queue threadshold to %d\n", videnc->queueMaxBuffers);
 
     /* Create codec output buffers */
-    GST_LOG("creating output bufTab\n");
     gfxAttrs.colorSpace     = videnc->colorSpace;
     gfxAttrs.dim.width      = videnc->width;
     gfxAttrs.dim.height     = videnc->height;
@@ -1080,19 +1163,35 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
     gfxAttrs.bAttrs.memParams.align = 128;
     gfxAttrs.bAttrs.useMask = gst_tidmaibuffertransport_GST_FREE;
 
-    /* If user has passed 0, then we will default to 3 buffers */
     if (videnc->numOutputBufs == 0) {
         videnc->numOutputBufs = 3;
     }
+
+    GST_LOG("creating %d buffers in output buffer table width size %d\n",
+                videnc->numOutputBufs, outBufSize);
+
     videnc->hOutBufTab =
-        BufTab_create(videnc->numOutputBufs,Venc_getOutBufSize(videnc->hVe),
+        BufTab_create(videnc->numOutputBufs, outBufSize,
             BufferGfx_getBufferAttrs(&gfxAttrs));
 
     if (videnc->hOutBufTab == NULL) {
-        GST_ERROR("failed to create output buffers size %ld\n",
-            Venc_getOutBufSize(videnc->hVe)*videnc->numOutputBufs);
+        GST_ERROR("failed to create output buffers\n");
         return FALSE;
     }
+
+    /* If element is configured to recieve contiguous input frame from the
+     * upstream then configure the graphics object attributes used. This 
+     * attribute will be used by cicular buffer while creating framecopy job.
+     */
+    if (videnc->contiguousInputFrame && 
+            gst_ticircbuffer_set_bufferGfx_attrs(videnc->circBuf, 
+            &gfxAttrs) < 0) {
+        GST_ERROR("failed to set the graphics attribute on circular buffer\n");
+        return FALSE;
+    }
+
+    /* Display buffer contents if displayBuffer=TRUE was specified */
+    gst_ticircbuffer_set_display(videnc->circBuf, videnc->displayBuffer);
 
     return TRUE;
 }
@@ -1107,24 +1206,13 @@ static void* gst_tividenc_encode_thread(void *arg)
     GstBuffer           *encDataWindow  = NULL;
     BufferGfx_Attrs     gfxAttrs        = BufferGfx_Attrs_DEFAULT;
     void                *threadRet      = GstTIThreadSuccess;
-    Buffer_Handle       hDstBuf         = NULL;
-    Buffer_Handle       hInBuf          = NULL;
-    Buffer_Handle       tmpBuf          = NULL;
-    Buffer_Handle       gstBuf          = NULL;
+    Buffer_Handle       hDstBuf, hInBuf;
+    Int32               encDataConsumed;
+    GstClockTime        encDataTime;
     GstClockTime        frameDuration;
-    GstBuffer           *decDataWindow;
+    Buffer_Handle       hEncDataWindow;
     GstBuffer           *outBuf;
-    GstBuffer           *metaData       = gst_buffer_new();
     Int                 ret;
-    gint                decDataSize;
-    gint                bufOffset       = 0;
-    Int                 fifoRet;
-    Int                 tmpBufSize;
-    Buffer_Attrs        bAttrs          = Buffer_Attrs_DEFAULT;
-    Framecopy_Attrs     fcAttrs         = Framecopy_Attrs_DEFAULT;
-    Framecopy_Handle    hFc             = NULL;
-    Int                 decDataConsumed;
-    gint64              totalDuration   = 0;
 
     GST_LOG("starting  video encode thread\n");
 
@@ -1134,7 +1222,7 @@ static void* gst_tividenc_encode_thread(void *arg)
     /* Initialize codec engine */
     ret = gst_tividenc_codec_start(videnc);
 
-    /* Notify main thread if it is waiting to start codec */
+    /* Notify main thread if it is waiting to create queue thread */
     Rendezvous_meet(videnc->waitOnEncodeThread);
 
     if (ret == FALSE) {
@@ -1142,198 +1230,24 @@ static void* gst_tividenc_encode_thread(void *arg)
         goto thread_exit;
     }
 
-    if (videnc->contiguousInputFrame) {
-        /* Create framecopy job */
-        GST_LOG("creating framecopy job\n");
-        fcAttrs.accel = TRUE;
-        hFc = Framecopy_create(&fcAttrs);
-
-        if (hFc == NULL) {
-            GST_ERROR("failed to create framecopy module\n");
-            goto thread_failure;
-        }
-
-        /* Create a refer graphics buffer to hold the gstreamer buffer */
-        gfxAttrs.bAttrs.reference   = TRUE;
-        gfxAttrs.dim.width          = videnc->width;
-        gfxAttrs.dim.height         = videnc->height;
-        gfxAttrs.colorSpace         = videnc->colorSpace;
-        gfxAttrs.dim.lineLength     = BufferGfx_calcLineLength(videnc->width,
-                                        videnc->colorSpace);
-        gstBuf = Buffer_create(videnc->frameSize, 
-                        BufferGfx_getBufferAttrs(&gfxAttrs));
-
-        if (gstBuf == NULL) {
-            GST_ERROR("Failed to allocate temporary buffer for ccv\n");
-            goto thread_failure;
-        }
-    }
-
-    /* Create input buffer */
-    GST_LOG("creating input buffer size %d\n", videnc->frameSize);
-    gfxAttrs.bAttrs.reference   = FALSE;
-    gfxAttrs.colorSpace         = videnc->colorSpace;
-    gfxAttrs.dim.width          = videnc->width;
-    gfxAttrs.dim.height         = videnc->height;
-    gfxAttrs.dim.lineLength     = BufferGfx_calcLineLength(gfxAttrs.dim.width, 
-                                    gfxAttrs.colorSpace);
-    hInBuf = Buffer_create(videnc->frameSize, 
-                            BufferGfx_getBufferAttrs(&gfxAttrs));        
-
-    if (hInBuf == NULL) {
-        GST_ERROR("failed to allocate input buf %d \n",videnc->frameSize);
-        goto thread_failure;
-    }
-
     /* Main thread loop */
     while (TRUE) {
 
-        /* Get the next input buffer (or block until one is ready) */
-        fifoRet = Fifo_get(videnc->hInFifo, &decDataWindow);
-
-        if (fifoRet < 0) {
-            GST_LOG("Failed to get buffer from input fifo %d\n", fifoRet);
-            goto thread_failure;
-        }
-
-        /* If we have recieved exit buffer on fifo then free the resource
-         * and shut the encoder thread.
-         */
-        if (decDataWindow == (GstBuffer *)(&gst_ti_fifo_exit)) {
-            GST_LOG("Processed last input buffer from Fifo; exiting.\n");
-            goto thread_exit;
-        }
-
-        /* If we have recieved eos buffer on fifo then discard saved buffer and
-         * reset the bufOffset and wait on fifo.
-         */
-        if (decDataWindow == (GstBuffer *)(&gst_ti_fifo_eos)) {
-            GST_LOG("Discard the saved buffer and continue to wait..\n");
-            
-            /* If we have anything saved in temporary buffer then free it. */
-            if (tmpBuf) {
-                Buffer_delete(tmpBuf);
-                tmpBuf = NULL;
-            }
-
-            /* Reset the buffer offset */
-            bufOffset = 0;
-            continue;
-        }
+        /* Obtain an encoded data frame */
+        encDataWindow  = gst_ticircbuffer_get_data(videnc->circBuf);
+        encDataTime    = GST_BUFFER_TIMESTAMP(encDataWindow);
+        hEncDataWindow = GST_TIDMAIBUFFERTRANSPORT_DMAIBUF(encDataWindow);
 
         /* If we received a data frame of zero size, there is no more data to
-         * process -- exit the thread. 
-         */
-        if (GST_BUFFER_SIZE(decDataWindow) == 0) {
-            GST_LOG("no video data remains\n");
-            goto thread_exit;
-        }
-
-        /* Save the gstreamer buffer meta data */
-        gst_buffer_copy_metadata(metaData, decDataWindow,GST_BUFFER_COPY_ALL);
-
-        /* If we are configured to recieve driver buffer then use framecopy 
-         * module to copy the upstream buffers in codec input buffer.
-         */
-        if (videnc->contiguousInputFrame) {
-            Buffer_setUserPtr(gstBuf, (Int8*)GST_BUFFER_DATA(decDataWindow));
-            Buffer_setNumBytesUsed(gstBuf,videnc->frameSize);
-
-            BufferGfx_resetDimensions(hInBuf);
-
-            if (Framecopy_config(hFc, gstBuf, hInBuf) < 0) {
-                GST_ERROR("Failed to configure framecopy.\n");
-                gst_buffer_unref(decDataWindow);
-                goto thread_failure;
-            }
-
-            if (Framecopy_execute(hFc, gstBuf, hInBuf) < 0) {
-                GST_ERROR("Failed to execute framecopy.\n");
-                gst_buffer_unref(decDataWindow);
-                goto thread_failure;
-            }
-
-            /* unref the buffer */ 
-            gst_buffer_unref(decDataWindow);
-
-            /* We are done with the driver buffer, inform chain to unblock the
-             * pipeline.
-             */
-            Rendezvous_meet(videnc->waitOnFreeMmapBuf);
-        }
-        else {
-            /* If tempBuf contains data then copy that in hInBuf and free 
-             * tmpBuf.
-             */
-            if (tmpBuf) {             
-                memcpy(Buffer_getUserPtr(hInBuf), Buffer_getUserPtr(tmpBuf), 
-                        Buffer_getSize(tmpBuf));
-                Buffer_delete(tmpBuf);
-                tmpBuf = NULL;
-            }
-            decDataSize  = GST_BUFFER_SIZE(decDataWindow);
-
-            /* If accumulated buffer size plus received buffer size is equal
-             * to a full frame then copy the received buffer in input buffer.
-             */
-            if ((bufOffset + decDataSize) == videnc->frameSize) {
-                memcpy(Buffer_getUserPtr(hInBuf)+bufOffset, 
-                    GST_BUFFER_DATA(decDataWindow), decDataSize);
-
-                /* Reset the buffer offset */
-                bufOffset = 0;
-            }
-            /* If accumulated buffer size plus received buffer size does not
-             * completes a full frame then save the buffer and wait for more.
-             */
-            else if ((bufOffset + decDataSize) < videnc->frameSize) {
-                memcpy(Buffer_getUserPtr(hInBuf)+bufOffset, 
-                    GST_BUFFER_DATA(decDataWindow), decDataSize);
-                
-                /* Update the bufOffset */
-                bufOffset += decDataSize;
-                
-                /* unref the gstreamer buffer */
-                gst_buffer_unref(decDataWindow);
-                
-                /* continue to wait on fifo_get */
-                continue;
-            }
-            /* If accumulated buffer size plus received buffer size is greater
-             * than a full frame then split the recieved buffer, used the first 
-             * buffer to create full frame and save the second buffer.
-             */
-            else {
-                /* copy the part of input buffer to construct full frame. */
-                memcpy(Buffer_getUserPtr(hInBuf)+bufOffset, 
-                    GST_BUFFER_DATA(decDataWindow), 
-                    videnc->frameSize - bufOffset);
-
-                /* Save the remaining data in temporary buffer */
-                tmpBufSize = decDataSize - (videnc->frameSize - bufOffset);
-                tmpBuf = Buffer_create(tmpBufSize, &bAttrs);
-
-                if (tmpBuf == NULL) {
-                    GST_ERROR("failed to create temporary buffer\n");
-                    goto thread_failure;
-                }
-
-                memcpy(Buffer_getUserPtr(tmpBuf), 
-                    GST_BUFFER_DATA(decDataWindow) + tmpBufSize, tmpBufSize);
-
-                /* Update bufOffset */
-                bufOffset = tmpBufSize; 
-            }
-          
-            /* unref the buffer */ 
-            gst_buffer_unref(decDataWindow);
-        }
-
-        /* If we received a data frame of zero size, there is no more data to
-         * process -- exit the thread.
+         * process -- exit the thread.  If we weren't told that we are
+         * draining the pipeline, something is not right, so exit with an
+         * error.
          */
         if (GST_BUFFER_SIZE(encDataWindow) == 0) {
             GST_LOG("no video data remains\n");
+            if (!videnc->drainingEOS) {
+                goto thread_failure;
+            }
             goto thread_exit;
         }
 
@@ -1360,13 +1274,27 @@ static void* gst_tividenc_encode_thread(void *arg)
         /* Make sure the whole buffer is used for output */
         BufferGfx_resetDimensions(hDstBuf);
 
+        /* Create a reference graphics buffer object.
+         * If reference flag is set to TRUE then no buffer will be allocated
+         * instead resulting buffer will be reference to already existing
+         * memory area from the circular buffer. 
+         */
+        gfxAttrs.bAttrs.reference   = TRUE;
+        gfxAttrs.dim.width          = videnc->width;
+        gfxAttrs.dim.height         = videnc->height;
+        gfxAttrs.colorSpace         = videnc->colorSpace;
+        gfxAttrs.dim.lineLength     = BufferGfx_calcLineLength(videnc->width,
+                                            videnc->colorSpace);
+
+        hInBuf = Buffer_create(Buffer_getSize(hEncDataWindow),
+                                BufferGfx_getBufferAttrs(&gfxAttrs));
+        Buffer_setUserPtr(hInBuf, Buffer_getUserPtr(hEncDataWindow));
+        Buffer_setNumBytesUsed(hInBuf,Buffer_getSize(hInBuf));
+
         /* Invoke the video encoder */
         GST_LOG("invoking the video encoder\n");
         ret             = Venc_process(videnc->hVe, hInBuf, hDstBuf);
-        decDataConsumed = Buffer_getNumBytesUsed(hInBuf);
-
-        /* unblock anything waiting on fifo */ 
-        gst_tividenc_unblock_fifo(videnc);
+        encDataConsumed = Buffer_getNumBytesUsed(hEncDataWindow);
 
         if (ret < 0) {
             GST_ERROR("failed to encode video buffer\n");
@@ -1374,13 +1302,27 @@ static void* gst_tividenc_encode_thread(void *arg)
         }
 
         /* If no encoded data was used we cannot find the next frame */
-        if (ret == Dmai_EBITERROR && decDataConsumed == 0) {
+        if (ret == Dmai_EBITERROR && encDataConsumed == 0) {
             GST_ERROR("fatal bit error\n");
             goto thread_failure;
         }
 
         if (ret > 0) {
             GST_LOG("Venc_process returned success code %d\n", ret); 
+        }
+
+        /* Free the graphics object */
+        Buffer_delete(hInBuf);
+
+        /* Release the reference buffer, and tell the circular buffer how much
+         * data was consumed.
+         */
+        ret = gst_ticircbuffer_data_consumed(videnc->circBuf, encDataWindow,
+                  encDataConsumed);
+        encDataWindow = NULL;
+
+        if (!ret) {
+            goto thread_failure;
         }
 
         /* Set the source pad capabilities based on the encoded frame
@@ -1398,55 +1340,51 @@ static void* gst_tividenc_encode_thread(void *arg)
             Buffer_getNumBytesUsed(hDstBuf));
         gst_buffer_set_caps(outBuf, GST_PAD_CAPS(videnc->srcpad));
 
-        if (videnc->genTimeStamps) {
-            gst_buffer_copy_metadata(outBuf, metaData, 
-                GST_BUFFER_COPY_TIMESTAMPS);
-            /* If we do not have valid time stamp then create one */
-            if (!GST_CLOCK_TIME_IS_VALID(GST_BUFFER_TIMESTAMP(outBuf))) {
-                GST_BUFFER_TIMESTAMP(outBuf) = totalDuration;
-                GST_BUFFER_DURATION(outBuf)  = frameDuration;
-                totalDuration += frameDuration;
-            }
+        /* If we have a valid time stamp, set it on the buffer */
+        if (videnc->genTimeStamps &&
+            GST_CLOCK_TIME_IS_VALID(encDataTime)) {
+            GST_LOG("video timestamp value: %llu\n", encDataTime);
+            GST_BUFFER_TIMESTAMP(outBuf) = encDataTime;
+            GST_BUFFER_DURATION(outBuf)  = frameDuration;
+        }
+        else {
+            GST_BUFFER_TIMESTAMP(outBuf) = GST_CLOCK_TIME_NONE;
         }
 
+        /* Tell circular buffer how much time we consumed */
+        gst_ticircbuffer_time_consumed(videnc->circBuf, frameDuration);
+
         /* Push the transport buffer to the source pad */
-        GST_LOG("pushing buffer to source pad with timestamp : %"
-                GST_TIME_FORMAT ", duration: %" GST_TIME_FORMAT,
-                GST_TIME_ARGS (GST_BUFFER_TIMESTAMP(outBuf)),
-                GST_TIME_ARGS (GST_BUFFER_DURATION(outBuf)));
+        GST_LOG("pushing display buffer to source pad\n");
 
         if (gst_pad_push(videnc->srcpad, outBuf) != GST_FLOW_OK) {
-            GST_WARNING("push to source pad failed\n");
+            GST_DEBUG("push to source pad failed\n");
+            goto thread_failure;
         }
     }
 
 thread_failure:
+
     gst_tithread_set_status(videnc, TIThread_DECODE_ABORTED);
     threadRet = GstTIThreadFailure;
+    gst_ticircbuffer_consumer_aborted(videnc->circBuf);
 
 thread_exit: 
-    if (tmpBuf) {
-        Buffer_delete(tmpBuf);
-    }
 
-    if (hInBuf) {
-        Buffer_delete(hInBuf);
+    /* Release the last buffer we retrieved from the circular buffer */
+    if (encDataWindow) {
+        gst_ticircbuffer_data_consumed(videnc->circBuf, encDataWindow, 0);
     }
-
-    if (hFc) {
-        Framecopy_delete(hFc);
-    }
-
-    if (gstBuf) {
-        Buffer_delete(gstBuf);
-    }
-
-    gst_buffer_unref(metaData);
 
     /* Stop codec engine */
     if (gst_tividenc_codec_stop(videnc) < 0) {
         GST_ERROR("failed to stop codec\n");
     }
+
+    /* Notify main thread if it is waiting on decode thread shut-down */
+    videnc->encodeDrained = TRUE;
+    Rendezvous_force(videnc->waitOnQueueThread);
+    Rendezvous_force(videnc->waitOnEncodeDrain);
 
     gst_object_unref(videnc);
 
@@ -1456,29 +1394,140 @@ thread_exit:
 
 
 /******************************************************************************
- * gst_tividenc_wait_on_fifo_threashold
- *    Wait for the queue thread to consume buffers from the fifo until
- *    there are only "waitQueueSize" items remaining.
+ * gst_tividenc_queue_thread 
+ *     Add an input buffer to the circular buffer            
  ******************************************************************************/
-static void gst_tividenc_wait_on_fifo_threashold(GstTIVidenc *videnc,
-                Int32 waitQueueSize)
+static void* gst_tividenc_queue_thread(void *arg)
 {
-    videnc->waitQueueSize = waitQueueSize;
-    Rendezvous_meet(videnc->waitOnFifoThreashold);
+    GstTIVidenc* videnc    = GST_TIVIDENC(gst_object_ref(arg));
+    void*        threadRet = GstTIThreadSuccess;
+    GstBuffer*   encData;
+    Int          fifoRet;
+
+    while (TRUE) {
+
+        /* Get the next input buffer (or block until one is ready) */
+        fifoRet = Fifo_get(videnc->hInFifo, &encData);
+
+        if (fifoRet < 0) {
+            GST_ERROR("Failed to get buffer from input fifo\n");
+            goto thread_failure;
+        }
+
+        if (encData == (GstBuffer *)(&gst_ti_flush_fifo)) {
+            GST_DEBUG("Processed last input buffer from Fifo; exiting.\n");
+            goto thread_exit;
+        }
+
+/* This code is if'ed out for now until more work has been done for state
+ * transitions.  For now we do not want to print this message repeatedly
+ * which will happen when flushing the fifo when the decode thread has
+ * exited.
+ */
+        /* Send the buffer to the circular buffer */
+        if (!gst_ticircbuffer_queue_data(videnc->circBuf, encData)) {
+#if 0
+            GST_ERROR("queue thread could not queue data\n");
+            GST_ERROR("queue thread encData size = %d\n", GST_BUFFER_SIZE(encData));
+            gst_buffer_unref(encData);
+            goto thread_failure;
+#else
+            ; /* Do nothing */
+#endif
+        }
+        /* Release the buffer we received from the sink pad */
+        gst_buffer_unref(encData);
+
+        /* If we've reached the EOS, start draining the circular buffer when
+         * there are no more buffers in the FIFO.
+         */
+        if (videnc->drainingEOS && Fifo_getNumEntries(videnc->hInFifo) == 0) {
+            gst_ticircbuffer_drain(videnc->circBuf, TRUE);
+        }
+
+        /* Unblock any pending puts to our Fifo if we have reached our
+         * minimum threshold.
+         */
+        gst_tividenc_broadcast_queue_thread(videnc);
+    }
+
+thread_failure:
+    gst_tithread_set_status(videnc, TIThread_QUEUE_ABORTED);
+    threadRet = GstTIThreadFailure;
+
+thread_exit:
+    gst_object_unref(videnc);
+    return threadRet;
 }
 
 
 /******************************************************************************
- * gst_tividenc_unblock_fifo
+ * gst_tividenc_wait_on_queue_thread
+ *    Wait for the queue thread to consume buffers from the fifo until
+ *    there are only "waitQueueSize" items remaining.
+ ******************************************************************************/
+static void gst_tividenc_wait_on_queue_thread(GstTIVidenc *videnc,
+                Int32 waitQueueSize)
+{
+    videnc->waitQueueSize = waitQueueSize;
+    Rendezvous_meet(videnc->waitOnQueueThread);
+}
+
+
+/******************************************************************************
+ * gst_tividenc_broadcast_queue_thread
  *    Broadcast when queue thread has processed enough buffers from the
  *    fifo to unblock anyone waiting to queue some more.
  ******************************************************************************/
-static void gst_tividenc_unblock_fifo(GstTIVidenc *videnc)
+static void gst_tividenc_broadcast_queue_thread(GstTIVidenc *videnc)
 {
     if (videnc->waitQueueSize < Fifo_getNumEntries(videnc->hInFifo)) {
           return;
     } 
-    Rendezvous_force(videnc->waitOnFifoThreashold);
+    Rendezvous_force(videnc->waitOnQueueThread);
+}
+
+
+/******************************************************************************
+ * gst_tividenc_drain_pipeline
+ *    Push any remaining input buffers through the queue and encode threads
+ ******************************************************************************/
+static void gst_tividenc_drain_pipeline(GstTIVidenc *videnc)
+{
+    gboolean checkResult;
+
+    videnc->drainingEOS = TRUE;
+
+    /* If the processing threads haven't been created, there is nothing to
+     * drain.
+     */
+    if (!gst_tithread_check_status(
+             videnc, TIThread_DECODE_CREATED, checkResult)) {
+        return;
+    }
+    if (!gst_tithread_check_status(
+             videnc, TIThread_QUEUE_CREATED, checkResult)) {
+        return;
+    }
+
+    /* If the queue fifo still has entries in it, it will drain the
+     * circular buffer once all input buffers have been added to the
+     * circular buffer.  If the fifo is already empty, we must drain
+     * the circular buffer here.
+     */
+    if (Fifo_getNumEntries(videnc->hInFifo) == 0) {
+        gst_ticircbuffer_drain(videnc->circBuf, TRUE);
+    }
+    else {
+        Rendezvous_force(videnc->waitOnQueueThread);
+    }
+
+    /* Wait for the encoder to drain */
+    if (!videnc->encodeDrained) {
+        Rendezvous_meet(videnc->waitOnEncodeDrain);
+    }
+    videnc->encodeDrained = FALSE;
+
 }
 
 
