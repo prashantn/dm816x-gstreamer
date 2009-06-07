@@ -70,39 +70,36 @@ struct _GstTIVidenc1
   const gchar*   codecName;
   const gchar*   resolution;
   const gchar*   iColor;
-  gboolean       displayBuffer;
   gboolean       genTimeStamps;
   gboolean       contiguousInputFrame;
-  gint           numInputBufs;
   gint           numOutputBufs;
   gint32         bitRate;
 
   /* Element state */
   Engine_Handle    hEngine;
   Venc1_Handle     hVe1;
-  gboolean         drainingEOS;
   pthread_mutex_t  threadStatusMutex;
   UInt32           threadStatus;
   Cpu_Device       device;
   Cpu_Handle       hCpu;
   gint             queueMaxBuffers;
   gint             upstreamBufSize;
+  gint             frameSize;
 
   /* Encode thread */
   pthread_t          encodeThread;
-  gboolean           encodeDrained;
-  Rendezvous_Handle  waitOnEncodeDrain;
 
   /* Queue thread */
   pthread_t          queueThread;
   Fifo_Handle        hInFifo;
 
   /* Blocking Conditions to Throttle I/O */
-  Rendezvous_Handle  waitOnQueueThread;
+  Rendezvous_Handle  waitOnFifoThreashold;
   Int32              waitQueueSize;
 
   /* Blocking Condition for encode thread */
   Rendezvous_Handle  waitOnEncodeThread;
+  Rendezvous_Handle waitOnFreeMmapBuf;
   Rendezvous_Handle  waitOnBufTab;
 
   /* Framerate (Num/Den) */
