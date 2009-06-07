@@ -1080,15 +1080,12 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
     gfxAttrs.bAttrs.memParams.align = 128;
     gfxAttrs.bAttrs.useMask = gst_tidmaibuffertransport_GST_FREE;
 
-    /* If user has passed 0, then we will default to 2 buffers */
+    /* If user has passed 0, then we will default to 3 buffers */
     if (videnc->numOutputBufs == 0) {
-        videnc->numOutputBufs = 2;
+        videnc->numOutputBufs = 3;
     }
-
-    /* Should really ask the codec once it returns non-bogus values */
-    /* FIXME: use Venc_getOutBufSize(videnc->hVe) instead of framesize */
     videnc->hOutBufTab =
-        BufTab_create(videnc->numOutputBufs, videnc->frameSize,
+        BufTab_create(videnc->numOutputBufs,Venc_getOutBufSize(videnc->hVe),
             BufferGfx_getBufferAttrs(&gfxAttrs));
 
     if (videnc->hOutBufTab == NULL) {
@@ -1107,6 +1104,7 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
 static void* gst_tividenc_encode_thread(void *arg)
 {
     GstTIVidenc         *videnc         = GST_TIVIDENC(gst_object_ref(arg));
+    GstBuffer           *encDataWindow  = NULL;
     BufferGfx_Attrs     gfxAttrs        = BufferGfx_Attrs_DEFAULT;
     void                *threadRet      = GstTIThreadSuccess;
     Buffer_Handle       hDstBuf         = NULL;
@@ -1329,8 +1327,14 @@ static void* gst_tividenc_encode_thread(void *arg)
           
             /* unref the buffer */ 
             gst_buffer_unref(decDataWindow);
+        }
 
-            Buffer_setNumBytesUsed(hInBuf, videnc->frameSize);
+        /* If we received a data frame of zero size, there is no more data to
+         * process -- exit the thread.
+         */
+        if (GST_BUFFER_SIZE(encDataWindow) == 0) {
+            GST_LOG("no video data remains\n");
+            goto thread_exit;
         }
 
         /* Obtain a free output buffer for the encoded data */
