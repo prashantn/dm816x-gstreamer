@@ -42,10 +42,10 @@ gst-plugins-good-0.10.10
     Project Page:  http://gstreamer.freedesktop.org/
     Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-good/
 
-gst-fluendo-mpegdemux-trunk.1483
-    Description:   MPEG demuxers plugin
-    Company Page:  http://www.fluendo.com/
-    Download:      svn export -r1483 https://core.fluendo.com/gstreamer/svn/trunk/gst-fluendo-mpegdemux
+gst-plugins-bad-0.10.9
+    Description:   Select plugins from gStreamer good-plugins (mpegdemux)
+    Project Page:  http://gstreamer.freedesktop.org/
+    Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-bad/
 
 glib-2.18.1
     Description:   GLib library
