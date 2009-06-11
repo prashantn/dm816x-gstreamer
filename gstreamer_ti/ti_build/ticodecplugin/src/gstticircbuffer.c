@@ -477,13 +477,6 @@ gboolean gst_ticircbuffer_data_consumed(
         bytesConsumed = GST_BUFFER_SIZE(buf);
     }
 
-    /* Release the reference buffer */
-    gst_buffer_unref(buf);
-
-    /* Update the read pointer */
-    GST_LOG("%ld bytes consumed\n", bytesConsumed);
-    circBuf->readPtr  += bytesConsumed;
-
     /* In fixedBlockSize mode, ensure that we always consume exactly one
      *  window.
      */
@@ -492,6 +485,13 @@ gboolean gst_ticircbuffer_data_consumed(
            "consumers must always consume an entire window at a time");
         return FALSE;
     }
+
+    /* Release the reference buffer */
+    gst_buffer_unref(buf);
+
+    /* Update the read pointer */
+    GST_LOG("%ld bytes consumed\n", bytesConsumed);
+    circBuf->readPtr  += bytesConsumed;
 
     /* Update the max bytes consumed statistic */
     if (bytesConsumed > circBuf->maxConsumed) {
