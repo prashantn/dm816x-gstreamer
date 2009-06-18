@@ -31,9 +31,9 @@ BASE_PACKAGES += $(PACKAGE_glib_BUILD_TARGET)
 # Package check
 #------------------------------------------------------------------------------
 PACKAGE_check_BUILD_TARGET       = check
-PACKAGE_check_ARCHIVE_BASENAME   = check-0.9.5
+PACKAGE_check_ARCHIVE_BASENAME   = check-0.9.6
 PACKAGE_check_PRECONFIG_PATCHES  =
-PACKAGE_check_CONFIGURE_OPTS     = ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes
+PACKAGE_check_CONFIGURE_OPTS     = 
 PACKAGE_check_POSTCONFIG_PATCHES =
 PACKAGE_check_BUILD_DIRS         =
 PACKAGE_check_DESCRIPTION        = Check: a unit test framework for C

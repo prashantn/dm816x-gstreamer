@@ -57,7 +57,7 @@ glib-2.21.1
     Project Page:  http://www.gtk.org/
     Download URL:  http://ftp.gnome.org/pub/gnome/sources/glib/
 
-check-0.9.5
+check-0.9.6
     Description:   Check: a unit test framework for C
     Project Page:  http://sourceforge.net/projects/check/
 
