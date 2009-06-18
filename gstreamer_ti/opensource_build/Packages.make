@@ -19,10 +19,10 @@
 # Package glib
 #------------------------------------------------------------------------------
 PACKAGE_glib_BUILD_TARGET       = glib
-PACKAGE_glib_ARCHIVE_BASENAME   = glib-2.18.1
+PACKAGE_glib_ARCHIVE_BASENAME   = glib-2.21.1
 PACKAGE_glib_PRECONFIG_PATCHES  =
-PACKAGE_glib_CONFIGURE_OPTS     = ac_cv_lib_rt_clock_gettime=no glib_cv_stack_grows=no glib_cv_monotonic_clock=yes glib_cv_uscore=no ac_cv_func_posix_getpwuid_r=yes ac_cv_func_posix_getgrgid_r=yes
-PACKAGE_glib_POSTCONFIG_PATCHES = glib1_2_18_1
+PACKAGE_glib_CONFIGURE_OPTS     = glib_cv_stack_grows=no glib_cv_uscore=no ac_cv_func_posix_getpwuid_r=yes ac_cv_func_posix_getgrgid_r=yes
+PACKAGE_glib_POSTCONFIG_PATCHES = glib1_2_21_1
 PACKAGE_glib_BUILD_DIRS         =
 PACKAGE_glib_DESCRIPTION        = GLib library
 BASE_PACKAGES += $(PACKAGE_glib_BUILD_TARGET)

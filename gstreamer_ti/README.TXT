@@ -52,7 +52,7 @@ gst-plugins-ugly-0.10.10
     Project Page:  http://gstreamer.freedesktop.org
     Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-ugly
 
-glib-2.18.1
+glib-2.21.1
     Description:   GLib library
     Project Page:  http://www.gtk.org/
     Download URL:  http://ftp.gnome.org/pub/gnome/sources/glib/
