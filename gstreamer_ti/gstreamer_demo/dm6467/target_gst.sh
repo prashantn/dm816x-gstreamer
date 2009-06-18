@@ -20,11 +20,11 @@ PLATFORM=dm6467
 . ../shared/target_env.sh
 
 # Audio / Video Decode defaults
-audio_plugin="TIAuddec"
+audio_plugin="TIAuddec1"
 audiocodecName=""
 video_plugin="TIViddec2"
 videocodeName=""
-soundStd="oss"
+soundStd="alsa"
 dispStd="v4l2"
 dispDevice="/dev/video2"
 videoStd="1080P_30"

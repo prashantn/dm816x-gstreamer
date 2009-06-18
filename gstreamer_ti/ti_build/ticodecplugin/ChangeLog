@@ -1,3 +1,7 @@
+2009-06-10  Don Darling, Texas Instruments, Inc.
+	* src/gstticodecs_dm6467.c:
+	Rename "aacdec" to "aachedec" to support DVSDK 2.00.
+
 2009-06-04  Don Darling, Texas Instruments, Inc.
 	* src/gsttidmaibuffertransport.{c,h}:
 	Fix memory leak during the destruction of TIDmaiBufferTransport objects.

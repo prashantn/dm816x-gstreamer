@@ -37,7 +37,7 @@ GstTICodec gst_ticodec_codecs[] = {
     /* Audio Codecs */
     {
         "AAC Audio Decoder",     /* String name of codec used by plugin      */
-        "aacdec",              /* String name of codec used by CE          */
+        "aachedec",              /* String name of codec used by CE          */
         decodeEngine             /* Engine that contains this codec          */
     },
 

@@ -1,20 +1,16 @@
-#
-# loadmodules.sh
-#
-# Copyright (C) $year Texas Instruments Incorporated - http://www.ti.com/
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU Lesser General Public License as
-# published by the Free Software Foundation version 2.1 of the License.
-#
-# This program is distributed #as is# WITHOUT ANY WARRANTY of any kind,
-# whether express or implied; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+#!/bin/sh
 
 # insert cmemk, tell it to occupy physical 120MB-128MB and create enough
 # contiguous buffers for the worst case requirements of the demos.
-insmod cmemk.ko phys_start=0x87800000 phys_end=0x8ba00000 pools=1x4147200,10x3458400,10x1434240,11x663552,4x60000
+#
+# CMEM Allocation
+#     1x8294400 Circular buffer
+#    11x3670016 Video buffers (max 1080p)
+#     3x2304000 Underlying software components (codecs, etc.)
+#     3x1434240 Underlying software components (codecs, etc.)
+#     1x1       Dummy buffer used during final flush
+insmod cmemk.ko phys_start=0x87800000 phys_end=0x8ba00000 \
+    pools=1x8294400,11x3670016,3x2304000,3x1434240,1x1
 
 # insert dsplinkk, tell it that DSP's DDR is at physical 250MB-254MB
 insmod dsplinkk.ko
