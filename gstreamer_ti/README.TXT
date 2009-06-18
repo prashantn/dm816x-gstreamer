@@ -120,14 +120,13 @@ Supported Platforms
 ===================
 This GStreamer plug-in has been built and tested on the following platforms:
 
-- DM6446
-- DM355
-- DM6467
-- OMAP35xx (*)
-- DM357
-
-* OMAP35xx support currently requires DVSDK 3.00.00.29, which is a TI internal
-  engineering release.
+Platform    DVSDK Version
+--------    -------------
+DM6446      2.00.00.22
+DM355       2.00.00.22
+DM6467      2.00.00.22
+OMAP35xx    3.00.00.29
+DM357       2.05.00.14
 
 Prerequisites
 =============
@@ -150,18 +149,14 @@ Prerequisites
   directory, but you must buid and install them manually on your system.
 
 - The DVSDK for the platform is installed on the Linux host.  DVSDK versions
-  earlier than 1.30 are not supported.
+  earlier than 2.00 are not actively supported.
 - The DVSDK is configured to use the Linux kernel provided by the LSP package
   associated with the DVSDK being used.
-- The minimum version of DMAI must be installed.  The minimum version for
-  each platform is given below.
-	* DM644x/DM6467/DM355 - DMAI 1.16
-	* DM357		      - DMAI 1.20
-	* OMAP35x	      - DMAI 1.20
+- The proper version of DMAI must be installed.  Currently, all platforms
+  require DMAI version 1.20.
 - For OMAP35xx platforms, the "zlib" library needs to be installed on the
   target filesystem.  To instal it, please cd to the root of the target
   filesystem and extract OMAP35x_SDK/bin/zlib-1.2.3.tar.gz.
-
 
 Build Instructions
 ==================
@@ -169,11 +164,6 @@ Make sure the file named "Rules.make" in your top level DVSDK directory is
 configured to rebuild the DVSDK components, and the PLATFORM variable is set
 correctly.  The settings in Rules.make will also be used to build the GStreamer
 components.
-
-  * Special note for DVSDK 1.30 users:  If you are using DVSDK 1.30, you need
-    to add a variable named "DMAI_INSTALL_DIR" to Rules.make that points to
-    your DMAI installation, and you must upgrade the XDC tools to version
-    3.00.04 if your platform is DM355.
 
 Next, change to the top level "gstreamer_ti" directory, and open the
 file named "Makefile.common" in your favorite editor (vi, emacs, etc.).
@@ -185,7 +175,6 @@ Set the following variables at the top of the file:
     CROSS_COMPILER:     Cross compiler being used.  A default is chosen based
                         on the platform you are building for, but you can set
                         it explicitly to one of these values:
-                            MVL_4_0_1:  MontaVista   v4.0.1
                             MVL_5_0:    MontaVista   v5.0
                             CS_2007Q3:  CodeSourcery v2007q3
 
