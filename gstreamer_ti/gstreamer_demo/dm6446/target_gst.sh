@@ -20,12 +20,12 @@ PLATFORM=dm6446
 . ../shared/target_env.sh
 
 # Audio / Video Decode defaults
-audio_plugin="TIAuddec"
+audio_plugin="TIAuddec1"
 audiocodecName=""
-video_plugin="TIViddec"
+video_plugin="TIViddec2"
 videocodeName=""
-soundStd="oss"
-dispStd="fbdev"
+soundStd="alsa"
+dispStd="v4l2"
 dispDevice=""
 videoStd="D1_NTSC"
 videoOut="COMPOSITE"
@@ -38,7 +38,7 @@ audio_encoder="lame"
 audio_src_args="num-buffers=100"
 
 # video encoder defauls
-video_encoder="TIVidenc"
+video_encoder="TIVidenc1"
 video_encoder_codec_name="h264enc"
 video_live_source="videotestsrc"
 video_encoder_color_space="UYVY"

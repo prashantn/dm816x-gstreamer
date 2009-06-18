@@ -94,7 +94,7 @@ ifndef CROSS_COMPILER
         CROSS_COMPILER=MVL_4_0_1
     endif
     ifeq ($(PLATFORM), dm6446)
-        CROSS_COMPILER=MVL_4_0_1
+        CROSS_COMPILER=MVL_5_0
     endif
     ifeq ($(PLATFORM), dm6467)
         CROSS_COMPILER=MVL_4_0_1
