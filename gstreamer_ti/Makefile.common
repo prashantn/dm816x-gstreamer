@@ -91,7 +91,7 @@ export XDC_INSTALL_DIR
 #------------------------------------------------------------------------------
 ifndef CROSS_COMPILER
     ifeq ($(PLATFORM), dm355)
-        CROSS_COMPILER=MVL_4_0_1
+        CROSS_COMPILER=MVL_5_0
     endif
     ifeq ($(PLATFORM), dm6446)
         CROSS_COMPILER=MVL_5_0

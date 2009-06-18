@@ -1,20 +1,17 @@
 #!/bin/sh
-#
-# loadmodules.sh
-#
-# Copyright (C) $year Texas Instruments Incorporated - http://www.ti.com/
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU Lesser General Public License as
-# published by the Free Software Foundation version 2.1 of the License.
-#
-# This program is distributed #as is# WITHOUT ANY WARRANTY of any kind,
-# whether express or implied; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
 
-# 12MB
-insmod cmemk.ko phys_start=0x87400000 phys_end=0x88000000 pools=1x2903040,1x1529856,7x829440,1x524288,1x108680,1x81920,2x8192,6x4096
+# CMEM Allocation
+#    1x3628800 Circular buffer
+#    4x829440  Video buffers (max D1 PAL)
+#    1x829440  Underlying software components (codecs, etc.)
+#    1x518400  Underlying software components (codecs, etc.)
+#    1x4948    Underlying software components (codecs, etc.)
+#    1x1505280 Underlying software components (codecs, etc.)
+#    1x5760    Underlying software components (codecs, etc.)
+#    1x8192    Underlying software components (codecs, etc.)
+#    1x1       Dummy buffer used during final flush
+insmod cmemk.ko phys_start=0x87400000 phys_end=0x88000000 \
+    pools=1x3628800,5x829440,1x518400,1x4948,1x1505280,1x5760,1x8192,1x1
 
 ./mapdmaq
 
