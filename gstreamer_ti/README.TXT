@@ -47,24 +47,24 @@ gst-plugins-bad-0.10.9
     Project Page:  http://gstreamer.freedesktop.org/
     Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-bad/
 
+gst-plugins-ugly-0.10.10
+    Description:   Select plugins from gStreamer ugly-plugins (mad)
+    Project Page:  http://gstreamer.freedesktop.org
+    Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-ugly
+
 glib-2.18.1
     Description:   GLib library
     Project Page:  http://www.gtk.org/
     Download URL:  http://ftp.gnome.org/pub/gnome/sources/glib/
 
-liboil-0.3.15
-    Description:   Liboil library
-    Project Page:  http://liboil.freedesktop.org/wiki/
-    Download URL:  http://liboil.freedesktop.org/download/
-
 check-0.9.5
     Description:   Check: a unit test framework for C
     Project Page:  http://sourceforge.net/projects/check/
 
-gst-plugins-ugly-0.10.10
-    Description:   Select plugins from gStreamer ugly-plugins (mad)
-    Project Page:  http://gstreamer.freedesktop.org
-    Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-ugly
+liboil-0.3.15
+    Description:   Liboil library
+    Project Page:  http://liboil.freedesktop.org/wiki/
+    Download URL:  http://liboil.freedesktop.org/download/
 
 libid3tag-0.15.1b
     Description:   ID3 tag manipulation library
