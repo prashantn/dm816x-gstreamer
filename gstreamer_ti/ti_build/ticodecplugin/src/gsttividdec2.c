@@ -1144,7 +1144,30 @@ static gboolean gst_tividdec2_codec_stop (GstTIViddec2  *viddec2)
         viddec2->framerateDen = 0;
     }
 
+    /* Re-claim all output buffers that were pushed downstream, and then
+     * delete the BufTab.
+     */
     if (viddec2->hOutBufTab) {
+        Int numBufs = BufTab_getNumBufs(viddec2->hOutBufTab);
+
+        GST_LOG("Re-claiming %d output buffers\n", numBufs);
+
+        for (; numBufs > 0; numBufs--) {
+            Buffer_Handle hBuf = BufTab_getFreeBuf(viddec2->hOutBufTab);
+
+            if (hBuf == NULL) {
+                GST_LOG("Waiting on output buffer to be released\n");
+                Rendezvous_meet(viddec2->waitOnBufTab);
+                hBuf = BufTab_getFreeBuf(viddec2->hOutBufTab);
+
+                if (hBuf == NULL) {
+                    GST_ERROR("failed to reclaim buffer from BufTab\n");
+                    break;
+                }
+            }
+            Rendezvous_reset(viddec2->waitOnBufTab);
+        }
+
         GST_LOG("freeing output buffers\n");
         BufTab_delete(viddec2->hOutBufTab);
         viddec2->hOutBufTab = NULL;
@@ -1251,9 +1274,8 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
     gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(
                                   gfxAttrs.dim.width, gfxAttrs.colorSpace);
 
-    /* Both the codec and the GStreamer pipeline can own a buffer */
-    gfxAttrs.bAttrs.useMask = gst_tidmaibuffertransport_GST_FREE |
-                              gst_tividdec2_CODEC_FREE;
+    /* By default, new buffers are marked as in-use by the codec */
+    gfxAttrs.bAttrs.useMask = gst_tividdec2_CODEC_FREE;
 
     viddec2->hOutBufTab =
         BufTab_create(viddec2->numOutputBufs, Vdec2_getOutBufSize(viddec2->hVd),
@@ -1292,6 +1314,7 @@ static void* gst_tividdec2_decode_thread(void *arg)
     GstClockTime   frameDuration;
     Buffer_Handle  hEncDataWindow;
     GstBuffer     *outBuf;
+    Int            bufIdx;
     Int            ret;
 
     GST_LOG("init video decode_thread \n");
@@ -1384,14 +1407,21 @@ static void* gst_tividdec2_decode_thread(void *arg)
             goto thread_failure;
         }
 
-        /* If no encoded data was used we cannot find the next frame */
-        if (ret == Dmai_EBITERROR && encDataConsumed == 0 && !codecFlushed) {
-            GST_ERROR("fatal bit error\n");
-            goto thread_failure;
-        }
-
         if (ret > 0) {
             GST_LOG("Vdec2_process returned success code %d\n", ret); 
+
+            /* In the case of bit errors, the codec may not return the buffer
+             * via the Vdec2_getFreeBuf API, so mark it as unused now.
+             */
+            if (ret == Dmai_EBITERROR) {
+                BufTab_freeBuf(hDstBuf);
+
+                /* If no encoded data was used we cannot find the next frame */
+                if (encDataConsumed == 0 && !codecFlushed) {
+                    GST_ERROR("fatal bit error\n");
+                    goto thread_failure;
+                }
+            }
         }
 
         /* Increment total bytes recieved */
@@ -1490,18 +1520,32 @@ thread_failure:
 
 thread_exit:
 
+    /* Re-claim any buffers owned by the codec */
+    bufIdx = BufTab_getNumBufs(viddec2->hOutBufTab);
+
+    while (bufIdx-- > 0) {
+        Buffer_Handle hBuf = BufTab_getBuf(viddec2->hOutBufTab, bufIdx);
+        Buffer_freeUseMask(hBuf, gst_tividdec2_CODEC_FREE);
+    }
+
     /* Release the last buffer we retrieved from the circular buffer */
     if (encDataWindow) {
         gst_ticircbuffer_data_consumed(viddec2->circBuf, encDataWindow, 0);
     }
 
+    /* Notify main thread that we are done draining before we shutdown the
+     * codec, or we will hang.  We proceed in this order so the EOS event gets
+     * propagated downstream before we attempt to shut down the codec.  The
+     * codec-shutdown process will block until all BufTab buffers have been
+     * released, and downstream-elements may hang on to buffers until
+     * they get the EOS.
+     */
+    Rendezvous_force(viddec2->waitOnDecodeDrain);
+
     /* stop codec engine */
     if (gst_tividdec2_codec_stop(viddec2) < 0) {
         GST_ERROR("failed to stop codec\n");
     }
-
-    /* Notify main thread if it is waiting on decode thread shut-down */
-    Rendezvous_force(viddec2->waitOnDecodeDrain);
 
     gst_object_unref(viddec2);
 

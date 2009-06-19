@@ -1,4 +1,10 @@
 2009-06-16  Don Darling, Texas Instruments, Inc.
+	* src/{gsttiauddec.c,gsttiauddec1.c,gsttidmaibuffertransport.c,
+	gsttiimgdec.c,gsttiimgdec1.c,gsttiimgenc.c,gsttiimgenc1.c,gsttividdec.c,
+	gsttividdec2.c,gsttividenc.c,gsttividenc1.c}:
+	Correct double-free issue.
+
+2009-06-16  Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec.{c,h},gsttiauddec1.{c,h},gsttiimgdec.{c,h},
 	gsttiimgdec1.{c,h},gsttiimgenc.{c,h},gsttiimgenc1.{c,h},gsttividdec.{c,h},
 	gsttividdec2.{c,h},gsttividenc.{c,h},gsttividenc1.{c,h}}:

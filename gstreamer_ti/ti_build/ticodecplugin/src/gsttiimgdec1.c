@@ -1240,7 +1240,30 @@ static gboolean gst_tiimgdec1_codec_stop (GstTIImgdec1  *imgdec1)
         imgdec1->framerateDen = 0;
     }
 
+    /* Re-claim all output buffers that were pushed downstream, and then
+     * delete the BufTab.
+     */
     if (imgdec1->hOutBufTab) {
+        Int numBufs = BufTab_getNumBufs(imgdec1->hOutBufTab);
+
+        GST_LOG("Re-claiming %d output buffers\n", numBufs);
+
+        for (; numBufs > 0; numBufs--) {
+            Buffer_Handle hBuf = BufTab_getFreeBuf(imgdec1->hOutBufTab);
+
+            if (hBuf == NULL) {
+                GST_LOG("Waiting on output buffer to be released\n");
+                Rendezvous_meet(imgdec1->waitOnBufTab);
+                hBuf = BufTab_getFreeBuf(imgdec1->hOutBufTab);
+
+                if (hBuf == NULL) {
+                    GST_ERROR("failed to reclaim buffer from BufTab\n");
+                    break;
+                }
+            }
+            Rendezvous_reset(imgdec1->waitOnBufTab);
+        }
+
         GST_LOG("freeing output buffers\n");
         BufTab_delete(imgdec1->hOutBufTab);
         imgdec1->hOutBufTab = NULL;
@@ -1326,9 +1349,9 @@ static gboolean gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1)
                                   gfxAttrs.dim.width, gfxAttrs.colorSpace);
 
     gfxAttrs.bAttrs.memParams.align = 128;
-    /* Both the codec and the GStreamer pipeline can own a buffer */
-    gfxAttrs.bAttrs.useMask = gst_tidmaibuffertransport_GST_FREE |
-                              gst_tiimgdec1_CODEC_FREE;
+
+    /* By default, new buffers are marked as in-use by the codec */
+    gfxAttrs.bAttrs.useMask = gst_tiimgdec1_CODEC_FREE;
 
     imgdec1->hOutBufTab =
         BufTab_create(imgdec1->numOutputBufs, Idec1_getOutBufSize(imgdec1->hIe),
@@ -1361,6 +1384,7 @@ static void* gst_tiimgdec1_decode_thread(void *arg)
     Buffer_Handle          hEncDataWindow;
     BufferGfx_Dimensions   dim;
     GstBuffer              *outBuf;
+    Int                    bufIdx;
     Int                    ret;
 
 
@@ -1533,17 +1557,32 @@ thread_failure:
 
 thread_exit:
  
+    /* Re-claim any buffers owned by the codec */
+    bufIdx = BufTab_getNumBufs(imgdec1->hOutBufTab);
+
+    while (bufIdx-- > 0) {
+        Buffer_Handle hBuf = BufTab_getBuf(imgdec1->hOutBufTab, bufIdx);
+        Buffer_freeUseMask(hBuf, gst_tiimgdec1_CODEC_FREE);
+    }
+
     /* Release the last buffer we retrieved from the circular buffer */
     if (encDataWindow) {
         gst_ticircbuffer_data_consumed(imgdec1->circBuf, encDataWindow, 0);
     }
 
+    /* Notify main thread that we are done draining before we shutdown the
+     * codec, or we will hang.  We proceed in this order so the EOS event gets
+     * propagated downstream before we attempt to shut down the codec.  The
+     * codec-shutdown process will block until all BufTab buffers have been
+     * released, and downstream-elements may hang on to buffers until
+     * they get the EOS.
+     */
+    Rendezvous_force(imgdec1->waitOnDecodeDrain);
+
     /* Stop codec engine */
     if (gst_tiimgdec1_codec_stop(imgdec1) < 0) {
         GST_ERROR("failed to stop codec\n");
     }
-
-    Rendezvous_force(imgdec1->waitOnDecodeDrain);
 
     gst_object_unref(imgdec1);
 

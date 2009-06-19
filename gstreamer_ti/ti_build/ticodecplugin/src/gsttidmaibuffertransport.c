@@ -180,6 +180,15 @@ GstBuffer* gst_tidmaibuffertransport_new(
     tdt_buf->dmaiBuffer = dmaiBuffer;
     tdt_buf->hRv        = hRv;
 
+    /* If the DMAI buffer is part of a BufTab, mark it as being in use by the
+     * GStreamer pipeline.
+     */
+    if (Buffer_getBufTab(tdt_buf->dmaiBuffer) != NULL) {
+        Buffer_setUseMask(tdt_buf->dmaiBuffer,
+            Buffer_getUseMask(tdt_buf->dmaiBuffer) |
+            gst_tidmaibuffertransport_GST_FREE);
+    }
+
     GST_LOG("end new\n");
 
     return GST_BUFFER(tdt_buf);

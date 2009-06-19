@@ -102,6 +102,8 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
         "channels = (int) [ 1, 2 ]")
 );
 
+/* Constants */
+#define gst_tiauddec1_CODEC_FREE 0x2
 
 /* Declare a global pointer to our element base class */
 static GstElementClass *parent_class = NULL;
@@ -1089,8 +1091,31 @@ static gboolean gst_tiauddec1_codec_stop (GstTIAuddec1  *auddec1)
         auddec1->circBuf       = NULL;
     }
 
+    /* Re-claim all output buffers that were pushed downstream, and then
+     * delete the BufTab.
+     */
     if (auddec1->hOutBufTab) {
-        GST_LOG("freeing output buffer\n");
+        Int numBufs = BufTab_getNumBufs(auddec1->hOutBufTab);
+
+        GST_LOG("Re-claiming %d output buffers\n", numBufs);
+
+        for (; numBufs > 0; numBufs--) {
+            Buffer_Handle hBuf = BufTab_getFreeBuf(auddec1->hOutBufTab);
+
+            if (hBuf == NULL) {
+                GST_LOG("Waiting on output buffer to be released\n");
+                Rendezvous_meet(auddec1->waitOnBufTab);
+                hBuf = BufTab_getFreeBuf(auddec1->hOutBufTab);
+
+                if (hBuf == NULL) {
+                    GST_ERROR("failed to reclaim buffer from BufTab\n");
+                    break;
+                }
+            }
+            Rendezvous_reset(auddec1->waitOnBufTab);
+        }
+
+        GST_LOG("freeing output buffers\n");
         BufTab_delete(auddec1->hOutBufTab);
         auddec1->hOutBufTab = NULL;
     }
@@ -1175,7 +1200,8 @@ static gboolean gst_tiauddec1_codec_start (GstTIAuddec1  *auddec1)
      */
     GST_LOG("creating output buffers\n");
       
-    bAttrs.useMask = gst_tidmaibuffertransport_GST_FREE;
+    /* By default, new buffers are marked as in-use by the codec */
+    bAttrs.useMask = gst_tiauddec1_CODEC_FREE;
 
     auddec1->hOutBufTab =
         BufTab_create(auddec1->numOutputBufs, 
@@ -1204,12 +1230,13 @@ static void* gst_tiauddec1_decode_thread(void *arg)
     GstClockTime   encDataTime;
     Buffer_Handle  hEncDataWindow;
     GstBuffer     *outBuf;
-    Int            ret;
     guint          sampleDataSize;
     GstClockTime   sampleDuration;
     guint          sampleRate;
     guint          numSamples;
     guint          offset;
+    Int            bufIdx;
+    Int            ret;
 
     GST_LOG("starting auddec decode thread\n");
 
@@ -1345,6 +1372,9 @@ static void* gst_tiauddec1_decode_thread(void *arg)
             GST_DEBUG("push to source pad failed\n");
             goto thread_failure;
         }
+
+        /* Release buffers no longer in use by the codec */
+        Buffer_freeUseMask(hDstBuf, gst_tiauddec1_CODEC_FREE);
     }
 
 thread_failure:
@@ -1356,18 +1386,32 @@ thread_failure:
 
 thread_exit:
 
+    /* Re-claim any buffers owned by the codec */
+    bufIdx = BufTab_getNumBufs(auddec1->hOutBufTab);
+
+    while (bufIdx-- > 0) {
+        Buffer_Handle hBuf = BufTab_getBuf(auddec1->hOutBufTab, bufIdx);
+        Buffer_freeUseMask(hBuf, gst_tiauddec1_CODEC_FREE);
+    }
+
     /* Release the last buffer we retrieved from the circular buffer */
     if (encDataWindow) {
         gst_ticircbuffer_data_consumed(auddec1->circBuf, encDataWindow, 0);
     }
 
+    /* Notify main thread that we are done draining before we shutdown the
+     * codec, or we will hang.  We proceed in this order so the EOS event gets
+     * propagated downstream before we attempt to shut down the codec.  The
+     * codec-shutdown process will block until all BufTab buffers have been
+     * released, and downstream-elements may hang on to buffers until
+     * they get the EOS.
+     */
+    Rendezvous_force(auddec1->waitOnDecodeDrain);
+
     /* Initialize codec engine */
     if (gst_tiauddec1_codec_stop(auddec1) < 0) {
         GST_ERROR("failed to stop codec\n");
     }
-
-    /* Notify main thread if it is waiting on decode thread shut-down */
-    Rendezvous_force(auddec1->waitOnDecodeDrain);
 
     gst_object_unref(auddec1);
 

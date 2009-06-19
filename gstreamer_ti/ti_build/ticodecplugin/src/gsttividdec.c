@@ -94,6 +94,8 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     )
 );
 
+/* Constants */
+#define gst_tividdec_CODEC_FREE 0x2
 
 /* Define source (output) pad capabilities.  Currently, UYVY is supported. */
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
@@ -1182,7 +1184,9 @@ static gboolean gst_tividdec_codec_start (GstTIViddec  *viddec)
     gfxAttrs.dim.height     = params.maxHeight;
     gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(
                                   gfxAttrs.dim.width, gfxAttrs.colorSpace);
-    gfxAttrs.bAttrs.useMask = gst_tidmaibuffertransport_GST_FREE;
+
+    /* By default, new buffers are marked as in-use by the codec */
+    gfxAttrs.bAttrs.useMask = gst_tividdec_CODEC_FREE;
 
     viddec->hOutBufTab =
         BufTab_create(viddec->numOutputBufs, Vdec_getOutBufSize(viddec->hVd),
@@ -1214,7 +1218,30 @@ static gboolean gst_tividdec_codec_stop (GstTIViddec  *viddec)
         viddec->framerateDen = 0;
     }
 
+    /* Re-claim all output buffers that were pushed downstream, and then
+     * delete the BufTab.
+     */
     if (viddec->hOutBufTab) {
+        Int numBufs = BufTab_getNumBufs(viddec->hOutBufTab);
+
+        GST_LOG("Re-claiming %d output buffers\n", numBufs);
+
+        for (; numBufs > 0; numBufs--) {
+            Buffer_Handle hBuf = BufTab_getFreeBuf(viddec->hOutBufTab);
+
+            if (hBuf == NULL) {
+                GST_LOG("Waiting on output buffer to be released\n");
+                Rendezvous_meet(viddec->waitOnBufTab);
+                hBuf = BufTab_getFreeBuf(viddec->hOutBufTab);
+
+                if (hBuf == NULL) {
+                    GST_ERROR("failed to reclaim buffer from BufTab\n");
+                    break;
+                }
+            }
+            Rendezvous_reset(viddec->waitOnBufTab);
+        }
+
         GST_LOG("freeing output buffers\n");
         BufTab_delete(viddec->hOutBufTab);
         viddec->hOutBufTab = NULL;
@@ -1253,6 +1280,7 @@ static void* gst_tividdec_decode_thread(void *arg)
     GstClockTime   frameDuration;
     Buffer_Handle  hEncDataWindow;
     GstBuffer     *outBuf;
+    Int            bufIdx;
     Int            ret;
 
     GST_LOG("init video decode_thread \n");
@@ -1418,6 +1446,9 @@ static void* gst_tividdec_decode_thread(void *arg)
                 goto thread_failure;
             }
 
+            /* Release buffers no longer in use by the codec */
+            Buffer_freeUseMask(hDstBuf, gst_tividdec_CODEC_FREE);
+
             hDstBuf = Vdec_getDisplayBuf(viddec->hVd);
         }
     }
@@ -1431,18 +1462,32 @@ thread_failure:
 
 thread_exit:
 
+    /* Re-claim any buffers owned by the codec */
+    bufIdx = BufTab_getNumBufs(viddec->hOutBufTab);
+
+    while (bufIdx-- > 0) {
+        Buffer_Handle hBuf = BufTab_getBuf(viddec->hOutBufTab, bufIdx);
+        Buffer_freeUseMask(hBuf, gst_tividdec_CODEC_FREE);
+    }
+
     /* Release the last buffer we retrieved from the circular buffer */
     if (encDataWindow) {
         gst_ticircbuffer_data_consumed(viddec->circBuf, encDataWindow, 0);
     }
 
-    /* stop codec engine */
+    /* Notify main thread that we are done draining before we shutdown the
+     * codec, or we will hang.  We proceed in this order so the EOS event gets
+     * propagated downstream before we attempt to shut down the codec.  The
+     * codec-shutdown process will block until all BufTab buffers have been
+     * released, and downstream-elements may hang on to buffers until
+     * they get the EOS.
+     */
+    Rendezvous_force(viddec->waitOnDecodeDrain);
+
+    /* Stop codec engine */
     if (gst_tividdec_codec_stop(viddec) < 0) {
         GST_ERROR("failed to stop codec\n");
     }
-
-    /* Notify main thread if it is waiting on decode thread shut-down */
-    Rendezvous_force(viddec->waitOnDecodeDrain);
 
     gst_object_unref(viddec);
 
