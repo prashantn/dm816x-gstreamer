@@ -131,15 +131,18 @@ PLUGIN_PACKAGES += $(PACKAGE_plugins_bad_BUILD_TARGET)
 # Package plugins_ugly
 #-------------------------------------------------------------------------------
 PACKAGE_plugins_ugly_BUILD_TARGET       = plugins_ugly
-PACKAGE_plugins_ugly_ARCHIVE_BASENAME   = gst-plugins-ugly-0.10.9
+PACKAGE_plugins_ugly_ARCHIVE_BASENAME   = gst-plugins-ugly-0.10.11
 PACKAGE_plugins_ugly_PRECONFIG_PATCHES  = 
 ifeq ($(ALSA_SUPPORT), --disable-alsa)
-    PACKAGE_plugins_ugly_PRECONFIG_PATCHES += plugins_ugly1_0_10_9
+    PACKAGE_plugins_ugly_PRECONFIG_PATCHES += plugins_ugly1_0_10_11
 endif
-PACKAGE_plugins_ugly_CONFIGURE_OPTS     = LDFLAGS=-L$(TARGET_GSTREAMER_DIR)/lib  CFLAGS=-I${TARGET_GSTREAMER_DIR}/include  --enable-lame
+PACKAGE_plugins_ugly_CONFIGURE_OPTS     =    \
+    --enable-lame                            \
+    CFLAGS=-I${TARGET_GSTREAMER_DIR}/include \
+    LDFLAGS=-L$(TARGET_GSTREAMER_DIR)/lib
 PACKAGE_plugins_ugly_POSTCONFIG_PATCHES =
 PACKAGE_plugins_ugly_BUILD_DIRS         = ext/mad
-PACKAGE_plugins_ugly_BUILD_DIRS         += ext/lame
+PACKAGE_plugins_ugly_BUILD_DIRS        += ext/lame
 PACKAGE_plugins_ugly_DESCRIPTION        = \
         Selected plugins from Gstreamer ugly-plugins (id3tag, mad, lame)
 PLUGIN_PACKAGES += $(PACKAGE_plugins_ugly_BUILD_TARGET)
