@@ -102,8 +102,8 @@ BASE_PACKAGES += $(PACKAGE_plugins_base_BUILD_TARGET)
 # Package plugins_good
 #------------------------------------------------------------------------------
 PACKAGE_plugins_good_BUILD_TARGET        = plugins_good
-PACKAGE_plugins_good_ARCHIVE_BASENAME    = gst-plugins-good-0.10.10
-PACKAGE_plugins_good_PRECONFIG_PATCHES   = plugins_good1_0_10_10 plugins_good2_0_10_10 plugins_good3_0_10_10  plugins_good4_0_10_10
+PACKAGE_plugins_good_ARCHIVE_BASENAME    = gst-plugins-good-0.10.15
+PACKAGE_plugins_good_PRECONFIG_PATCHES   = plugins_good1_0_10_15 plugins_good2_0_10_15 plugins_good3_0_10_15
 PACKAGE_plugins_good_CONFIGURE_OPTS      = $(USE_V4L2SRC_WORKAROUND)
 PACKAGE_plugins_good_POSTCONFIG_PATCHES  =
 PACKAGE_plugins_good_BUILD_DIRS          = gst/avi
@@ -112,7 +112,7 @@ PACKAGE_plugins_good_BUILD_DIRS         += sys/oss
 PACKAGE_plugins_good_BUILD_DIRS         += sys/v4l2
 PACKAGE_plugins_good_BUILD_DIRS         += gst/autodetect
 PACKAGE_plugins_good_DESCRIPTION         = \
-    Select plugins from GStreamer good-plugins (avi, oss, v4l2)
+    Select plugins from GStreamer good-plugins (avi, qtdemux, oss, v4l2)
 PLUGIN_PACKAGES += $(PACKAGE_plugins_good_BUILD_TARGET)
 
 #------------------------------------------------------------------------------
