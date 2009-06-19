@@ -409,7 +409,6 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     viddec2->threadStatus       = 0UL;
     viddec2->firstFrame         = TRUE;
 
-    viddec2->decodeDrained      = FALSE;
     viddec2->waitOnDecodeDrain  = NULL;
 
     viddec2->hInFifo            = NULL;
@@ -1502,7 +1501,6 @@ thread_exit:
     }
 
     /* Notify main thread if it is waiting on decode thread shut-down */
-    viddec2->decodeDrained = TRUE;
     Rendezvous_force(viddec2->waitOnDecodeDrain);
 
     gst_object_unref(viddec2);
@@ -1644,10 +1642,7 @@ static void gst_tividdec2_drain_pipeline(GstTIViddec2 *viddec2)
     }
 
     /* Wait for the decoder to drain */
-    if (!viddec2->decodeDrained) {
-        Rendezvous_meet(viddec2->waitOnDecodeDrain);
-    }
-    viddec2->decodeDrained = FALSE;
+    Rendezvous_meet(viddec2->waitOnDecodeDrain);
 
 }
 

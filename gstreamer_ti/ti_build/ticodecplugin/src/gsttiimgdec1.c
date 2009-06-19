@@ -408,7 +408,6 @@ static void gst_tiimgdec1_init(GstTIImgdec1 *imgdec1, GstTIImgdec1Class *gclass)
     imgdec1->threadStatus       = 0UL;
     imgdec1->capsSet            = FALSE;
 
-    imgdec1->decodeDrained      = FALSE;
     imgdec1->waitOnDecodeDrain  = NULL;
 
     imgdec1->waitOnDecodeThread = NULL;
@@ -1544,7 +1543,6 @@ thread_exit:
         GST_ERROR("failed to stop codec\n");
     }
 
-    imgdec1->decodeDrained = TRUE;
     Rendezvous_force(imgdec1->waitOnDecodeDrain);
 
     gst_object_unref(imgdec1);
@@ -1693,10 +1691,7 @@ static void gst_tiimgdec1_drain_pipeline(GstTIImgdec1 *imgdec1)
     }
 
     /* Wait for the decoder to drain */
-    if (!imgdec1->decodeDrained) {
-        Rendezvous_meet(imgdec1->waitOnDecodeDrain);
-    }
-    imgdec1->decodeDrained = FALSE;
+    Rendezvous_meet(imgdec1->waitOnDecodeDrain);
 
     GST_LOG("Finish\n");
 }

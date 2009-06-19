@@ -380,7 +380,6 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->drainingEOS            = FALSE;
     videnc1->threadStatus           = 0UL;
 
-    videnc1->encodeDrained          = FALSE;
     videnc1->waitOnEncodeDrain      = NULL;
 
     videnc1->hInFifo                = NULL;
@@ -1537,7 +1536,6 @@ thread_exit:
         GST_ERROR("failed to stop codec\n");
     }
 
-    videnc1->encodeDrained = TRUE;
     Rendezvous_force(videnc1->waitOnEncodeDrain);
     Rendezvous_force(videnc1->waitOnQueueThread);
 
@@ -1681,10 +1679,7 @@ static void gst_tividenc1_drain_pipeline(GstTIVidenc1 *videnc1)
     }
 
     /* Wait for the encoder to drain */
-    if (!videnc1->encodeDrained) {
-        Rendezvous_meet(videnc1->waitOnEncodeDrain);
-    }
-    videnc1->encodeDrained = FALSE;
+    Rendezvous_meet(videnc1->waitOnEncodeDrain);
 
     GST_LOG("draining pipeline end\n");
 }

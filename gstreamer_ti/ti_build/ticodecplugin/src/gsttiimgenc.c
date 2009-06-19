@@ -482,7 +482,6 @@ static void gst_tiimgenc_init(GstTIImgenc *imgenc, GstTIImgencClass *gclass)
     imgenc->threadStatus       = 0UL;
     imgenc->capsSet            = FALSE;
 
-    imgenc->encodeDrained      = FALSE;
     imgenc->waitOnEncodeDrain  = NULL;
 
     imgenc->waitOnEncodeThread = NULL;
@@ -1852,7 +1851,6 @@ thread_exit:
         GST_ERROR("failed to stop codec\n");
     }
 
-    imgenc->encodeDrained = TRUE;
     Rendezvous_force(imgenc->waitOnEncodeDrain);
 
     gst_object_unref(imgenc);
@@ -2001,10 +1999,7 @@ static void gst_tiimgenc_drain_pipeline(GstTIImgenc *imgenc)
     }
 
     /* Wait for the encoder to drain */
-    if (!imgenc->encodeDrained) {
-        Rendezvous_meet(imgenc->waitOnEncodeDrain);
-    }
-    imgenc->encodeDrained = FALSE;
+    Rendezvous_meet(imgenc->waitOnEncodeDrain);
 
     GST_LOG("Finish\n");
 }

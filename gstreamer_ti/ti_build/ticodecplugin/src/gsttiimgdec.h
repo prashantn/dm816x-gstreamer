@@ -88,7 +88,6 @@ struct _GstTIImgdec
 
   /* Decode thread */
   pthread_t                 decodeThread;
-  gboolean                  decodeDrained;
   Rendezvous_Handle         waitOnDecodeDrain;
 
   /* Queue thread */

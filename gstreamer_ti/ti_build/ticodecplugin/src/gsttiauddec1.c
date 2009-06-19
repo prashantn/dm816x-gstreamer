@@ -386,7 +386,6 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
     auddec1->drainingEOS        = FALSE;
     auddec1->threadStatus       = 0UL;
 
-    auddec1->decodeDrained      = FALSE;
     auddec1->waitOnDecodeDrain  = NULL;
     auddec1->waitOnBufTab       = NULL;
 
@@ -1368,7 +1367,6 @@ thread_exit:
     }
 
     /* Notify main thread if it is waiting on decode thread shut-down */
-    auddec1->decodeDrained = TRUE;
     Rendezvous_force(auddec1->waitOnDecodeDrain);
 
     gst_object_unref(auddec1);
@@ -1508,10 +1506,7 @@ static void gst_tiauddec1_drain_pipeline(GstTIAuddec1 *auddec1)
     }
 
     /* Wait for the decoder to drain */
-    if (!auddec1->decodeDrained) {
-        Rendezvous_meet(auddec1->waitOnDecodeDrain);
-    }
-    auddec1->decodeDrained = FALSE;
+    Rendezvous_meet(auddec1->waitOnDecodeDrain);
 
 }
 

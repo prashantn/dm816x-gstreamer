@@ -354,7 +354,6 @@ static void gst_tividenc_init(GstTIVidenc *videnc, GstTIVidencClass *gclass)
     videnc->drainingEOS             = FALSE;
     videnc->threadStatus            = 0UL;
 
-    videnc->encodeDrained           = FALSE;
     videnc->waitOnEncodeDrain       = NULL;
 
     videnc->hInFifo                 = NULL;
@@ -1382,7 +1381,6 @@ thread_exit:
     }
 
     /* Notify main thread if it is waiting on decode thread shut-down */
-    videnc->encodeDrained = TRUE;
     Rendezvous_force(videnc->waitOnQueueThread);
     Rendezvous_force(videnc->waitOnEncodeDrain);
 
@@ -1523,10 +1521,7 @@ static void gst_tividenc_drain_pipeline(GstTIVidenc *videnc)
     }
 
     /* Wait for the encoder to drain */
-    if (!videnc->encodeDrained) {
-        Rendezvous_meet(videnc->waitOnEncodeDrain);
-    }
-    videnc->encodeDrained = FALSE;
+    Rendezvous_meet(videnc->waitOnEncodeDrain);
 
 }
 

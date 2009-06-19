@@ -79,7 +79,6 @@ struct _GstTIViddec2
 
   /* Decode thread */
   pthread_t          decodeThread;
-  gboolean           decodeDrained;
   Rendezvous_Handle  waitOnDecodeDrain;
   Rendezvous_Handle  waitOnBufTab;
 

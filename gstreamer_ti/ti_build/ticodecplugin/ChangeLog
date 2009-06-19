@@ -1,3 +1,10 @@
+2009-06-16  Don Darling, Texas Instruments, Inc.
+	* src/{gsttiauddec.{c,h},gsttiauddec1.{c,h},gsttiimgdec.{c,h},
+	gsttiimgdec1.{c,h},gsttiimgenc.{c,h},gsttiimgenc1.{c,h},gsttividdec.{c,h},
+	gsttividdec2.{c,h},gsttividenc.{c,h},gsttividenc1.{c,h}}:
+	Remove the decodeDrained and encodeDrained variables, which were
+	unnecessary.
+
 2009-06-10  Don Darling, Texas Instruments, Inc.
 	* src/gstticodecs_dm6467.c:
 	Rename "aacdec" to "aachedec" to support DVSDK 2.00.

@@ -383,7 +383,6 @@ static void gst_tiauddec_init(GstTIAuddec *auddec, GstTIAuddecClass *gclass)
     auddec->drainingEOS         = FALSE;
     auddec->threadStatus        = 0UL;
 
-    auddec->decodeDrained       = FALSE;
     auddec->waitOnDecodeDrain   = NULL;
 
     auddec->hInFifo             = NULL;
@@ -1360,14 +1359,12 @@ thread_exit:
         gst_ticircbuffer_data_consumed(auddec->circBuf, encDataWindow, 0);
     }
 
-     /* Initialize codec engine */
     /* Stop codec engine */
     if (gst_tiauddec_codec_stop(auddec) < 0) {
         GST_ERROR("failed to stop codec\n");
     }
 
     /* Notify main thread if it is waiting on decode thread shut-down */
-    auddec->decodeDrained = TRUE;
     Rendezvous_force(auddec->waitOnDecodeDrain);
 
     gst_object_unref(auddec);
@@ -1507,10 +1504,7 @@ static void gst_tiauddec_drain_pipeline(GstTIAuddec *auddec)
     }
 
     /* Wait for the decoder to drain */
-    if (!auddec->decodeDrained) {
-        Rendezvous_meet(auddec->waitOnDecodeDrain);
-    }
-    auddec->decodeDrained = FALSE;
+    Rendezvous_meet(auddec->waitOnDecodeDrain);
 
 }
 
