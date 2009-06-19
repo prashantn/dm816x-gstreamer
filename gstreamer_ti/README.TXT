@@ -42,7 +42,7 @@ gst-plugins-good-0.10.15
     Project Page:  http://gstreamer.freedesktop.org/
     Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-good/
 
-gst-plugins-bad-0.10.9
+gst-plugins-bad-0.10.12
     Description:   Select plugins from gStreamer good-plugins (mpegdemux)
     Project Page:  http://gstreamer.freedesktop.org/
     Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-bad/

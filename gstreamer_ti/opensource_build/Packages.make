@@ -119,9 +119,8 @@ PLUGIN_PACKAGES += $(PACKAGE_plugins_good_BUILD_TARGET)
 # Package plugins_bad
 #------------------------------------------------------------------------------
 PACKAGE_plugins_bad_BUILD_TARGET        = plugins_bad
-PACKAGE_plugins_bad_ARCHIVE_BASENAME    = gst-plugins-bad-0.10.9
+PACKAGE_plugins_bad_ARCHIVE_BASENAME    = gst-plugins-bad-0.10.12
 PACKAGE_plugins_bad_PRECONFIG_PATCHES   = 
-PACKAGE_plugins_bad_CONFIGURE_OPTS      = ac_cv_openssldir=no
 PACKAGE_plugins_bad_POSTCONFIG_PATCHES  =
 PACKAGE_plugins_bad_BUILD_DIRS          = gst/mpegdemux
 PACKAGE_plugins_bad_DESCRIPTION         = \
