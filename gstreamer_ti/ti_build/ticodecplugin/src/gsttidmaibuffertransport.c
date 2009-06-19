@@ -33,6 +33,8 @@
  *
  */
 
+#include <stdlib.h>
+
 #include <ti/sdo/dmai/Dmai.h>
 #include <ti/sdo/dmai/Buffer.h>
 #include <ti/sdo/dmai/BufTab.h>
@@ -56,10 +58,20 @@ static void
     gst_tidmaibuffertransport_class_init(GstTIDmaiBufferTransportClass *klass);
 static void
     gst_tidmaibuffertransport_finalize(GstBuffer *gstbuffer);
+static gboolean
+    gst_tidmaibuffertransport_is_orphaned_buffer(GstBuffer *gstbuffer);
 
 /* Define GST_TYPE_TIDMAIBUFFERTRANSPORT */
 G_DEFINE_TYPE_WITH_CODE (GstTIDmaiBufferTransport, gst_tidmaibuffertransport, \
     GST_TYPE_BUFFER, gst_tidmaibuffertransport_log_init());
+
+/* Orphaned Buffer List */
+typedef struct _GstOrphanedBufferList {
+    Buffer_Handle                  buf;
+    struct _GstOrphanedBufferList *next;
+} GstOrphanedBufferList;
+
+static GstOrphanedBufferList *gst_ti_orphaned_buffer_list = NULL;
 
 
 /******************************************************************************
@@ -119,21 +131,29 @@ static void gst_tidmaibuffertransport_finalize(GstBuffer *gstbuffer)
 
     GST_LOG("begin finalize\n");
 
-    /* If the DMAI buffer is part of a BufTab, free it for re-use.  Otherwise,
-     * destroy the buffer.
+    /* If we know some BufTabs have been deleted, don't try to access the
+     * Dmai buffers because they have been freed.  Check to see if the buffer
+     * was registered as an orphan just before the BufTab was deleted.
      */
-    if (Buffer_getBufTab(self->dmaiBuffer) != NULL) {
-        GST_LOG("clearing GStreamer useMask bit so buffer can be reused\n");
-        Buffer_freeUseMask(self->dmaiBuffer,
-            gst_tidmaibuffertransport_GST_FREE);
-    } else {
-        GST_LOG("calling Buffer_delete()\n");
-        Buffer_delete(self->dmaiBuffer);
-    }
+    if (!gst_ti_orphaned_buffer_list ||
+        !gst_tidmaibuffertransport_is_orphaned_buffer(gstbuffer)) {
 
-    /* If rendezvous handle is set then wake-up caller */
-    if (self->hRv) {
-        Rendezvous_force(self->hRv);
+        /* If the DMAI buffer is part of a BufTab, free it for re-use.
+         * Otherwise, destroy the buffer.
+         */
+        if (Buffer_getBufTab(self->dmaiBuffer) != NULL) {
+            GST_LOG("clearing GStreamer useMask bit\n");
+            Buffer_freeUseMask(self->dmaiBuffer,
+                gst_tidmaibuffertransport_GST_FREE);
+        } else {
+            GST_LOG("calling Buffer_delete()\n");
+            Buffer_delete(self->dmaiBuffer);
+        }
+
+        /* If rendezvous handle is set then wake-up caller */
+        if (self->hRv) {
+            Rendezvous_force(self->hRv);
+        }
     }
 
     self->dmaiBuffer = NULL;
@@ -194,6 +214,62 @@ GstBuffer* gst_tidmaibuffertransport_new(
     return GST_BUFFER(tdt_buf);
 }
 
+
+/******************************************************************************
+ * gst_tidmaibuffertransport_register_orphaned_buffers
+ *
+ * If a BufTab needed to be deleted while buffers were still in use by the
+ * pipeline, record the buffers so we know they have been freed when we get
+ * them in the "finalize" method.
+ ******************************************************************************/
+void gst_tidmaibuffertransport_register_orphaned_buffers(BufTab_Handle bufTab)
+{
+    Int numBufs = BufTab_getNumBufs(bufTab);
+    Int bufIdx;
+
+    for (bufIdx = 0; bufIdx < numBufs; bufIdx++) {
+        Buffer_Handle buf = BufTab_getBuf(bufTab, bufIdx);
+        if (Buffer_getUseMask(buf) & gst_tidmaibuffertransport_GST_FREE) {
+            GstOrphanedBufferList *node =
+                (GstOrphanedBufferList*)malloc(sizeof(GstOrphanedBufferList));
+
+            GST_LOG("Registered orphaned buffer (%p)\n", buf);
+            node->buf  = buf;
+            node->next = gst_ti_orphaned_buffer_list;
+            gst_ti_orphaned_buffer_list = node;
+        }
+    }
+}
+
+/******************************************************************************
+ * gst_tidmaibuffertransport_is_orphaned_buffer
+ *     Check to see if the given buffer is an orphaned BufTab member.
+ ******************************************************************************/
+static gboolean gst_tidmaibuffertransport_is_orphaned_buffer(
+                    GstBuffer *gstbuffer)
+{
+    GstOrphanedBufferList *node      = NULL;
+    GstOrphanedBufferList *prev_node = NULL;
+
+    if (!gst_ti_orphaned_buffer_list) return FALSE;
+
+    for (node = gst_ti_orphaned_buffer_list; node; node = node->next) {
+
+        if (node->buf == GST_TIDMAIBUFFERTRANSPORT_DMAIBUF(gstbuffer)) {
+            GST_LOG("found orphaned buffer (%p).\n", node->buf);
+            if (prev_node) {
+                prev_node->next = node->next;
+            }
+            else {
+                gst_ti_orphaned_buffer_list = node->next;
+            }
+            free(node);
+            return TRUE;
+        }
+        prev_node = node;
+    }
+    return FALSE;
+}
 
 /******************************************************************************
  * Custom ViM Settings for editing this file

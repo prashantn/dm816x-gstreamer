@@ -1088,29 +1088,12 @@ static gboolean gst_tiauddec_codec_stop (GstTIAuddec  *auddec)
         auddec->circBuf       = NULL;
     }
 
-    /* Re-claim all output buffers that were pushed downstream, and then
-     * delete the BufTab.
-     */
     if (auddec->hOutBufTab) {
-        Int numBufs = BufTab_getNumBufs(auddec->hOutBufTab);
 
-        GST_LOG("Re-claiming %d output buffers\n", numBufs);
-
-        for (; numBufs > 0; numBufs--) {
-            Buffer_Handle hBuf = BufTab_getFreeBuf(auddec->hOutBufTab);
-
-            if (hBuf == NULL) {
-                GST_LOG("Waiting on output buffer to be released\n");
-                Rendezvous_meet(auddec->waitOnBufTab);
-                hBuf = BufTab_getFreeBuf(auddec->hOutBufTab);
-
-                if (hBuf == NULL) {
-                    GST_ERROR("failed to reclaim buffer from BufTab\n");
-                    break;
-                }
-            }
-            Rendezvous_reset(auddec->waitOnBufTab);
-        }
+        /* Re-claim all output buffers that were pushed downstream, and then
+         * delete the BufTab.
+         */
+        gst_ti_reclaim_buffers(auddec->hOutBufTab);
 
         GST_LOG("freeing output buffers\n");
         BufTab_delete(auddec->hOutBufTab);

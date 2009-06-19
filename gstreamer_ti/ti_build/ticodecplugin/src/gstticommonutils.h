@@ -30,6 +30,7 @@
 
 #include <ti/sdo/dmai/Dmai.h>
 #include <ti/sdo/dmai/Buffer.h>
+#include <ti/sdo/dmai/BufTab.h>
 
 /* This variable is used to flush the fifo.  It is pushed to the
  * fifo when we want to flush it.  When the encode/decode thread
@@ -65,6 +66,9 @@ void gst_ti_parse_newsegment(GstEvent **event, GstSegment *segment,
 /* Function to query position and duration of the stream. */ 
 gboolean gst_ti_query_srcpad(GstPad * pad, GstQuery * query, 
     GstPad *sinkpad, gint64 totalDuration, guint64 totalBytes);
+
+/* Function to re-claim BufTab buffers from downstream elements */
+gboolean gst_ti_reclaim_buffers(BufTab_Handle hBufTab);
 
 #endif 
 

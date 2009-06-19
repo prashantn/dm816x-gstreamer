@@ -71,6 +71,8 @@ struct _GstTIDmaiBufferTransportClass {
 /* External function declarations */
 GType      gst_tidmaibuffertransport_get_type(void);
 GstBuffer* gst_tidmaibuffertransport_new(Buffer_Handle, Rendezvous_Handle);
+void       gst_tidmaibuffertransport_register_orphaned_buffers(
+               BufTab_Handle);
 
 G_END_DECLS 
 

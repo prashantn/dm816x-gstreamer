@@ -19,7 +19,7 @@
  *
  */
 
-#include <gst/gst.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -28,6 +28,8 @@
 #include <ti/sdo/dmai/Dmai.h>
 #include <ti/sdo/dmai/Buffer.h>
 #include <ti/sdo/dmai/BufferGfx.h>
+
+#include <gst/gst.h>
 
 #include "gsttidmaibuffertransport.h"
 
@@ -387,6 +389,82 @@ void gst_ti_parse_newsegment(GstEvent **event, GstSegment *segment,
 
     return;
 }
+
+
+/******************************************************************************
+ * gst_ti_reclaim_buffers
+ *     Re-claim all of the buffers from a BufTab that are in use.
+ ******************************************************************************/
+gboolean gst_ti_reclaim_buffers(BufTab_Handle hBufTab)
+{
+    Int      numBufs;
+    gboolean orphanedBuffers = FALSE;
+
+    gst_ti_commonutils_debug_init();
+
+    if (!hBufTab) {
+        return FALSE;
+    }
+
+    numBufs = BufTab_getNumBufs(hBufTab);
+
+    GST_LOG("Re-claiming %d buffers from BufTab %p\n", numBufs, hBufTab);
+
+    for (; numBufs > 0; numBufs--) {
+        Buffer_Handle hBuf = BufTab_getFreeBuf(hBufTab);
+
+        if (hBuf == NULL) {
+
+            /* Try once a second to re-claim the next buffer, up to two
+             * seconds.  If we still don't have them all by then, assume it
+             * isn't going to be given back.  This is to gracefully handle
+             * prblematic elements like playbin that won't unref sink buffers
+             * on EOS.  If we could assume that all elements released sink
+             * buffers on EOS, we could implement this more efficiently using
+             * Rendezvous_meet(waitOnBufTab);
+             */
+            const Int timeout = 2;
+            Int       curr_sec;
+
+            GST_LOG("Waiting for buffer to be released\n");
+
+            for (curr_sec = 0; curr_sec < timeout; curr_sec++) {
+                if ((hBuf = BufTab_getFreeBuf(hBufTab))) {
+                    break;
+                }
+                sleep(1);
+            }
+
+            if (hBuf == NULL) {
+                GST_WARNING("Failed to reclaim all CMEM-allocated buffers "
+                    "from BufTab.  This can happen when downstream elements "
+                    "don't release sink buffers on EOS.  These buffers are "
+                    "now being freed, which could result in memory corruption "
+                    "if downstream elements continue to access their "
+                    "CMEM-allocated data.");
+                orphanedBuffers = TRUE;
+                break;
+            }
+        }
+    }
+
+    GST_LOG("freeing output buffers\n");
+
+    /* If we are leaving buffers orphaned downstream, let the transport
+     * buffer manager know so it doesn't try to access the freed data
+     * structures.
+     */
+    if (orphanedBuffers) {
+        GST_LOG("Registering orphaned buffers.\n");
+        gst_tidmaibuffertransport_register_orphaned_buffers(hBufTab);
+    }
+    else {
+        GST_LOG("All buffers re-claimed successfully.\n");
+    }
+
+    return (orphanedBuffers == FALSE);
+}
+
 
 /******************************************************************************
  * Custom ViM Settings for editing this file

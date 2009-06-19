@@ -1240,29 +1240,12 @@ static gboolean gst_tiimgdec1_codec_stop (GstTIImgdec1  *imgdec1)
         imgdec1->framerateDen = 0;
     }
 
-    /* Re-claim all output buffers that were pushed downstream, and then
-     * delete the BufTab.
-     */
     if (imgdec1->hOutBufTab) {
-        Int numBufs = BufTab_getNumBufs(imgdec1->hOutBufTab);
 
-        GST_LOG("Re-claiming %d output buffers\n", numBufs);
-
-        for (; numBufs > 0; numBufs--) {
-            Buffer_Handle hBuf = BufTab_getFreeBuf(imgdec1->hOutBufTab);
-
-            if (hBuf == NULL) {
-                GST_LOG("Waiting on output buffer to be released\n");
-                Rendezvous_meet(imgdec1->waitOnBufTab);
-                hBuf = BufTab_getFreeBuf(imgdec1->hOutBufTab);
-
-                if (hBuf == NULL) {
-                    GST_ERROR("failed to reclaim buffer from BufTab\n");
-                    break;
-                }
-            }
-            Rendezvous_reset(imgdec1->waitOnBufTab);
-        }
+        /* Re-claim all output buffers that were pushed downstream, and then
+         * delete the BufTab.
+         */
+        gst_ti_reclaim_buffers(imgdec1->hOutBufTab);
 
         GST_LOG("freeing output buffers\n");
         BufTab_delete(imgdec1->hOutBufTab);

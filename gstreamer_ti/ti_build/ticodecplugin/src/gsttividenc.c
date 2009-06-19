@@ -1048,29 +1048,12 @@ static gboolean gst_tividenc_codec_stop (GstTIVidenc *videnc)
         videnc->framerateDen = 0;
     }
 
-    /* Re-claim all output buffers that were pushed downstream, and then
-     * delete the BufTab.
-     */
     if (videnc->hOutBufTab) {
-        Int numBufs = BufTab_getNumBufs(videnc->hOutBufTab);
 
-        GST_LOG("Re-claiming %d output buffers\n", numBufs);
-
-        for (; numBufs > 0; numBufs--) {
-            Buffer_Handle hBuf = BufTab_getFreeBuf(videnc->hOutBufTab);
-
-            if (hBuf == NULL) {
-                GST_LOG("Waiting on output buffer to be released\n");
-                Rendezvous_meet(videnc->waitOnBufTab);
-                hBuf = BufTab_getFreeBuf(videnc->hOutBufTab);
-
-                if (hBuf == NULL) {
-                    GST_ERROR("failed to reclaim buffer from BufTab\n");
-                    break;
-                }
-            }
-            Rendezvous_reset(videnc->waitOnBufTab);
-        }
+        /* Re-claim all output buffers that were pushed downstream, and then
+         * delete the BufTab.
+         */
+        gst_ti_reclaim_buffers(videnc->hOutBufTab);
 
         GST_LOG("freeing output buffers\n");
         BufTab_delete(videnc->hOutBufTab);

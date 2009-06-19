@@ -38,6 +38,7 @@
 #  include <config.h>
 #endif
 
+#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <gst/gst.h>
@@ -1144,29 +1145,12 @@ static gboolean gst_tividdec2_codec_stop (GstTIViddec2  *viddec2)
         viddec2->framerateDen = 0;
     }
 
-    /* Re-claim all output buffers that were pushed downstream, and then
-     * delete the BufTab.
-     */
     if (viddec2->hOutBufTab) {
-        Int numBufs = BufTab_getNumBufs(viddec2->hOutBufTab);
 
-        GST_LOG("Re-claiming %d output buffers\n", numBufs);
-
-        for (; numBufs > 0; numBufs--) {
-            Buffer_Handle hBuf = BufTab_getFreeBuf(viddec2->hOutBufTab);
-
-            if (hBuf == NULL) {
-                GST_LOG("Waiting on output buffer to be released\n");
-                Rendezvous_meet(viddec2->waitOnBufTab);
-                hBuf = BufTab_getFreeBuf(viddec2->hOutBufTab);
-
-                if (hBuf == NULL) {
-                    GST_ERROR("failed to reclaim buffer from BufTab\n");
-                    break;
-                }
-            }
-            Rendezvous_reset(viddec2->waitOnBufTab);
-        }
+        /* Re-claim all output buffers that were pushed downstream, and then
+         * delete the BufTab.
+         */
+        gst_ti_reclaim_buffers(viddec2->hOutBufTab);
 
         GST_LOG("freeing output buffers\n");
         BufTab_delete(viddec2->hOutBufTab);
