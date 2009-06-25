@@ -272,6 +272,18 @@ static GstBuffer * gst_h264_get_avcc_header (GstBuffer *buf)
 }
 
 /******************************************************************************
+ * gst_h264_has_nal_prefix - This function checks if buffer has NAL prefix
+ *****************************************************************************/
+static gboolean gst_h264_has_nal_prefix (guint8 *buf)
+{
+    if (buf[0] == 0x00 && buf[1] == 0x00 && buf[2] == 0x00 && buf[3] ==0x01) {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/******************************************************************************
  * gst_h264_valid_avcc_header - This function checks if codec_data has a
  * valid avcC header in h264 stream.
  * To do this, it reads codec_data field passed via demuxer and if the
@@ -301,7 +313,16 @@ static GstBuffer * gst_h264_get_avcc_header (GstBuffer *buf)
  *****************************************************************************/
 gboolean gst_h264_valid_quicktime_header (GstBuffer *buf)
 {
-    GstBuffer *codec_data = gst_h264_get_avcc_header(buf);
+    GstBuffer *codec_data;
+
+    /* If we have NAL prefix code then no need to execute quicktime parser */
+    if (gst_h264_has_nal_prefix(GST_BUFFER_DATA(buf))) {
+        GST_LOG("Found NAL prefix code\n");
+        return FALSE;   
+    }
+
+    /* Read code_data field passed from the demuxer. */
+    codec_data = gst_h264_get_avcc_header(buf);
 
     if (codec_data == NULL) {
         GST_LOG("demuxer does not have codec_data field\n");
