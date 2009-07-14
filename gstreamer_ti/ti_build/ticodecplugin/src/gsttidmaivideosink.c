@@ -37,6 +37,11 @@
  *        Y component and one with the CbCr components interleaved (hence semi)  *
  *        See the LSP VDCE documentation for a thorough description of this
  *        format.
+ * NV12 - YUV 420 semi planar corresponding to V4L2_PIX_FMT_NV12 in v4l2.
+ *        The format consists of two planes: one with the
+ *        Y component and one with the CbCr components interleaved with 
+ *        2x2 subsampling. See the LSP documentation for a thorough  
+ *        description of this format. 
  *
  * NOTE:  This pad must be named "sink" in order to be used with the
  * Base Sink class.
@@ -53,6 +58,11 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE (
          "height=(int)[ 1, MAX ];"
     "video/x-raw-yuv, "
          "format=(fourcc)Y8C8, "
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ];"
+    "video/x-raw-yuv, "
+         "format=(fourcc)NV12, "
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
          "height=(int)[ 1, MAX ]"
@@ -952,6 +962,11 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink)
             sink->dAttrs = Display_Attrs_O3530_VID_DEFAULT;
             break;
         #endif
+        #if defined(Platform_dm365)
+        case Cpu_Device_DM365:
+            sink->dAttrs = Display_Attrs_DM365_VID_DEFAULT;
+            break;
+        #endif
         default:
             sink->dAttrs = Display_Attrs_DM6446_DM355_VID_DEFAULT;
             break;
@@ -1246,6 +1261,11 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         case GST_MAKE_FOURCC('Y', '8', 'C', '8'):
             inBufColorSpace = ColorSpace_YUV422PSEMI;
             break;
+#if defined(Platform_dm365)
+        case GST_MAKE_FOURCC('N', 'V', '1', '2'):
+            inBufColorSpace = ColorSpace_YUV420PSEMI;
+            break;
+#endif
         default:
             GST_ERROR("unsupport fourcc\n");
             goto cleanup;
@@ -1561,7 +1581,7 @@ error:
 /*******************************************************************************
  * gst_tidmaivideosink_get_caps
  *
- * Thisis mainly a place holder function.
+ * This is mainly a place holder function.
 *******************************************************************************/
 static GstCaps *gst_tidmaivideosink_get_caps(GstBaseSink * bsink)
 {
@@ -1581,7 +1601,7 @@ static GstCaps *gst_tidmaivideosink_get_caps(GstBaseSink * bsink)
 /*******************************************************************************
  * gst_tidmaivideosink_set_caps
  *
- * Thisis mainly a place holder function.
+ * This is mainly a place holder function.
 *******************************************************************************/
 static gboolean gst_tidmaivideosink_set_caps(GstBaseSink * bsink,
                     GstCaps * caps)

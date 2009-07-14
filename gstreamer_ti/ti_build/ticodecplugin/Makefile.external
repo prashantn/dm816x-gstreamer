@@ -9,7 +9,7 @@
 # Copyright (C) 2009 Ridgerun 
 #
 
-.PHONY: default configure dm6446 omap3530 dm355 dm6467
+.PHONY: default configure dm6446 omap3530 dm355 dm6467 dm365
 
 DVSDK_PATH=undefined
 DMAI_INSTALL_DIR=undefined
@@ -22,7 +22,7 @@ $(error You need to define the environment variable DMAI_INSTALL_DIR)
 endif
 
 default:
-	@echo "Please specify the target: dm6446, omap3530, dm355, dm6467"
+	@echo "Please specify the target: dm6446, omap3530, dm355, dm6467, dm365"
 
 include $(DVSDK_PATH)/Rules.make
 export PLATFORM=$(MAKECMDGOALS)
@@ -39,6 +39,7 @@ export MVTOOL_DIR
 export MVTOOL_PREFIX
 export XDAIS_INSTALL_DIR
 export XDC_INSTALL_DIR
+export EDMA3_LLD_INSTALL_DIR
 
 ifeq ($(PLATFORM), dm355)
     export XDC_TARGET   = gnu.targets.MVArm9
@@ -53,6 +54,11 @@ endif
 ifeq ($(PLATFORM), dm6467)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM6467
+endif
+
+ifeq ($(PLATFORM), dm365)
+    export XDC_TARGET   = gnu.targets.MVArm9
+    export XDC_PLATFORM = ti.platforms.evmDM365
 endif
 
 ifeq ($(PLATFORM), omap3530)
@@ -81,5 +87,8 @@ dm6467: Makefile
 	$(MAKE) -f Makefile
 
 dm355: Makefile
+	$(MAKE) -f Makefile
+
+dm365: Makefile
 	$(MAKE) -f Makefile
 

@@ -1,3 +1,8 @@
+2009-06-25 Sajesh Kumar Saran, Texas Instruments, Inc.
+	* src/{gsttidmaivideosink.c, gstticodecs_dm365.c, gsttividdec2.c,
+	gstticodecplugin_dm365.cfg, Makefile.am}:
+	Added support for DM365 processor.
+
 2009-06-16  Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec.c,gsttiauddec1.c,gsttidmaibuffertransport.c,
 	gsttiimgdec.c,gsttiimgdec1.c,gsttiimgenc.c,gsttiimgenc1.c,gsttividdec.c,

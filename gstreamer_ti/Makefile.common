@@ -85,6 +85,8 @@ export MVTOOL_PREFIX
 export PLATFORM
 export XDAIS_INSTALL_DIR
 export XDC_INSTALL_DIR
+export EDMA3_LLD_INSTALL_DIR
+export USER_XDC_PATH
 
 #------------------------------------------------------------------------------
 # Set a default cross compiler if one has not been specified
@@ -100,6 +102,9 @@ ifndef CROSS_COMPILER
         CROSS_COMPILER=MVL_5_0
     endif
     ifeq ($(PLATFORM), dm357)
+        CROSS_COMPILER=MVL_5_0
+    endif
+    ifeq ($(PLATFORM), dm365)
         CROSS_COMPILER=MVL_5_0
     endif
     ifeq ($(PLATFORM), omap3530)
@@ -144,6 +149,11 @@ endif
 ifeq ($(PLATFORM), dm357)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM357
+endif
+
+ifeq ($(PLATFORM), dm365)
+    export XDC_TARGET   = gnu.targets.MVArm9
+    export XDC_PLATFORM = ti.platforms.evmDM365
 endif
 
 ifeq ($(PLATFORM), dm6467)

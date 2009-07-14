@@ -127,6 +127,7 @@ DM355       2.00.00.22
 DM6467      2.00.00.22
 OMAP35xx    3.00.00.29
 DM357       2.05.00.14
+DM365       2.10.00.17
 
 Prerequisites
 =============
@@ -152,8 +153,14 @@ Prerequisites
   earlier than 2.00 are not actively supported.
 - The DVSDK is configured to use the Linux kernel provided by the LSP package
   associated with the DVSDK being used.
-- The proper version of DMAI must be installed.  Currently, all platforms
-  require DMAI version 1.20.
+- The minimum version of DMAI must be installed.  The proper version for
+  each platform is given below.
+	* DM644x          - DMAI 1.20
+	* DM355           - DMAI 1.20
+	* DM6467          - DMAI 1.20
+	* OMAP35x	      - DMAI 1.20
+	* DM357		      - DMAI 1.20
+	* DM365  	      - DMAI 2.10
 - For OMAP35xx platforms, the "zlib" library needs to be installed on the
   target filesystem.  To instal it, please cd to the root of the target
   filesystem and extract OMAP35x_SDK/bin/zlib-1.2.3.tar.gz.

@@ -106,6 +106,11 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
          "format=(fourcc)UYVY, "
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ];"
+    "video/x-raw-yuv, "                        /* NV12 */
+         "format=(fourcc)NV12, "
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
          "height=(int)[ 1, MAX ]"
     )
 );
@@ -672,9 +677,11 @@ static gboolean gst_tividdec2_set_source_caps(
 
     pad = viddec2->srcpad;
 
-    /* Create a UYVY caps object using the dimensions from the given buffer */
+    /* Create a UYVY/NV12 caps object using the dimensions from the 
+       given buffer */
     BufferGfx_getDimensions(hBuf, &dim);
 
+#if !defined(Platform_dm365)
     caps =
         gst_caps_new_simple("video/x-raw-yuv",
             "format",    GST_TYPE_FOURCC,   GST_MAKE_FOURCC('U','Y','V','Y'),
@@ -683,10 +690,20 @@ static gboolean gst_tividdec2_set_source_caps(
             "width",     G_TYPE_INT,        dim.width,
             "height",    G_TYPE_INT,        dim.height,
             NULL);
+#else
+    caps =
+        gst_caps_new_simple("video/x-raw-yuv",
+            "format",   GST_TYPE_FOURCC,  GST_MAKE_FOURCC('N','V','1','2'),
+            "framerate",GST_TYPE_FRACTION,viddec2->framerateNum,
+                                          viddec2->framerateDen,
+            "width",    G_TYPE_INT,       dim.width,
+            "height",   G_TYPE_INT,       dim.height,
+            NULL);
+#endif
 
     /* Set the source pad caps */
     string = gst_caps_to_string(caps);
-    GST_LOG("setting source caps to UYVY:  %s", string);
+    GST_LOG("setting source caps to: %s", string);
     g_free(string);
     ret = gst_pad_set_caps(pad, caps);
     gst_caps_unref(caps);
@@ -1202,18 +1219,30 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
     }
 
     /* Set up codec parameters depending on device */
-    if (device == Cpu_Device_DM6467) {
+    switch(device) {
+    case Cpu_Device_DM6467:
         params.forceChromaFormat = XDM_YUV_420P;
         params.maxWidth          = VideoStd_1080I_WIDTH;
         params.maxHeight         = VideoStd_1080I_HEIGHT + 8;
         colorSpace               = ColorSpace_YUV420PSEMI;
         defaultNumBufs           = 5;
-    } else {
+        break;
+#if defined(Platform_dm365)
+    case Cpu_Device_DM365:
+        params.forceChromaFormat = XDM_YUV_420SP;
+        params.maxWidth          = VideoStd_720P_WIDTH;
+        params.maxHeight         = VideoStd_720P_HEIGHT;
+        colorSpace               = ColorSpace_YUV420PSEMI;
+        defaultNumBufs           = 5;
+        break;
+#endif
+    default:
         params.forceChromaFormat = XDM_YUV_422ILE;
         params.maxWidth          = VideoStd_D1_WIDTH;
         params.maxHeight         = VideoStd_D1_PAL_HEIGHT;
         colorSpace               = ColorSpace_UYVY;
         defaultNumBufs           = 3;
+        break;
     }
 
     GST_LOG("opening video decoder \"%s\"\n", viddec2->codecName);
