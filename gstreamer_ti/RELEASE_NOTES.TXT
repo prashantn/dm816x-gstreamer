@@ -3,8 +3,8 @@ New Features
 
 Release 1.00:
 	- Added support for video encoding elements TIVidenc and TIVidenc1.
-	  These elements support the DM355, DM6446, DM357 and OMAP35x
-	  devices.
+	  These elements support the DM355, DM6446, DM357, DM367 and
+	  OMAP35x devices.
         - Patches for v4l2src element in the GST good plugin collection
         - Patch 503 Support decodebin and playbin
 
@@ -44,5 +44,7 @@ Release 1.00:
 	  "assertion" then try disabling hw accelerated framecopy. This can 
 	  be disabled with -c option in scripts. Note: disabling hw accel 
 	  framecopy will affect performance.
-        - H264 encoded video from TIVidenc may not play with some media
-          players (like VLC)
+        - H264 encoded video from TIVidenc works with VLC if it has a 
+          file extension of .264.  In the 1.00.00 release, it was 
+          incorrectly stated there was a problem playing H264 files 
+          with VLC.
