@@ -1,3 +1,8 @@
+2009-07-28 Brijesh Singh, Texas Instruments, Inc.
+	* src/{gstticircbuffer.c}:
+	Fix potential memory leak in circular buffer when accel framecopy flag is 
+	used.
+
 2009-06-25 Sajesh Kumar Saran, Texas Instruments, Inc.
 	* src/{gsttidmaivideosink.c, gstticodecs_dm365.c, gsttividdec2.c,
 	gstticodecplugin_dm365.cfg, Makefile.am}:

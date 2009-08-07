@@ -248,7 +248,8 @@ static gboolean gst_ticircbuffer_hw_accel_memcpy (GstTICircBuffer *circBuf,
     Int8 *circBufPtr, GstBuffer *buf)
 {
     Framecopy_Attrs     fcAttrs = Framecopy_Attrs_DEFAULT;
-    Buffer_Handle       hInBuf, hOutBuf;
+    Buffer_Handle       hInBuf = NULL, hOutBuf = NULL;
+    gboolean            ret = TRUE;
 
     /* if this is our first frame, then create framecopy handler */
     if (circBuf->hFc == NULL) {
@@ -270,33 +271,49 @@ static gboolean gst_ticircbuffer_hw_accel_memcpy (GstTICircBuffer *circBuf,
             
     if (hInBuf == NULL) {
         GST_ERROR("failed to create input graphics reference buffer\n");
-        return FALSE;
+        ret = FALSE;
+        goto cleanup;
     }
+
     Buffer_setUserPtr(hInBuf, (Int8*) GST_BUFFER_DATA(buf));
     Buffer_setNumBytesUsed(hInBuf, GST_BUFFER_SIZE(buf));
 
     hOutBuf = Buffer_create(GST_BUFFER_SIZE(buf), 
                   BufferGfx_getBufferAttrs(circBuf->gfxAttrs));
             
-    if (hInBuf == NULL) {
-        GST_ERROR("failed to create input graphics reference buffer\n");
-        return FALSE;
+    if (hOutBuf == NULL) {
+        GST_ERROR("failed to create output graphics reference buffer\n");
+        ret = FALSE;
+        goto cleanup;
     }
+
     Buffer_setUserPtr(hOutBuf, circBufPtr);
 
     /* configure framecopy  */                  
     if (Framecopy_config(circBuf->hFc, hInBuf, hOutBuf) < 0) {
         GST_ERROR("failed to configure framecopy module\n");
-        return FALSE;
+        ret = FALSE;
+        goto cleanup;
     }
 
     /* execute framecopy */
     if (Framecopy_execute(circBuf->hFc, hInBuf, hOutBuf) < 0) {
         GST_ERROR("failed to execute framecopy\n");
-        return FALSE;
+        ret = FALSE;
+        goto cleanup;
     }
 
-    return TRUE;
+cleanup:
+    /* delete the reference buffers */
+    if (hInBuf) {
+        Buffer_delete(hInBuf);
+    }
+
+    if (hOutBuf) {
+        Buffer_delete(hOutBuf);
+    }
+
+    return ret;
 } 
 
 /******************************************************************************
