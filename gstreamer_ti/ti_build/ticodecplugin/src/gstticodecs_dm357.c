@@ -31,32 +31,45 @@ GstTICodec gst_ticodec_codecs[] = {
     {
         "G.711 Speech Decoder",  /* String name of codec used by plugin      */
         "g711dec",               /* String name of codec used by CE          */
-        engineName             /* Engine that contains this codec          */
+        engineName               /* Engine that contains this codec          */
     },
 
     /* Video Decoders */
     {
         "H.264 Video Decoder",   /* String name of codec used by plugin      */
         "h264dec",               /* String name of codec used by CE          */
-        engineName             /* Engine that contains this codec          */
+        engineName               /* Engine that contains this codec          */
     }, {
         "MPEG4 Video Decoder",   /* String name of codec used by plugin      */
         "mpeg4dec",              /* String name of codec used by CE          */
-        engineName             /* Engine that contains this codec          */
+        engineName               /* Engine that contains this codec          */
     },
 
     /* Image Decoders */
     {
         "JPEG Image Decoder",    /* String name of codec used by plugin      */
         "jpegdec",               /* String name of codec used by CE          */
-        engineName             /* Engine that contains this codec          */
+        engineName               /* Engine that contains this codec          */
     },
 
     /* Image Encoders */
     {
         "JPEG Image Encoder",    /* String name of codec used by plugin      */
         "jpegenc",               /* String name of codec used by CE          */
-        engineName             /* Engine that contains this codec          */
+        engineName               /* Engine that contains this codec          */
+    },
+
+    /* Video Encoder */
+    {
+        "MPEG4 Video Encoder",  /* String name of codec used by plugin       */
+        "mpeg4enc",             /* String name of codec used by CE           */
+        engineName              /* Engine that contains this codec           */
+    },
+
+    {
+        "H.264 Video Encoder",  /* String name of codec used by plugin       */
+        "h264enc",              /* String name of codec used by CE           */
+        engineName              /* Engine that contains this codec           */
     },
 
     { NULL }

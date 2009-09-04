@@ -23,6 +23,7 @@
 
 /* Declaration of the production engine and decoders shipped with the DVSDK */
 static Char decodeEngine[] = "decode";
+static Char encodeEngine[] = "encode";
 
 /* NULL terminated list of speech decoders in the engine to use in the demo */
 GstTICodec gst_ticodec_codecs[] = {
@@ -50,6 +51,14 @@ GstTICodec gst_ticodec_codecs[] = {
         "MPEG2 Video Decoder",   /* String name of codec used by plugin      */
         "mpeg2dec",              /* String name of codec used by CE          */
         decodeEngine             /* Engine that contains this codec          */
+    }, {
+        "MPEG4 Video Encoder",  /* String name of codec used by plugin       */
+        "mpeg4enc",             /* String name of codec used by CE           */
+        encodeEngine            /* Engine that contains this codec           */
+    }, {
+        "H.264 Video Encoder",  /* String name of codec used by plugin       */
+        "h264enc",              /* String name of codec used by CE           */
+        encodeEngine            /* Engine that contains this codec           */
     },
 
     { NULL }

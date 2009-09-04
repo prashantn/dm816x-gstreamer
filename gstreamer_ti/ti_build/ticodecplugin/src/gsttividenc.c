@@ -608,11 +608,15 @@ static gboolean gst_tividenc_set_source_caps(
     gboolean              ret;
     GstPad               *pad;
     char                 *string;
+    GstTICodec           *h264Codec = NULL, *mpeg4Codec = NULL;
+
+    h264Codec  =  gst_ticodec_get_codec("H.264 Video Encoder");
+    mpeg4Codec  =  gst_ticodec_get_codec("MPEG4 Video Encoder");
 
     pad = videnc->srcpad;
 
     /* Create H264 cap */
-    if (strstr(videnc->codecName, "h264enc")) {
+    if (h264Codec && (!strcmp(h264Codec->CE_CodecName, videnc->codecName))) {
         caps =
             gst_caps_new_simple("video/x-h264",
                 "framerate",    GST_TYPE_FRACTION,  videnc->framerateNum,
@@ -627,7 +631,7 @@ static gboolean gst_tividenc_set_source_caps(
     }
  
     /* Create MPEG4 cap */
-    if (strstr(videnc->codecName, "mpeg4enc")) {
+    if (mpeg4Codec && (!strcmp(mpeg4Codec->CE_CodecName, videnc->codecName))) {
         gint mpegversion = 4;
 
         caps =
