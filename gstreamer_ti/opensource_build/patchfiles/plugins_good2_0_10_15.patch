@@ -110,29 +110,29 @@ diff -c -r orig/gst-plugins-good-0.10.15/sys/v4l2/v4l2src_calls.c gst-plugins-go
 +     GST_LOG("found ntsc standard\n");
 +     *width = 720;
 +     *height = 480;
-+     *fps_num = 1001;
-+     *fps_denom = 30000;
++     *fps_num = 30000;
++     *fps_denom = 1001;
 +   }
 +   else if (std & V4L2_STD_PAL) {
 +     GST_LOG("found pal standard\n");
 +     *width = 720;
 +     *height = 576;
-+     *fps_num = 1;
-+     *fps_denom = 25;
++     *fps_num = 25;
++     *fps_denom = 1;
 +   }
 +   else if (std & V4L2_STD_525P_60) {
 +     GST_LOG("found 525p standard\n");
 +     *width = 720;
 +     *height = 480;
-+     *fps_num = 1001;
-+     *fps_denom = 30000;
++     *fps_num = 30000;
++     *fps_denom = 1001;
 +   }
 +   else if (std & V4L2_STD_625P_50) {
 +     GST_LOG("found 625p standard\n");
 +     *width = 720;
 +     *height = 576;
-+     *fps_num = 1;
-+     *fps_denom = 25;
++     *fps_num = 25;
++     *fps_denom = 1;
 +   }
 +   else if (std & V4L2_STD_720P_60) {
 +     GST_LOG("found 720p @60fps standard\n");
