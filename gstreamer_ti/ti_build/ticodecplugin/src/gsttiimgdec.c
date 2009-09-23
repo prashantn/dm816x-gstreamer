@@ -1162,11 +1162,15 @@ static gboolean gst_tiimgdec_codec_stop (GstTIImgdec  *imgdec)
 {
     /* Shut down remaining items */
     if (imgdec->circBuf) {
+        GstTICircBuffer *circBuf;
+
         GST_LOG("freeing cicrular input buffer\n");
-        gst_ticircbuffer_unref(imgdec->circBuf);
+
+        circBuf              = imgdec->circBuf;
         imgdec->circBuf      = NULL;
         imgdec->framerateNum = 0;
         imgdec->framerateDen = 0;
+        gst_ticircbuffer_unref(circBuf);
     }
 
     if (imgdec->hOutBufTab) {

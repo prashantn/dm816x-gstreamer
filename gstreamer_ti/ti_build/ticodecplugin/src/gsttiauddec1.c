@@ -1018,9 +1018,13 @@ static GstStateChangeReturn gst_tiauddec1_change_state(GstElement *element,
 static gboolean gst_tiauddec1_codec_stop (GstTIAuddec1  *auddec1)
 {
     if (auddec1->circBuf) {
+        GstTICircBuffer *circBuf;
+
         GST_LOG("freeing cicrular input buffer\n");
-        gst_ticircbuffer_unref(auddec1->circBuf);
-        auddec1->circBuf       = NULL;
+
+        circBuf          = auddec1->circBuf;
+        auddec1->circBuf = NULL;
+        gst_ticircbuffer_unref(circBuf);
     }
 
     if (auddec1->hOutBufTab) {

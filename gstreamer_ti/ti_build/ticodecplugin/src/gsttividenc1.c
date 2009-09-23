@@ -1029,11 +1029,15 @@ static GstStateChangeReturn gst_tividenc1_change_state(GstElement *element,
 static gboolean gst_tividenc1_codec_stop (GstTIVidenc1 *videnc1)
 {
     if (videnc1->circBuf) {
+        GstTICircBuffer *circBuf;
+
         GST_LOG("freeing cicrular input buffer\n");
-        gst_ticircbuffer_unref(videnc1->circBuf);
+
+        circBuf               = videnc1->circBuf;
         videnc1->circBuf      = NULL;
         videnc1->framerateNum = 0;
         videnc1->framerateDen = 0;
+        gst_ticircbuffer_unref(circBuf);
     }
 
     if (videnc1->hOutBufTab) {

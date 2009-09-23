@@ -1144,11 +1144,15 @@ static gboolean gst_tividdec_codec_stop (GstTIViddec  *viddec)
 {
     /* Shut down remaining items */
     if (viddec->circBuf) {
+        GstTICircBuffer *circBuf;
+
         GST_LOG("freeing cicrular input buffer\n");
-        gst_ticircbuffer_unref(viddec->circBuf);
+
+        circBuf              = viddec->circBuf;
         viddec->circBuf      = NULL;
         viddec->framerateNum = 0;
         viddec->framerateDen = 0;
+        gst_ticircbuffer_unref(circBuf);
     }
 
     if (viddec->hOutBufTab) {
