@@ -1083,7 +1083,7 @@ static gboolean gst_tiauddec_codec_start (GstTIAuddec  *auddec)
 
     /* Set up a circular input buffer capable of holding two encoded frames */
     auddec->circBuf =
-        gst_ticircbuffer_new(Adec_getInBufSize(auddec->hAd) * 10, 3, FALSE);
+        gst_ticircbuffer_new(Adec_getInBufSize(auddec->hAd), 30, FALSE);
 
     if (auddec->circBuf == NULL) {
         GST_ERROR("failed to create circular input buffer\n");
