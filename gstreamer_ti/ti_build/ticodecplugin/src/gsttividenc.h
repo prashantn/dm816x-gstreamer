@@ -90,15 +90,6 @@ struct _GstTIVidenc
   Rendezvous_Handle waitOnEncodeDrain;
   Rendezvous_Handle waitOnBufTab;
 
-  /* Queue thread */
-  pthread_t         queueThread;
-  Fifo_Handle       hInFifo;
-
-  /* Blocking Conditions to Throttle I/O */
-  Rendezvous_Handle waitOnQueueThread;
-  Int32             waitQueueSize;
-
-  /* Blocking Condition for encode thread */
   Rendezvous_Handle waitOnEncodeThread;
 
   /* Framerate (Num/Den) */
