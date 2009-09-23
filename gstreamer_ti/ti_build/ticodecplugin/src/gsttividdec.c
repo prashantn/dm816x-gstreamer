@@ -753,6 +753,7 @@ static gboolean gst_tividdec_sink_event(GstPad *pad, GstEvent *event)
 static GstFlowReturn gst_tividdec_chain(GstPad * pad, GstBuffer * buf)
 {
     GstTIViddec   *viddec = GST_TIVIDDEC(GST_OBJECT_PARENT(pad));
+    GstFlowReturn  flow   = GST_FLOW_OK;
     gboolean       checkResult;
 
     /* If the decode thread aborted, signal it to let it know it's ok to
@@ -760,8 +761,8 @@ static GstFlowReturn gst_tividdec_chain(GstPad * pad, GstBuffer * buf)
      */
     if (gst_tithread_check_status(viddec, TIThread_DECODE_ABORTED,
             checkResult)) {
-       gst_buffer_unref(buf);
-       return GST_FLOW_UNEXPECTED;
+        flow = GST_FLOW_UNEXPECTED;
+        goto exit;
     }
 
     /* If our engine handle is currently NULL, then either this is our first
@@ -773,8 +774,8 @@ static GstFlowReturn gst_tividdec_chain(GstPad * pad, GstBuffer * buf)
     if (viddec->hEngine == NULL) {
         if (!gst_tividdec_init_video(viddec)) {
             GST_ERROR("unable to initialize video\n");
-            gst_buffer_unref(buf);
-            return GST_FLOW_UNEXPECTED;
+            flow = GST_FLOW_UNEXPECTED;
+            goto exit;
         }
             
         /* check if we have recieved buffer from qtdemuxer. To do this,
@@ -801,19 +802,22 @@ static GstFlowReturn gst_tividdec_chain(GstPad * pad, GstBuffer * buf)
                 viddec->sps_pps_data, viddec->nal_code_prefix,
                 viddec->nal_length) < 0) {
             GST_ERROR("Failed to queue input buffer into circular buffer\n");
-            gst_buffer_unref(buf);
-            return GST_FLOW_UNEXPECTED;
+            flow = GST_FLOW_UNEXPECTED;
+            goto exit;
         }
     }
     else {    
         /* Queue up the encoded data stream into a circular buffer */
         if (!gst_ticircbuffer_queue_data(viddec->circBuf, buf)) {
             GST_ERROR("Failed to queue input buffer into circular buffer\n");
-            gst_buffer_unref(buf);
-            return GST_FLOW_UNEXPECTED;
+            flow = GST_FLOW_UNEXPECTED;
+            goto exit;
         }
     }
-    return GST_FLOW_OK;
+
+exit:
+    gst_buffer_unref(buf);
+    return flow;
 }
 
 

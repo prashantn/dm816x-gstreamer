@@ -717,6 +717,7 @@ static gboolean gst_tividenc_sink_event(GstPad *pad, GstEvent *event)
 static GstFlowReturn gst_tividenc_chain(GstPad * pad, GstBuffer * buf)
 {
     GstTIVidenc   *videnc = GST_TIVIDENC(GST_OBJECT_PARENT(pad));
+    GstFlowReturn  flow   = GST_FLOW_OK;
     gboolean       checkResult;
 
     /* If the encode thread aborted, signal it to let it know it's ok to
@@ -724,8 +725,8 @@ static GstFlowReturn gst_tividenc_chain(GstPad * pad, GstBuffer * buf)
      */
     if (gst_tithread_check_status(videnc, TIThread_DECODE_ABORTED,
             checkResult)) {
-       gst_buffer_unref(buf);
-       return GST_FLOW_UNEXPECTED;
+        flow = GST_FLOW_UNEXPECTED;
+        goto exit;
     }
 
     /* If our engine handle is currently NULL, then either this is our first
@@ -738,8 +739,8 @@ static GstFlowReturn gst_tividenc_chain(GstPad * pad, GstBuffer * buf)
         videnc->upstreamBufSize =  GST_BUFFER_SIZE(buf);
         if (!gst_tividenc_init_video(videnc)) {
             GST_ERROR("unable to initialize video\n");
-            gst_buffer_unref(buf);
-            return GST_FLOW_UNEXPECTED;
+            flow = GST_FLOW_UNEXPECTED;
+            goto exit;
         }
 
         GST_TICIRCBUFFER_TIMESTAMP(videnc->circBuf) =
@@ -750,11 +751,13 @@ static GstFlowReturn gst_tividenc_chain(GstPad * pad, GstBuffer * buf)
     /* Queue up the encoded data stream into a circular buffer */
     if (!gst_ticircbuffer_queue_data(videnc->circBuf, buf)) {
         GST_ERROR("Failed to send buffer to queue thread\n");
-        gst_buffer_unref(buf);
-        return GST_FLOW_UNEXPECTED;
+        flow = GST_FLOW_UNEXPECTED;
+        goto exit;
     }
 
-    return GST_FLOW_OK;
+exit:
+    gst_buffer_unref(buf);
+    return flow;
 }
 
 /******************************************************************************

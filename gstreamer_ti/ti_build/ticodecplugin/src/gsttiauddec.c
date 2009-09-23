@@ -725,6 +725,7 @@ static gboolean gst_tiauddec_sink_event(GstPad *pad, GstEvent *event)
 static GstFlowReturn gst_tiauddec_chain(GstPad * pad, GstBuffer * buf)
 {
     GstTIAuddec   *auddec = GST_TIAUDDEC(GST_OBJECT_PARENT(pad));
+    GstFlowReturn  flow   = GST_FLOW_OK;
     gboolean       checkResult;
 
     /* If the decode thread aborted, signal it to let it know it's ok to
@@ -732,8 +733,8 @@ static GstFlowReturn gst_tiauddec_chain(GstPad * pad, GstBuffer * buf)
      */
     if (gst_tithread_check_status(auddec, TIThread_DECODE_ABORTED,
             checkResult)) {
-       gst_buffer_unref(buf);
-       return GST_FLOW_UNEXPECTED;
+        flow = GST_FLOW_UNEXPECTED;
+        goto exit;
     }
 
     /* If our engine handle is currently NULL, then either this is our first
@@ -745,8 +746,8 @@ static GstFlowReturn gst_tiauddec_chain(GstPad * pad, GstBuffer * buf)
     if (auddec->hEngine == NULL) {
         if (!gst_tiauddec_init_audio(auddec)) {
             GST_ERROR("unable to initialize audio\n");
-            gst_buffer_unref(buf);
-            return GST_FLOW_UNEXPECTED;
+            flow = GST_FLOW_UNEXPECTED;
+            goto exit;
         }
 
         /* If we are decoding aac stream, then check whether stream has valid
@@ -765,8 +766,8 @@ static GstFlowReturn gst_tiauddec_chain(GstPad * pad, GstBuffer * buf)
                 if (!gst_ticircbuffer_queue_data(auddec->circBuf,
                     auddec->aac_header_data)) {
                     GST_ERROR("Failed to send buffer to queue thread\n");
-                    gst_buffer_unref(buf);
-                    return GST_FLOW_UNEXPECTED;
+                    flow = GST_FLOW_UNEXPECTED;
+                    goto exit;
                 }
             }
         }
@@ -779,11 +780,13 @@ static GstFlowReturn gst_tiauddec_chain(GstPad * pad, GstBuffer * buf)
     /* Queue up the encoded data stream into a circular buffer */
     if (!gst_ticircbuffer_queue_data(auddec->circBuf, buf)) {
         GST_ERROR("Failed to queue input buffer into circular buffer\n");
-        gst_buffer_unref(buf);
-        return GST_FLOW_UNEXPECTED;
+        flow = GST_FLOW_UNEXPECTED;
+        goto exit;
     }
 
-    return GST_FLOW_OK;
+exit:
+    gst_buffer_unref(buf);
+    return flow;
 }
 
 

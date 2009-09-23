@@ -756,6 +756,7 @@ static GstFlowReturn gst_tiimgdec1_chain(GstPad * pad, GstBuffer * buf)
 {
     GstTIImgdec1  *imgdec1 = GST_TIIMGDEC1(GST_OBJECT_PARENT(pad));
     GstCaps       *caps    = GST_BUFFER_CAPS(buf);
+    GstFlowReturn  flow    = GST_FLOW_OK;
     gboolean       checkResult;
 
     /* If the decode thread aborted, signal it to let it know it's ok to
@@ -763,15 +764,16 @@ static GstFlowReturn gst_tiimgdec1_chain(GstPad * pad, GstBuffer * buf)
      */
     if (gst_tithread_check_status(imgdec1, TIThread_DECODE_ABORTED,
             checkResult)) {
-       gst_buffer_unref(buf);
-       return GST_FLOW_UNEXPECTED;
+        flow = GST_FLOW_UNEXPECTED;
+        goto exit;
     }
 
     /* If we have not negotiated the caps at least once then do so now */
     if (!imgdec1->capsSet) {
         if (!gst_tiimgdec1_set_sink_caps_helper(pad, caps)) {
             GST_ERROR("Could not set caps");
-            return GST_FLOW_UNEXPECTED;
+            flow = GST_FLOW_UNEXPECTED;
+            goto exit;
         }
     }
 
@@ -784,7 +786,8 @@ static GstFlowReturn gst_tiimgdec1_chain(GstPad * pad, GstBuffer * buf)
     if (imgdec1->hEngine == NULL) {
         if (!gst_tiimgdec1_init_image(imgdec1)) {
             GST_ERROR("unable to initialize image\n");
-            return GST_FLOW_UNEXPECTED;
+            flow = GST_FLOW_UNEXPECTED;
+            goto exit;
         }
 
         GST_TICIRCBUFFER_TIMESTAMP(imgdec1->circBuf) =
@@ -795,10 +798,13 @@ static GstFlowReturn gst_tiimgdec1_chain(GstPad * pad, GstBuffer * buf)
     /* Queue up the encoded data stream into a circular buffer */
     if (!gst_ticircbuffer_queue_data(imgdec1->circBuf, buf)) {
         GST_ERROR("Failed to queue input buffer into circular buffer\n");
-        return GST_FLOW_UNEXPECTED;
+        flow = GST_FLOW_UNEXPECTED;
+        goto exit;
     }
 
-    return GST_FLOW_OK;
+exit:
+    gst_buffer_unref(buf);
+    return flow;
 }
 
 /*******************************************************************************
