@@ -731,7 +731,7 @@ static GstFlowReturn gst_tiauddec_chain(GstPad * pad, GstBuffer * buf)
     /* If the decode thread aborted, signal it to let it know it's ok to
      * shut down, and communicate the failure to the pipeline.
      */
-    if (gst_tithread_check_status(auddec, TIThread_DECODE_ABORTED,
+    if (gst_tithread_check_status(auddec, TIThread_CODEC_ABORTED,
             checkResult)) {
         flow = GST_FLOW_UNEXPECTED;
         goto exit;
@@ -873,7 +873,7 @@ static gboolean gst_tiauddec_init_audio(GstTIAuddec * auddec)
         gst_tiauddec_exit_audio(auddec);
         return FALSE;
     }
-    gst_tithread_set_status(auddec, TIThread_DECODE_CREATED);
+    gst_tithread_set_status(auddec, TIThread_CODEC_CREATED);
 
     /* Destroy the custom thread attributes */
     if (pthread_attr_destroy(&attr)) {
@@ -915,7 +915,7 @@ static gboolean gst_tiauddec_exit_audio(GstTIAuddec *auddec)
 
     /* Shut down the decode thread */
     if (gst_tithread_check_status(
-            auddec, TIThread_DECODE_CREATED, checkResult)) {
+            auddec, TIThread_CODEC_CREATED, checkResult)) {
         GST_LOG("shutting down decode thread\n");
 
         Rendezvous_force(auddec->waitOnDecodeThread);
@@ -1297,7 +1297,7 @@ static void* gst_tiauddec_decode_thread(void *arg)
 
 thread_failure:
 
-    gst_tithread_set_status(auddec, TIThread_DECODE_ABORTED);
+    gst_tithread_set_status(auddec, TIThread_CODEC_ABORTED);
     gst_ticircbuffer_consumer_aborted(auddec->circBuf);
     threadRet = GstTIThreadFailure;
 
@@ -1354,7 +1354,7 @@ static void gst_tiauddec_drain_pipeline(GstTIAuddec *auddec)
 
     /* If the decode thread hasn't been created, there is nothing to drain. */
     if (!gst_tithread_check_status(
-             auddec, TIThread_DECODE_CREATED, checkResult)) {
+             auddec, TIThread_CODEC_CREATED, checkResult)) {
         return;
     }
 

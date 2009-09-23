@@ -771,7 +771,7 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
     /* If the encode thread aborted, signal it to let it know it's ok to
      * shut down, and communicate the failure to the pipeline.
      */
-    if (gst_tithread_check_status(videnc1, TIThread_DECODE_ABORTED,
+    if (gst_tithread_check_status(videnc1, TIThread_CODEC_ABORTED,
             checkResult)) {
         flow = GST_FLOW_UNEXPECTED;
         goto exit;
@@ -891,7 +891,7 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
         gst_tividenc1_exit_video(videnc1);
         return FALSE;
     }
-    gst_tithread_set_status(videnc1, TIThread_DECODE_CREATED);
+    gst_tithread_set_status(videnc1, TIThread_CODEC_CREATED);
 
     /* Destroy the custom thread attributes */
     if (pthread_attr_destroy(&attr)) {
@@ -934,7 +934,7 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
 
     /* Shut down the encode thread */
     if (gst_tithread_check_status(
-            videnc1, TIThread_DECODE_CREATED, checkResult)) {
+            videnc1, TIThread_CODEC_CREATED, checkResult)) {
         GST_LOG("shutting down encode thread\n");
 
         Rendezvous_force(videnc1->waitOnEncodeThread);
@@ -1465,7 +1465,7 @@ static void* gst_tividenc1_encode_thread(void *arg)
 
 thread_failure:
 
-    gst_tithread_set_status(videnc1, TIThread_DECODE_ABORTED);
+    gst_tithread_set_status(videnc1, TIThread_CODEC_ABORTED);
     gst_ticircbuffer_consumer_aborted(videnc1->circBuf);
     threadRet = GstTIThreadFailure;
 
@@ -1529,7 +1529,7 @@ static void gst_tividenc1_drain_pipeline(GstTIVidenc1 *videnc1)
 
     /* If the encode thread hasn't been created, there is nothing to drain. */
     if (!gst_tithread_check_status(
-             videnc1, TIThread_DECODE_CREATED, checkResult)) {
+             videnc1, TIThread_CODEC_CREATED, checkResult)) {
         return;
     }
 

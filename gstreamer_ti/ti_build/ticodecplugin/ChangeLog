@@ -1,6 +1,12 @@
 2009-09-23 Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec.c, gsttiauddec1.c, gsttiimgdec.c, gsttiimgdec1.c,
 	gsttiimgenc.c, gsttiimgenc1.c, gsttividdec.c, gsttividdec2.c,
+	gsttividenc.c, gsttividenc1.c, gsttithreadprops.h}:
+	Rename TIThread_DECODE_* flags to TIThread_CODEC_*
+
+2009-09-23 Don Darling, Texas Instruments, Inc.
+	* src/{gsttiauddec.c, gsttiauddec1.c, gsttiimgdec.c, gsttiimgdec1.c,
+	gsttiimgenc.c, gsttiimgenc1.c, gsttividdec.c, gsttividdec2.c,
 	gsttividenc.c, gsttividenc1.c}:
 	Set drainingEOS to true AFTER checking to see if the codec thread exists.
 

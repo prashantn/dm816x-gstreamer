@@ -36,8 +36,8 @@ G_BEGIN_DECLS
 #define GstTIThreadFailure (void*)-1
 
 /* Thread status flags */
-#define TIThread_DECODE_CREATED 0x00000001UL
-#define TIThread_DECODE_ABORTED 0x80000004UL
+#define TIThread_CODEC_CREATED  0x00000001UL
+#define TIThread_CODEC_ABORTED  0x80000004UL
 
 /* Thread status utility macros. */
 #define gst_tithread_lock_status(x) \

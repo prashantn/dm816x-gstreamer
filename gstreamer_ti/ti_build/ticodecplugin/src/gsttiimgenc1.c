@@ -922,7 +922,7 @@ static GstFlowReturn gst_tiimgenc1_chain(GstPad * pad, GstBuffer * buf)
     /* If the encode thread aborted, signal it to let it know it's ok to
      * shut down, and communicate the failure to the pipeline.
      */
-    if (gst_tithread_check_status(imgenc1, TIThread_DECODE_ABORTED,
+    if (gst_tithread_check_status(imgenc1, TIThread_CODEC_ABORTED,
             checkResult)) {
         flow = GST_FLOW_UNEXPECTED;
         goto exit;
@@ -1331,7 +1331,7 @@ static gboolean gst_tiimgenc1_init_image(GstTIImgenc1 *imgenc1)
         gst_tiimgenc1_exit_image(imgenc1);
         return FALSE;
     }
-    gst_tithread_set_status(imgenc1, TIThread_DECODE_CREATED);
+    gst_tithread_set_status(imgenc1, TIThread_CODEC_CREATED);
 
     /* Destroy the custom thread attributes */
     if (pthread_attr_destroy(&attr)) {
@@ -1374,7 +1374,7 @@ static gboolean gst_tiimgenc1_exit_image(GstTIImgenc1 *imgenc1)
 
     /* Shut down the encode thread */
     if (gst_tithread_check_status(
-            imgenc1, TIThread_DECODE_CREATED, checkResult)) {
+            imgenc1, TIThread_CODEC_CREATED, checkResult)) {
         GST_LOG("shutting down encode thread\n");
 
         Rendezvous_force(imgenc1->waitOnEncodeThread);
@@ -1777,7 +1777,7 @@ static void* gst_tiimgenc1_encode_thread(void *arg)
 
 thread_failure:
 
-    gst_tithread_set_status(imgenc1, TIThread_DECODE_ABORTED);
+    gst_tithread_set_status(imgenc1, TIThread_CODEC_ABORTED);
     gst_ticircbuffer_consumer_aborted(imgenc1->circBuf);
     threadRet = GstTIThreadFailure;
 
@@ -1834,7 +1834,7 @@ static void gst_tiimgenc1_drain_pipeline(GstTIImgenc1 *imgenc1)
 
     /* If the encode thread hasn't been created, there is nothing to drain. */
     if (!gst_tithread_check_status(
-             imgenc1, TIThread_DECODE_CREATED, checkResult)) {
+             imgenc1, TIThread_CODEC_CREATED, checkResult)) {
         return;
     }
 
