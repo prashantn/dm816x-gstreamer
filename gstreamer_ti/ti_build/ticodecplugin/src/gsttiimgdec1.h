@@ -90,16 +90,6 @@ struct _GstTIImgdec1
   pthread_t                 decodeThread;
   Rendezvous_Handle         waitOnDecodeDrain;
   Rendezvous_Handle         waitOnBufTab;
-
-  /* Queue thread */
-  pthread_t                 queueThread;
-  Fifo_Handle               hInFifo;
-
-  /* Blocking Conditions to Throttle I/O */
-  Rendezvous_Handle         waitOnQueueThread;
-  Int32                     waitQueueSize;
-
-  /* Blocking conditions for decodeThread */
   Rendezvous_Handle         waitOnDecodeThread;
   
   /* Framerate (Num/Den) */
