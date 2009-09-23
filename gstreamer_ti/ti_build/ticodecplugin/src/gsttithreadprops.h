@@ -37,10 +37,7 @@ G_BEGIN_DECLS
 
 /* Thread status flags */
 #define TIThread_DECODE_CREATED 0x00000001UL
-#define TIThread_QUEUE_CREATED  0x00000002UL
 #define TIThread_DECODE_ABORTED 0x80000004UL
-#define TIThread_QUEUE_ABORTED  0x80000008UL
-#define TIThread_ANY_ABORTED    0x80000000UL
 
 /* Thread status utility macros. */
 #define gst_tithread_lock_status(x) \
