@@ -94,17 +94,7 @@ struct _GstTIImgenc
   /* Encode thread */
   pthread_t                 encodeThread;
   Rendezvous_Handle         waitOnEncodeDrain;
-
-  /* Queue thread */
-  pthread_t                 queueThread;
-  Fifo_Handle               hInFifo;
-
-  /* Blocking Conditions to Throttle I/O */
-  Rendezvous_Handle         waitOnQueueThread;
   Rendezvous_Handle         waitOnBufTab;
-  Int32                     waitQueueSize;
-
-  /* Blocking conditions for encode thread */
   Rendezvous_Handle         waitOnEncodeThread;
 
   /* Framerate (Num/Den) */
