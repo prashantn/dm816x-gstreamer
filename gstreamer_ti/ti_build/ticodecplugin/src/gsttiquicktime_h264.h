@@ -22,8 +22,7 @@
 #define __GST_QUICKTIME_H264_H__
 
 #include <gst/gst.h>
-
-#include <ti/sdo/dmai/Fifo.h>
+#include "gstticircbuffer.h"
 
 /* Get version number from avcC atom  */
 #define AVCC_ATOM_GET_VERSION(header,pos) \
@@ -76,8 +75,8 @@ guint8 gst_h264_get_nal_length (GstBuffer *buf);
 /* Function to get predefind NAL prefix code */
 GstBuffer* gst_h264_get_nal_prefix_code (void);
 
-/* Function to parse input stream and put in Fifo */
-int gst_h264_parse_and_fifo_put (Fifo_Handle fifoFd, GstBuffer *buf, 
+/* Function to parse input stream and put circular buffer */
+int gst_h264_parse_and_queue (GstTICircBuffer *circBuf, GstBuffer *buf, 
     GstBuffer *sps_pps_data, GstBuffer *nal_code_prefix, guint8 nal_length );
 
 /* Function to check if we are using h264 decoder */

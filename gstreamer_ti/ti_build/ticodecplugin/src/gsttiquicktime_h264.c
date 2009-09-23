@@ -155,7 +155,7 @@ GstBuffer* gst_h264_get_nal_prefix_code (void)
 }
 
 /******************************************************************************
- * gst_h264_parse_and_fifo_put  - This function adds sps and pps header data
+ * gst_h264_parse_and_queue  - This function adds sps and pps header data
  * before pushing input buffer in Fifo.
  *
  * H264 in quicktime is what we call in gstreamer 'packtized' h264.
@@ -169,7 +169,7 @@ GstBuffer* gst_h264_get_nal_prefix_code (void)
  * exchanging the size header with nal prefix codes is a valid way to transform
  * a packetized stream into a byte stream.
  *****************************************************************************/
-int gst_h264_parse_and_fifo_put (Fifo_Handle fifoFd, GstBuffer *buf, 
+int gst_h264_parse_and_queue (GstTICircBuffer *circBuf, GstBuffer *buf, 
     GstBuffer *sps_pps_data, GstBuffer *nal_code_prefix, guint8 nal_length)
 {
     int i, nal_size=0, avail = GST_BUFFER_SIZE(buf);
@@ -181,7 +181,7 @@ int gst_h264_parse_and_fifo_put (Fifo_Handle fifoFd, GstBuffer *buf,
     gst_buffer_ref(sps_pps_data);
 
     /* Put SPS and PPS data (prefixed with NAL code) in fifo */
-    if (Fifo_put(fifoFd, sps_pps_data) < 0) {
+    if (!gst_ticircbuffer_queue_data(circBuf, sps_pps_data)) {
         GST_ERROR("Failed to put SPS, PPS data in Fifo \n");
         return FALSE;
     }
@@ -198,7 +198,7 @@ int gst_h264_parse_and_fifo_put (Fifo_Handle fifoFd, GstBuffer *buf,
         gst_buffer_ref(nal_code_prefix);
 
         /* Put NAL prefix code in fifo */
-        if (Fifo_put(fifoFd, nal_code_prefix) < 0) {
+        if (!gst_ticircbuffer_queue_data(circBuf, nal_code_prefix)) {
             GST_ERROR("Failed to put NAL code prefix\n");
             return FALSE;
         }
@@ -212,7 +212,7 @@ int gst_h264_parse_and_fifo_put (Fifo_Handle fifoFd, GstBuffer *buf,
         }
 
         /* Put nal_size data from input buffer in fifo */
-        if (Fifo_put(fifoFd, subBuf)<0) {
+        if (!gst_ticircbuffer_queue_data(circBuf, subBuf)) {
             GST_ERROR("Failed to put NAL code prefix\n");
             return FALSE;
         }

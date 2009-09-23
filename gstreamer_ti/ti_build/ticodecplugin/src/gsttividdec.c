@@ -144,12 +144,6 @@ static GstStateChangeReturn
  gst_tividdec_change_state(GstElement *element, GstStateChange transition);
 static void*
  gst_tividdec_decode_thread(void *arg);
-static void*
- gst_tividdec_queue_thread(void *arg);
-static void
- gst_tividdec_broadcast_queue_thread(GstTIViddec *viddec);
-static void
- gst_tividdec_wait_on_queue_thread(GstTIViddec *viddec, Int32 waitQueueSize);
 static void
  gst_tividdec_drain_pipeline(GstTIViddec *viddec);
 static GstClockTime
@@ -408,11 +402,6 @@ static void gst_tividdec_init(GstTIViddec *viddec, GstTIViddecClass *gclass)
     viddec->waitOnDecodeDrain   = NULL;
     viddec->waitOnDecodeThread  = NULL;
     viddec->waitOnBufTab        = NULL;
-
-    viddec->hInFifo             = NULL;
-
-    viddec->waitOnQueueThread   = NULL;
-    viddec->waitQueueSize       = 0;
 
     viddec->framerateNum        = 0;
     viddec->framerateDen        = 0;
@@ -766,8 +755,11 @@ static GstFlowReturn gst_tividdec_chain(GstPad * pad, GstBuffer * buf)
     GstTIViddec *viddec = GST_TIVIDDEC(GST_OBJECT_PARENT(pad));
     gboolean     checkResult;
 
-    /* If any thread aborted, communicate it to the pipeline */
-    if (gst_tithread_check_status(viddec, TIThread_ANY_ABORTED, checkResult)) {
+    /* If the decode thread aborted, signal it to let it know it's ok to
+     * shut down, and communicate the failure to the pipeline.
+     */
+    if (gst_tithread_check_status(viddec, TIThread_DECODE_ABORTED,
+            checkResult)) {
        gst_buffer_unref(buf);
        return GST_FLOW_UNEXPECTED;
     }
@@ -800,32 +792,23 @@ static GstFlowReturn gst_tividdec_chain(GstPad * pad, GstBuffer * buf)
             GST_BUFFER_TIMESTAMP(buf) : 0ULL;
     }
 
-    /* Don't queue up too many buffers -- if we collect too many input buffers
-     * without consuming them we'll run out of memory.  Once we reach a
-     * threshold, block until the queue thread removes some buffers.
-     */
-    Rendezvous_reset(viddec->waitOnQueueThread);
-    if (Fifo_getNumEntries(viddec->hInFifo) > 500) {
-        gst_tividdec_wait_on_queue_thread(viddec, 400);
-    }
-
     /* If demuxer has passed SPS and PPS NAL unit dump in codec_data field,
      * then we have a packetized h264 stream. We need to transform this stream
      * into byte-stream.
      */
     if (viddec->sps_pps_data) {
-        if (gst_h264_parse_and_fifo_put(viddec->hInFifo, buf, 
+        if (gst_h264_parse_and_queue(viddec->circBuf, buf, 
                 viddec->sps_pps_data, viddec->nal_code_prefix,
                 viddec->nal_length) < 0) {
-            GST_ERROR("Failed to send buffer to queue thread\n");
+            GST_ERROR("Failed to queue input buffer into circular buffer\n");
             gst_buffer_unref(buf);
             return GST_FLOW_UNEXPECTED;
         }
     }
     else {    
         /* Queue up the encoded data stream into a circular buffer */
-        if (Fifo_put(viddec->hInFifo, buf) < 0) {
-            GST_ERROR("Failed to send buffer to queue thread\n");
+        if (!gst_ticircbuffer_queue_data(viddec->circBuf, buf)) {
+            GST_ERROR("Failed to queue input buffer into circular buffer\n");
             gst_buffer_unref(buf);
             return GST_FLOW_UNEXPECTED;
         }
@@ -843,12 +826,8 @@ static gboolean gst_tividdec_init_video(GstTIViddec *viddec)
     Rendezvous_Attrs      rzvAttrs  = Rendezvous_Attrs_DEFAULT;
     struct sched_param    schedParam;
     pthread_attr_t        attr;
-    Fifo_Attrs            fAttrs    = Fifo_Attrs_DEFAULT;
 
     GST_LOG("begin init_video\n");
-
-    /* Set up the queue fifo */
-    viddec->hInFifo = Fifo_create(&fAttrs);
 
     /* If video has already been initialized, shut down previous decoder */
     if (viddec->hEngine) {
@@ -875,7 +854,6 @@ static gboolean gst_tividdec_init_video(GstTIViddec *viddec)
 
     /* Initialize rendezvous objects for making threads wait on conditions */
     viddec->waitOnDecodeDrain   = Rendezvous_create(100, &rzvAttrs);
-    viddec->waitOnQueueThread   = Rendezvous_create(100, &rzvAttrs);
     viddec->waitOnDecodeThread  = Rendezvous_create(2, &rzvAttrs);
     viddec->waitOnBufTab        = Rendezvous_create(100, &rzvAttrs);
     viddec->drainingEOS         = FALSE;
@@ -931,28 +909,16 @@ static gboolean gst_tividdec_init_video(GstTIViddec *viddec)
         return FALSE;
     }
 
-    /* Wait for decoder thread to finish initilization before creating queue
+    /* Make sure circular buffer and display buffers are created by decoder
      * thread.
      */
     Rendezvous_meet(viddec->waitOnDecodeThread);
 
-    /* Make sure circular buffer and display buffers are created by decoder
-     * thread.
-     */
     if (viddec->circBuf == NULL || viddec->hOutBufTab == NULL) {
         GST_LOG("decode thread failed to create circular or display buffer"
                 " handles\n");
         return FALSE;
     }
-
-    /* Create queue thread */
-    if (pthread_create(&viddec->queueThread, NULL,
-            gst_tividdec_queue_thread, (void*)viddec)) {
-        GST_ERROR("failed to create queue thread\n");
-        gst_tividdec_exit_video(viddec);
-        return FALSE;
-    }
-    gst_tithread_set_status(viddec, TIThread_QUEUE_CREATED);
 
     GST_LOG("end init_video\n");
     return TRUE;
@@ -975,35 +941,7 @@ static gboolean gst_tividdec_exit_video(GstTIViddec *viddec)
        gst_tividdec_drain_pipeline(viddec);
      }
 
-    /* Shut down the queue thread */
-    if (gst_tithread_check_status(
-            viddec, TIThread_QUEUE_CREATED, checkResult)) {
-        GST_LOG("shutting down queue thread\n");
-
-        /* Unstop the queue thread if needed, and wait for it to finish */
-        /* Push the gst_ti_flush_fifo buffer to let the queue thread know
-         * when the Fifo has finished draining.  If the Fifo is currently
-         * empty when we get to this point, then pushing this buffer will
-         * also unblock the encode/decode thread if it is currently blocked
-         * on a Fifo_get().  Our first thought was to use DMAI's Fifo_flush()
-         * routine here, but this method assumes the Fifo to be empty and
-         * will leak any buffer still in the Fifo.
-         */
-        if (Fifo_put(viddec->hInFifo,&gst_ti_flush_fifo) < 0) {
-            GST_ERROR("Could not put flush value to Fifo\n");
-        }
-
-        if (pthread_join(viddec->queueThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("queue thread exited with an error condition\n");
-            }
-        }
-    }
-
     /* Shut down the decode thread */
-    /* NOTE: Shutting down decode thread frees the circular buffer being used
-     * by the queue thread. So we *must* shut down queue thread first.
-     */
     if (gst_tithread_check_status(
             viddec, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down decode thread\n");
@@ -1020,16 +958,6 @@ static gboolean gst_tividdec_exit_video(GstTIViddec *viddec)
     pthread_mutex_destroy(&viddec->threadStatusMutex);
 
     /* Shut-down any remaining items */
-    if (viddec->hInFifo) {
-        Fifo_delete(viddec->hInFifo);
-        viddec->hInFifo = NULL;
-    }
-
-    if (viddec->waitOnQueueThread) {
-        Rendezvous_delete(viddec->waitOnQueueThread);
-        viddec->waitOnQueueThread = NULL;
-    }
-
     if (viddec->waitOnDecodeDrain) {
         Rendezvous_delete(viddec->waitOnDecodeDrain);
         viddec->waitOnDecodeDrain = NULL;
@@ -1271,7 +1199,7 @@ static void* gst_tividdec_decode_thread(void *arg)
     /* Initialize codec engine */
     ret = gst_tividdec_codec_start(viddec);
 
-    /* Notify main thread if it is waiting to create queue thread */
+    /* Notify main thread that is ok to continue initialization */
     Rendezvous_meet(viddec->waitOnDecodeThread);
 
     if (ret == FALSE) {
@@ -1441,7 +1369,6 @@ thread_failure:
     gst_tithread_set_status(viddec, TIThread_DECODE_ABORTED);
     threadRet = GstTIThreadFailure;
     gst_ticircbuffer_consumer_aborted(viddec->circBuf);
-    Rendezvous_force(viddec->waitOnQueueThread);
 
 thread_exit:
 
@@ -1480,104 +1407,8 @@ thread_exit:
 
 
 /******************************************************************************
- * gst_tividdec_queue_thread 
- *     Add an input buffer to the circular buffer            
- ******************************************************************************/
-static void* gst_tividdec_queue_thread(void *arg)
-{
-    GstTIViddec* viddec    = GST_TIVIDDEC(gst_object_ref(arg));
-    void*        threadRet = GstTIThreadSuccess;
-    GstBuffer*   encData;
-    Int          fifoRet;
-
-    while (TRUE) {
-
-        /* Get the next input buffer (or block until one is ready) */
-        fifoRet = Fifo_get(viddec->hInFifo, &encData);
-
-        if (fifoRet < 0) {
-            GST_ERROR("Failed to get buffer from input fifo\n");
-            goto thread_failure;
-        }
-
-        if (encData == (GstBuffer *)(&gst_ti_flush_fifo)) {
-            GST_DEBUG("Processed last input buffer from Fifo; exiting.\n");
-            goto thread_exit;
-        }
-
-/* This code is if'ed out for now until more work has been done for state
- * transitions.  For now we do not want to print this message repeatedly
- * which will happen when flushing the fifo when the decode thread has
- * exited.
- */
-        /* Send the buffer to the circular buffer */
-        if (!gst_ticircbuffer_queue_data(viddec->circBuf, encData)) {
-#if 0
-            GST_ERROR("queue thread could not queue data\n");
-            GST_ERROR("queue thread encData size = %d\n", GST_BUFFER_SIZE(encData));
-            gst_buffer_unref(encData);
-            goto thread_failure;
-#else
-            ; /* Do nothing */
-#endif
-        }
-
-        /* Release the buffer we received from the sink pad */
-        gst_buffer_unref(encData);
-
-        /* If we've reached the EOS, start draining the circular buffer when
-         * there are no more buffers in the FIFO.
-         */
-        if (viddec->drainingEOS && Fifo_getNumEntries(viddec->hInFifo) == 0) {
-            gst_ticircbuffer_drain(viddec->circBuf, TRUE);
-        }
-
-        /* Unblock any pending puts to our Fifo if we have reached our
-         * minimum threshold.
-         */
-        gst_tividdec_broadcast_queue_thread(viddec);
-    }
-
-thread_failure:
-    gst_tithread_set_status(viddec, TIThread_QUEUE_ABORTED);
-    threadRet = GstTIThreadFailure;
-
-thread_exit:
-    gst_object_unref(viddec);
-    return threadRet;
-}
-
-
-/******************************************************************************
- * gst_tividdec_wait_on_queue_thread
- *    Wait for the queue thread to consume buffers from the fifo until
- *    there are only "waitQueueSize" items remaining.
- ******************************************************************************/
-static void gst_tividdec_wait_on_queue_thread(GstTIViddec *viddec,
-                Int32 waitQueueSize)
-{
-    viddec->waitQueueSize = waitQueueSize;
-    Rendezvous_meet(viddec->waitOnQueueThread);
-}
-
-
-/******************************************************************************
- * gst_tividdec_broadcast_queue_thread
- *    Broadcast when queue thread has processed enough buffers from the
- *    fifo to unblock anyone waiting to queue some more.
- ******************************************************************************/
-static void gst_tividdec_broadcast_queue_thread(GstTIViddec *viddec)
-{
-    if (viddec->waitQueueSize < Fifo_getNumEntries(viddec->hInFifo)) {
-          return;
-    } 
-    Rendezvous_force(viddec->waitOnQueueThread);
-}
-
-
-/******************************************************************************
  * gst_tividdec_drain_pipeline
- *    Push any remaining input buffers through the queue and decode threads
+ *    Wait for the decode thread to finish processing queued input data.
  ******************************************************************************/
 static void gst_tividdec_drain_pipeline(GstTIViddec *viddec)
 {
@@ -1585,29 +1416,13 @@ static void gst_tividdec_drain_pipeline(GstTIViddec *viddec)
 
     viddec->drainingEOS = TRUE;
 
-    /* If the processing threads haven't been created, there is nothing to
-     * drain.
-     */
+    /* If the decode thread hasn't been created, there is nothing to drain */
     if (!gst_tithread_check_status(
              viddec, TIThread_DECODE_CREATED, checkResult)) {
         return;
     }
-    if (!gst_tithread_check_status(
-             viddec, TIThread_QUEUE_CREATED, checkResult)) {
-        return;
-    }
 
-    /* If the queue fifo still has entries in it, it will drain the
-     * circular buffer once all input buffers have been added to the
-     * circular buffer.  If the fifo is already empty, we must drain
-     * the circular buffer here.
-     */
-    if (Fifo_getNumEntries(viddec->hInFifo) == 0) {
-        gst_ticircbuffer_drain(viddec->circBuf, TRUE);
-    }
-    else {
-        Rendezvous_force(viddec->waitOnQueueThread);
-    }
+    gst_ticircbuffer_drain(viddec->circBuf, TRUE);
 
     /* Wait for the decoder to drain */
     Rendezvous_meet(viddec->waitOnDecodeDrain);
