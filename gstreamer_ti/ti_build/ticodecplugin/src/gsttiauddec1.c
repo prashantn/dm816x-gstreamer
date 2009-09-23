@@ -137,12 +137,6 @@ static GstStateChangeReturn
  gst_tiauddec1_change_state(GstElement *element, GstStateChange transition);
 static void*
  gst_tiauddec1_decode_thread(void *arg);
-static void*
- gst_tiauddec1_queue_thread(void *arg);
-static void
- gst_tiauddec1_broadcast_queue_thread(GstTIAuddec1 *auddec1);
-static void
- gst_tiauddec1_wait_on_queue_thread(GstTIAuddec1 *auddec1, Int32 waitQueueSize);
 static void
  gst_tiauddec1_drain_pipeline(GstTIAuddec1 *auddec1);
 static gboolean 
@@ -390,12 +384,6 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
 
     auddec1->waitOnDecodeDrain  = NULL;
     auddec1->waitOnBufTab       = NULL;
-
-    auddec1->hInFifo            = NULL;
-
-    auddec1->waitOnQueueThread  = NULL;
-    auddec1->waitQueueSize      = 0;
-
     auddec1->waitOnDecodeThread = NULL;
     
     auddec1->numOutputBufs      = 0UL;
@@ -743,8 +731,11 @@ static GstFlowReturn gst_tiauddec1_chain(GstPad * pad, GstBuffer * buf)
     GstTIAuddec1 *auddec1 = GST_TIAUDDEC1(GST_OBJECT_PARENT(pad));
     gboolean     checkResult;
 
-    /* If any thread aborted, communicate it to the pipeline */
-    if (gst_tithread_check_status(auddec1, TIThread_ANY_ABORTED, checkResult)) {
+    /* If the decode thread aborted, signal it to let it know it's ok to
+     * shut down, and communicate the failure to the pipeline.
+     */
+    if (gst_tithread_check_status(auddec1, TIThread_DECODE_ABORTED,
+            checkResult)) {
        gst_buffer_unref(buf);
        return GST_FLOW_UNEXPECTED;
     }
@@ -775,7 +766,8 @@ static GstFlowReturn gst_tiauddec1_chain(GstPad * pad, GstBuffer * buf)
                 GST_LOG("Adding auto-generated ADIF header.\n");
 
                 /* Queue up the aac header data into a circular buffer */
-                if (Fifo_put(auddec1->hInFifo, auddec1->aac_header_data) < 0) {
+                if (!gst_ticircbuffer_queue_data(auddec1->circBuf,
+                    auddec1->aac_header_data)) {
                     GST_ERROR("Failed to send buffer to queue thread\n");
                     gst_buffer_unref(buf);
                     return GST_FLOW_UNEXPECTED;
@@ -788,18 +780,9 @@ static GstFlowReturn gst_tiauddec1_chain(GstPad * pad, GstBuffer * buf)
             GST_BUFFER_TIMESTAMP(buf) : 0ULL;
     }
 
-    /* Don't queue up too many buffers -- if we collect too many input buffers
-     * without consuming them we'll run out of memory.  Once we reach a
-     * threshold, block until the queue thread removes some buffers.
-     */
-    Rendezvous_reset(auddec1->waitOnQueueThread);
-    if (Fifo_getNumEntries(auddec1->hInFifo) > 2000) {
-        gst_tiauddec1_wait_on_queue_thread(auddec1, 1800);
-    }
-
     /* Queue up the encoded data stream into a circular buffer */
-    if (Fifo_put(auddec1->hInFifo, buf) < 0) {
-        GST_ERROR("Failed to send buffer to queue thread\n");
+    if (!gst_ticircbuffer_queue_data(auddec1->circBuf, buf)) {
+        GST_ERROR("Failed to queue input buffer into circular buffer\n");
         gst_buffer_unref(buf);
         return GST_FLOW_UNEXPECTED;
     }
@@ -817,7 +800,6 @@ static gboolean gst_tiauddec1_init_audio(GstTIAuddec1 * auddec1)
     Rendezvous_Attrs      rzvAttrs  = Rendezvous_Attrs_DEFAULT;
     struct sched_param    schedParam;
     pthread_attr_t        attr;
-    Fifo_Attrs              fAttrs    = Fifo_Attrs_DEFAULT;
 
     GST_LOG("begin init_audio\n");
 
@@ -840,16 +822,12 @@ static gboolean gst_tiauddec1_init_audio(GstTIAuddec1 * auddec1)
         return FALSE;
     }
 
-    /* Set up the queue fifo */
-    auddec1->hInFifo = Fifo_create(&fAttrs);
-
     /* Initialize thread status management */
     auddec1->threadStatus = 0UL;
     pthread_mutex_init(&auddec1->threadStatusMutex, NULL);
 
     /* Initialize rendezvous objects for making threads wait on conditions */
     auddec1->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
-    auddec1->waitOnQueueThread  = Rendezvous_create(100, &rzvAttrs);
     auddec1->waitOnDecodeThread = Rendezvous_create(2, &rzvAttrs);
     auddec1->waitOnBufTab       = Rendezvous_create(100, &rzvAttrs);
     auddec1->drainingEOS        = FALSE;
@@ -905,28 +883,16 @@ static gboolean gst_tiauddec1_init_audio(GstTIAuddec1 * auddec1)
         return FALSE;
     }
 
-    /* Wait for decoder thread to finish initilization before creating queue
-     * thread.
-     */
-    Rendezvous_meet(auddec1->waitOnDecodeThread);
-
     /* Make sure circular buffer and display buffer handles are created by
      * decoder thread.
      */
+    Rendezvous_meet(auddec1->waitOnDecodeThread);
+
     if (auddec1->circBuf == NULL || auddec1->hOutBufTab == NULL) {
         GST_ERROR("decode thread failed to create circbuf or display buffer"
                   " handles\n");
         return FALSE;
     }
-
-    /* Create queue thread */
-    if (pthread_create(&auddec1->queueThread, NULL,
-            gst_tiauddec1_queue_thread, (void*)auddec1)) {
-        GST_ERROR("failed to create queue thread\n");
-        gst_tiauddec1_exit_audio(auddec1);
-        return FALSE;
-    }
-    gst_tithread_set_status(auddec1, TIThread_QUEUE_CREATED);
 
     GST_LOG("end init_audio\n");
     return TRUE;
@@ -949,35 +915,7 @@ static gboolean gst_tiauddec1_exit_audio(GstTIAuddec1 *auddec1)
        gst_tiauddec1_drain_pipeline(auddec1);
      }
 
-    /* Shut down the queue thread */
-    if (gst_tithread_check_status(
-            auddec1, TIThread_QUEUE_CREATED, checkResult)) {
-        GST_LOG("shutting down queue thread\n");
-
-        /* Unstop the queue thread if needed, and wait for it to finish */
-        /* Push the gst_ti_flush_fifo buffer to let the queue thread know
-         * when the Fifo has finished draining.  If the Fifo is currently
-         * empty when we get to this point, then pushing this buffer will
-         * also unblock the encode/decode thread if it is currently blocked
-         * on a Fifo_get().  Our first thought was to use DMAI's Fifo_flush()
-         * routine here, but this method assumes the Fifo to be empty and
-         * will leak any buffer still in the Fifo.
-         */
-        if (Fifo_put(auddec1->hInFifo,&gst_ti_flush_fifo) < 0) {
-            GST_ERROR("Could not put flush value to Fifo\n");
-        }
-
-        if (pthread_join(auddec1->queueThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("queue thread exited with an error condition\n");
-            }
-        }
-    }
-
     /* Shut down the decode thread */
-    /* NOTE: Shutting down decode thread frees the circular buffer being used
-     * by the queue thread. So we *must* shut down queue thread first.
-     */
     if (gst_tithread_check_status(
             auddec1, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down decode thread\n");
@@ -994,16 +932,6 @@ static gboolean gst_tiauddec1_exit_audio(GstTIAuddec1 *auddec1)
     pthread_mutex_destroy(&auddec1->threadStatusMutex);
 
     /* Shut down remaining items */
-    if (auddec1->hInFifo) {
-        Fifo_delete(auddec1->hInFifo);
-        auddec1->hInFifo = NULL;
-    }
-
-    if (auddec1->waitOnQueueThread) {
-        Rendezvous_delete(auddec1->waitOnQueueThread);
-        auddec1->waitOnQueueThread = NULL;
-    }
-
     if (auddec1->waitOnDecodeDrain) {
         Rendezvous_delete(auddec1->waitOnDecodeDrain);
         auddec1->waitOnDecodeDrain = NULL;
@@ -1226,7 +1154,7 @@ static void* gst_tiauddec1_decode_thread(void *arg)
     /* Initialize codec engine */
     ret = gst_tiauddec1_codec_start(auddec1);
 
-    /* Notify main thread if it is waiting to create queue thread */
+    /* Notify main thread that is ok to continue initialization */
     Rendezvous_meet(auddec1->waitOnDecodeThread);
 
     if (ret == FALSE) {
@@ -1365,7 +1293,6 @@ thread_failure:
     gst_tithread_set_status(auddec1, TIThread_DECODE_ABORTED);
     threadRet = GstTIThreadFailure;
     gst_ticircbuffer_consumer_aborted(auddec1->circBuf);
-    Rendezvous_force(auddec1->waitOnQueueThread);
 
 thread_exit:
 
@@ -1404,103 +1331,8 @@ thread_exit:
 
 
 /******************************************************************************
- * gst_tiauddec1_queue_thread 
- *     Add an input buffer to the circular buffer            
- ******************************************************************************/
-static void* gst_tiauddec1_queue_thread(void *arg)
-{
-    GstTIAuddec1* auddec1    = GST_TIAUDDEC1(gst_object_ref(arg));
-    void*        threadRet = GstTIThreadSuccess;
-    GstBuffer*   encData;
-    Int          fifoRet;
-
-    while (TRUE) {
-
-        /* Get the next input buffer (or block until one is ready) */
-        fifoRet = Fifo_get(auddec1->hInFifo, &encData);
-
-        if (fifoRet < 0) {
-            GST_ERROR("failed to get buffer from audio thread\n");
-            goto thread_failure;
-        }
-
-        if (encData == (GstBuffer *)(&gst_ti_flush_fifo)) {
-            GST_DEBUG("Processed last input buffer from Fifo; exiting.\n");
-            goto thread_exit;
-        }
-
-/* This code is if'ed out for now until more work has been done for state
- * transitions.  For now we do not want to print this message repeatedly
- * which will happen when flushing the fifo when the decode thread has
- * exited.
- */
-        /* Send the buffer to the circular buffer */
-        if (!gst_ticircbuffer_queue_data(auddec1->circBuf, encData)) {
-#if 0
-            GST_ERROR("queue thread could not queue data\n");
-            GST_ERROR("queue thread encData size = %d\n", GST_BUFFER_SIZE(encData));
-            gst_buffer_unref(encData);
-            goto thread_failure;
-#else
-            ; /* Do nothing */
-#endif
-        }
-
-        /* Release the buffer we received from the sink pad */
-        gst_buffer_unref(encData);
-
-        /* If we've reached the EOS, start draining the circular buffer when
-         * there are no more buffers in the FIFO.
-         */ 
-        if (auddec1->drainingEOS && Fifo_getNumEntries(auddec1->hInFifo) == 0) {
-            gst_ticircbuffer_drain(auddec1->circBuf, TRUE);
-        }   
-
-        /* Unblock any pending puts to our Fifo if we have reached our
-         * minimum threshold.
-         */
-        gst_tiauddec1_broadcast_queue_thread(auddec1);
-    }
-
-thread_failure:
-    gst_tithread_set_status(auddec1, TIThread_QUEUE_ABORTED);
-    threadRet = GstTIThreadFailure;
-
-thread_exit:
-    gst_object_unref(auddec1);
-    return threadRet;
-}
-
-
-/******************************************************************************
- * gst_tiauddec1_wait_on_queue_thread
- *    Wait for the queuethread to process data
- ******************************************************************************/
-static void gst_tiauddec1_wait_on_queue_thread(GstTIAuddec1 *auddec1,
-                Int32 waitQueueSize)
-{
-    auddec1->waitQueueSize = waitQueueSize;
-    Rendezvous_meet(auddec1->waitOnQueueThread);
-}
-
-
-/******************************************************************************
- * gst_tiauddec1_broadcast_queue_thread
- *    Broadcast when the queue thread has processed enough buffers from the
- *    fifo to unblock anyone waiting to queue some more.
- ******************************************************************************/
-static void gst_tiauddec1_broadcast_queue_thread(GstTIAuddec1 *auddec1)
-{
-    if (auddec1->waitQueueSize < Fifo_getNumEntries(auddec1->hInFifo)) {
-          return;
-    } 
-    Rendezvous_force(auddec1->waitOnQueueThread);
-}
-
-
-/******************************************************************************
  * gst_tiauddec1_drain_pipeline
- *    Push any remaining input buffers through the queue and decode threads
+ *    Wait for the decode thread to finish processing queued input data.
  ******************************************************************************/
 static void gst_tiauddec1_drain_pipeline(GstTIAuddec1 *auddec1)
 {
@@ -1508,29 +1340,13 @@ static void gst_tiauddec1_drain_pipeline(GstTIAuddec1 *auddec1)
 
     auddec1->drainingEOS = TRUE;
 
-    /* If the processing threads haven't been created, there is nothing to
-     * drain.
-     */
-    if (!gst_tithread_check_status(
-             auddec1, TIThread_QUEUE_CREATED, checkResult)) {
-        return;
-    }
+    /* If the decode thread hasn't been created, there is nothing to drain. */
     if (!gst_tithread_check_status(
              auddec1, TIThread_DECODE_CREATED, checkResult)) {
         return;
     }
 
-    /* If the queue fifo still has entries in it, it will drain the
-     * circular buffer once all input buffers have been added to the
-     * circular buffer.  If the fifo is already empty, we must drain
-     * the circular buffer here.
-     */
-    if (Fifo_getNumEntries(auddec1->hInFifo) == 0) {
-        gst_ticircbuffer_drain(auddec1->circBuf, TRUE);
-    }
-    else {
-        Rendezvous_force(auddec1->waitOnQueueThread);
-    }
+    gst_ticircbuffer_drain(auddec1->circBuf, TRUE);
 
     /* Wait for the decoder to drain */
     Rendezvous_meet(auddec1->waitOnDecodeDrain);

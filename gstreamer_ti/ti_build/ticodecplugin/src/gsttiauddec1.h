@@ -81,15 +81,6 @@ struct _GstTIAuddec1
   Rendezvous_Handle  waitOnDecodeDrain;
   Rendezvous_Handle  waitOnBufTab;
 
-  /* Queue thread */
-  pthread_t          queueThread;
-  Fifo_Handle        hInFifo;
-
-  /* Blocking Conditions to Throttle I/O */
-  Rendezvous_Handle  waitOnQueueThread;
-  Int32              waitQueueSize;
-
-  /* Blocking Conditions for decode thread */
   Rendezvous_Handle  waitOnDecodeThread;
   
   /* Buffer management */
