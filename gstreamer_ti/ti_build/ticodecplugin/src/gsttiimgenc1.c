@@ -157,13 +157,6 @@ static GstStateChangeReturn
  gst_tiimgenc1_change_state(GstElement *element, GstStateChange transition);
 static void*
  gst_tiimgenc1_encode_thread(void *arg);
-static void*
- gst_tiimgenc1_queue_thread(void *arg);
-static void
- gst_tiimgenc1_broadcast_queue_thread(GstTIImgenc1 *imgenc1);
-static void
- gst_tiimgenc1_wait_on_queue_thread(GstTIImgenc1 *imgenc1,
-     Int32 waitQueueSize);
 static void
  gst_tiimgenc1_drain_pipeline(GstTIImgenc1 *imgenc1);
 static GstClockTime
@@ -488,11 +481,6 @@ static void gst_tiimgenc1_init(GstTIImgenc1 *imgenc1, GstTIImgenc1Class *gclass)
 
     imgenc1->waitOnEncodeThread = NULL;
     imgenc1->waitOnBufTab       = NULL;
-
-    imgenc1->hInFifo            = NULL;
-
-    imgenc1->waitOnQueueThread  = NULL;
-    imgenc1->waitQueueSize      = 0;
 
     imgenc1->framerateNum       = 0;
     imgenc1->framerateDen       = 0;
@@ -932,9 +920,11 @@ static GstFlowReturn gst_tiimgenc1_chain(GstPad * pad, GstBuffer * buf)
     gboolean     checkResult;
 
     GST_LOG("Begin\n");
-    /* If any thread aborted, communicate it to the pipeline */
-    if (gst_tithread_check_status(
-            imgenc1, TIThread_ANY_ABORTED, checkResult)) {
+    /* If the encode thread aborted, signal it to let it know it's ok to
+     * shut down, and communicate the failure to the pipeline.
+     */
+    if (gst_tithread_check_status(imgenc1, TIThread_DECODE_ABORTED,
+            checkResult)) {
        gst_buffer_unref(buf);
        return GST_FLOW_UNEXPECTED;
     }
@@ -965,18 +955,9 @@ static GstFlowReturn gst_tiimgenc1_chain(GstPad * pad, GstBuffer * buf)
             GST_BUFFER_TIMESTAMP(buf) : 0ULL;
     }
 
-    /* Don't queue up too many buffers -- if we collect too many input buffers
-     * without consuming them we'll run out of memory.  Once we reach a
-     * threshold, block until the queue thread removes some buffers.
-     */
-    Rendezvous_reset(imgenc1->waitOnQueueThread);
-    if (Fifo_getNumEntries(imgenc1->hInFifo) > imgenc1->queueMaxBuffers) {
-        gst_tiimgenc1_wait_on_queue_thread(imgenc1, 400);
-    }
-
     /* Queue up the encoded data stream into a circular buffer */
-    if (Fifo_put(imgenc1->hInFifo, buf) < 0) {
-        GST_ERROR("Failed to send buffer to queue thread\n");
+    if (!gst_ticircbuffer_queue_data(imgenc1->circBuf, buf)) {
+        GST_ERROR("Failed to queue input buffer into circular buffer\n");
         return GST_FLOW_UNEXPECTED;
     }
 
@@ -1274,7 +1255,6 @@ static gboolean gst_tiimgenc1_init_image(GstTIImgenc1 *imgenc1)
     Rendezvous_Attrs       rzvAttrs  = Rendezvous_Attrs_DEFAULT;
     struct sched_param     schedParam;
     pthread_attr_t         attr;
-    Fifo_Attrs             fAttrs    = Fifo_Attrs_DEFAULT;
 
     GST_LOG("Begin\n");
 
@@ -1297,16 +1277,12 @@ static gboolean gst_tiimgenc1_init_image(GstTIImgenc1 *imgenc1)
         return FALSE;
     }
 
-    /* Set up the queue fifo */
-    imgenc1->hInFifo = Fifo_create(&fAttrs);
-
     /* Initialize thread status management */
     imgenc1->threadStatus = 0UL;
     pthread_mutex_init(&imgenc1->threadStatusMutex, NULL);
 
     /* Initialize rendezvous objects for making threads wait on conditions */
     imgenc1->waitOnEncodeDrain  = Rendezvous_create(100, &rzvAttrs);
-    imgenc1->waitOnQueueThread  = Rendezvous_create(100, &rzvAttrs);
     imgenc1->waitOnEncodeThread = Rendezvous_create(2, &rzvAttrs);
     imgenc1->waitOnBufTab       = Rendezvous_create(100, &rzvAttrs);
     imgenc1->drainingEOS        = FALSE;
@@ -1362,28 +1338,16 @@ static gboolean gst_tiimgenc1_init_image(GstTIImgenc1 *imgenc1)
         return FALSE;
     }
 
-    /* Wait for decoder thread to finish initilization before creating queue
-     * thread.
-     */
-    Rendezvous_meet(imgenc1->waitOnEncodeThread);
-
     /* Make sure circular buffer and display buffer handles are created by
      * decoder thread.
      */
+    Rendezvous_meet(imgenc1->waitOnEncodeThread);
+
     if (imgenc1->circBuf == NULL || imgenc1->hOutBufTab == NULL) {
         GST_ERROR("encode thread failed to create circbuf or display buffer"
                   " handles\n");
         return FALSE;
     }
-
-    /* Create queue thread */
-    if (pthread_create(&imgenc1->queueThread, NULL,
-            gst_tiimgenc1_queue_thread, (void*)imgenc1)) {
-        GST_ERROR("failed to create queue thread\n");
-        gst_tiimgenc1_exit_image(imgenc1);
-        return FALSE;
-    }
-    gst_tithread_set_status(imgenc1, TIThread_QUEUE_CREATED);
 
     GST_LOG("Finish\n");
     return TRUE;
@@ -1406,35 +1370,7 @@ static gboolean gst_tiimgenc1_exit_image(GstTIImgenc1 *imgenc1)
        gst_tiimgenc1_drain_pipeline(imgenc1);
      }
 
-    /* Shut down the queue thread */
-    if (gst_tithread_check_status(
-            imgenc1, TIThread_QUEUE_CREATED, checkResult)) {
-        GST_LOG("shutting down queue thread\n");
-
-        /* Unstop the queue thread if needed, and wait for it to finish */
-        /* Push the gst_ti_flush_fifo buffer to let the queue thread know
-         * when the Fifo has finished draining.  If the Fifo is currently
-         * empty when we get to this point, then pushing this buffer will
-         * also unblock the encode/decode thread if it is currently blocked
-         * on a Fifo_get().  Our first thought was to use DMAI's Fifo_flush()
-         * routine here, but this method assumes the Fifo to be empty and
-         * will leak any buffer still in the Fifo.
-         */
-        if (Fifo_put(imgenc1->hInFifo,&gst_ti_flush_fifo) < 0) {
-            GST_ERROR("Could not put flush value to Fifo\n");
-        }
-
-        if (pthread_join(imgenc1->queueThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("queue thread exited with an error condition\n");
-            }
-        }
-    }
-
     /* Shut down the encode thread */
-    /* NOTE: Shutting encode decode thread frees the circular buffer being used
-     * by the queue thread. So we *must* shut down queue thread first.
-     */
     if (gst_tithread_check_status(
             imgenc1, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down encode thread\n");
@@ -1444,16 +1380,6 @@ static gboolean gst_tiimgenc1_exit_image(GstTIImgenc1 *imgenc1)
                 GST_DEBUG("encode thread exited with an error condition\n");
             }
         }
-    }
-
-    if (imgenc1->hInFifo) {
-        Fifo_delete(imgenc1->hInFifo);
-        imgenc1->hInFifo = NULL;
-    }
-
-    if (imgenc1->waitOnQueueThread) {
-        Rendezvous_delete(imgenc1->waitOnQueueThread);
-        imgenc1->waitOnQueueThread = NULL;
     }
 
     if (imgenc1->waitOnEncodeDrain) {
@@ -1690,7 +1616,7 @@ static void* gst_tiimgenc1_encode_thread(void *arg)
     /* Initialize codec engine */
     ret = gst_tiimgenc1_codec_start(imgenc1);
 
-    /* Notify main thread if it is waiting to create queue thread */
+    /* Notify main thread that is ok to continue initialization */
     Rendezvous_meet(imgenc1->waitOnEncodeThread);
 
     if (ret == FALSE) {
@@ -1845,7 +1771,6 @@ thread_failure:
     gst_tithread_set_status(imgenc1, TIThread_DECODE_ABORTED);
     threadRet = GstTIThreadFailure;
     gst_ticircbuffer_consumer_aborted(imgenc1->circBuf);
-    Rendezvous_force(imgenc1->waitOnQueueThread);
 
 thread_exit:
  
@@ -1884,111 +1809,8 @@ thread_exit:
 
 
 /******************************************************************************
- * gst_tiimgenc1_queue_thread 
- *     Add an input buffer to the circular buffer            
- ******************************************************************************/
-static void* gst_tiimgenc1_queue_thread(void *arg)
-{
-    GstTIImgenc1* imgenc1    = GST_TIIMGENC1(gst_object_ref(arg));
-    void*        threadRet = GstTIThreadSuccess;
-    GstBuffer*   encData;
-    Int          fifoRet;
-
-    GST_LOG("Begin\n");
-    while (TRUE) {
-
-        /* Get the next input buffer (or block until one is ready) */
-        fifoRet = Fifo_get(imgenc1->hInFifo, &encData);
-
-        if (fifoRet < 0) {
-            GST_ERROR("Failed to get buffer from input fifo\n");
-            goto thread_failure;
-        }
-
-        if (encData == (GstBuffer *)(&gst_ti_flush_fifo)) {
-            GST_DEBUG("Processed last input buffer from Fifo; exiting.\n");
-            goto thread_exit;
-        }
-
-/* This code is if'ed out for now until more work has been done for state
- * transitions.  For now we do not want to print this message repeatedly
- * which will happen when flushing the fifo when the decode thread has
- * exited.
- */
-        /* Send the buffer to the circular buffer */
-        if (!gst_ticircbuffer_queue_data(imgenc1->circBuf, encData)) {
-#if 0
-            GST_ERROR("queue thread could not queue data\n");
-            GST_ERROR("queue thread encData size = %d\n", GST_BUFFER_SIZE(encData));
-            gst_buffer_unref(encData);
-            goto thread_failure;
-#else
-            ; /* Do nothing */
-#endif
-        }
-
-        /* Release the buffer we received from the sink pad */
-        gst_buffer_unref(encData);
-
-        /* If we've reached the EOS, start draining the circular buffer when
-         * there are no more buffers in the FIFO.
-         */
-        if (imgenc1->drainingEOS && 
-            Fifo_getNumEntries(imgenc1->hInFifo) == 0) {
-            gst_ticircbuffer_drain(imgenc1->circBuf, TRUE);
-        }
-
-        /* Unblock any pending puts to our Fifo if we have reached our
-         * minimum threshold.
-         */
-        gst_tiimgenc1_broadcast_queue_thread(imgenc1);
-    }
-
-thread_failure:
-    gst_tithread_set_status(imgenc1, TIThread_QUEUE_ABORTED);
-    threadRet = GstTIThreadFailure;
-
-thread_exit:
-    gst_object_unref(imgenc1);
-    GST_LOG("Finish\n");
-    return threadRet;
-}
-
-
-/******************************************************************************
- * gst_tiimgenc1_wait_on_queue_thread
- *    Wait for the queue thread to consume buffers from the fifo until
- *    there are only "waitQueueSize" items remaining.
- ******************************************************************************/
-static void gst_tiimgenc1_wait_on_queue_thread(GstTIImgenc1 *imgenc1,
-                Int32 waitQueueSize)
-{
-    GST_LOG("Begin\n");
-    imgenc1->waitQueueSize = waitQueueSize;
-    Rendezvous_meet(imgenc1->waitOnQueueThread);
-    GST_LOG("Finish\n");
-}
-
-
-/******************************************************************************
- * gst_tiimgenc1_broadcast_queue_thread
- *    Broadcast when queue thread has processed enough buffers from the
- *    fifo to unblock anyone waiting to queue some more.
- ******************************************************************************/
-static void gst_tiimgenc1_broadcast_queue_thread(GstTIImgenc1 *imgenc1)
-{
-    GST_LOG("Begin\n");
-    if (imgenc1->waitQueueSize < Fifo_getNumEntries(imgenc1->hInFifo)) {
-          return;
-    } 
-    Rendezvous_force(imgenc1->waitOnQueueThread);
-    GST_LOG("Finish\n");
-}
-
-
-/******************************************************************************
  * gst_tiimgenc1_drain_pipeline
- *    Push any remaining input buffers through the queue and encode threads
+ *    Wait for the encode thread to finish processing queued input data.
  ******************************************************************************/
 static void gst_tiimgenc1_drain_pipeline(GstTIImgenc1 *imgenc1)
 {
@@ -1997,29 +1819,13 @@ static void gst_tiimgenc1_drain_pipeline(GstTIImgenc1 *imgenc1)
     GST_LOG("Begin\n");
     imgenc1->drainingEOS = TRUE;
 
-    /* If the processing threads haven't been created, there is nothing to
-     * drain.
-     */
+    /* If the encode thread hasn't been created, there is nothing to drain. */
     if (!gst_tithread_check_status(
              imgenc1, TIThread_DECODE_CREATED, checkResult)) {
         return;
     }
-    if (!gst_tithread_check_status(
-             imgenc1, TIThread_QUEUE_CREATED, checkResult)) {
-        return;
-    }
 
-    /* If the queue fifo still has entries in it, it will drain the
-     * circular buffer once all input buffers have been added to the
-     * circular buffer.  If the fifo is already empty, we must drain
-     * the circular buffer here.
-     */
-    if (Fifo_getNumEntries(imgenc1->hInFifo) == 0) {
-        gst_ticircbuffer_drain(imgenc1->circBuf, TRUE);
-    }
-    else {
-        Rendezvous_force(imgenc1->waitOnQueueThread);
-    }
+    gst_ticircbuffer_drain(imgenc1->circBuf, TRUE);
 
     /* Wait for the encoder to drain */
     Rendezvous_meet(imgenc1->waitOnEncodeDrain);
