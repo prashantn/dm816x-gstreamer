@@ -1352,14 +1352,13 @@ static void gst_tiauddec_drain_pipeline(GstTIAuddec *auddec)
 {
     gboolean checkResult;
 
-    auddec->drainingEOS = TRUE;
-
     /* If the decode thread hasn't been created, there is nothing to drain. */
     if (!gst_tithread_check_status(
              auddec, TIThread_DECODE_CREATED, checkResult)) {
         return;
     }
 
+    auddec->drainingEOS = TRUE;
     gst_ticircbuffer_drain(auddec->circBuf, TRUE);
 
     /* Tell the decode thread that it is ok to shut down */

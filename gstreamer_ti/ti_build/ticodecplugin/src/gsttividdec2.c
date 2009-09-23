@@ -1516,14 +1516,13 @@ static void gst_tividdec2_drain_pipeline(GstTIViddec2 *viddec2)
 {
     gboolean checkResult;
 
-    viddec2->drainingEOS = TRUE;
-
     /* If the decode thread hasn't been created, there is nothing to drain. */
     if (!gst_tithread_check_status(
              viddec2, TIThread_DECODE_CREATED, checkResult)) {
         return;
     }
 
+    viddec2->drainingEOS = TRUE;
     gst_ticircbuffer_drain(viddec2->circBuf, TRUE);
 
     /* Tell the decode thread that it is ok to shut down */

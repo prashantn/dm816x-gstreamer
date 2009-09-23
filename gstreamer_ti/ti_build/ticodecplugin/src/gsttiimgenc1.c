@@ -1832,14 +1832,13 @@ static void gst_tiimgenc1_drain_pipeline(GstTIImgenc1 *imgenc1)
 {
     gboolean checkResult;
 
-    imgenc1->drainingEOS = TRUE;
-
     /* If the encode thread hasn't been created, there is nothing to drain. */
     if (!gst_tithread_check_status(
              imgenc1, TIThread_DECODE_CREATED, checkResult)) {
         return;
     }
 
+    imgenc1->drainingEOS = TRUE;
     gst_ticircbuffer_drain(imgenc1->circBuf, TRUE);
 
     /* Tell the encode thread that it is ok to shut down */

@@ -1527,14 +1527,13 @@ static void gst_tividenc1_drain_pipeline(GstTIVidenc1 *videnc1)
 {
     gboolean checkResult;
 
-    videnc1->drainingEOS = TRUE;
-
     /* If the encode thread hasn't been created, there is nothing to drain. */
     if (!gst_tithread_check_status(
              videnc1, TIThread_DECODE_CREATED, checkResult)) {
         return;
     }
 
+    videnc1->drainingEOS = TRUE;
     gst_ticircbuffer_drain(videnc1->circBuf, TRUE);
 
     /* Tell the encode thread that it is ok to shut down */

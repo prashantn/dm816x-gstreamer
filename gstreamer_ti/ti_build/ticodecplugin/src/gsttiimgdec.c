@@ -1521,14 +1521,13 @@ static void gst_tiimgdec_drain_pipeline(GstTIImgdec *imgdec)
 {
     gboolean checkResult;
 
-    imgdec->drainingEOS = TRUE;
-
     /* If the decode thread hasn't been created, there is nothing to drain. */
     if (!gst_tithread_check_status(
              imgdec, TIThread_DECODE_CREATED, checkResult)) {
         return;
     }
 
+    imgdec->drainingEOS = TRUE;
     gst_ticircbuffer_drain(imgdec->circBuf, TRUE);
 
     /* Tell the decode thread that it is ok to shut down */
