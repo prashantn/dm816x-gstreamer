@@ -475,9 +475,8 @@ static void gst_tiimgenc_init(GstTIImgenc *imgenc, GstTIImgencClass *gclass)
     imgenc->threadStatus       = 0UL;
     imgenc->capsSet            = FALSE;
 
-    imgenc->waitOnEncodeDrain  = NULL;
-
     imgenc->waitOnEncodeThread = NULL;
+    imgenc->waitOnEncodeDrain  = NULL;
     imgenc->waitOnBufTab       = NULL;
 
     imgenc->framerateNum       = 0;
@@ -913,11 +912,10 @@ static gboolean gst_tiimgenc_sink_event(GstPad *pad, GstEvent *event)
  ******************************************************************************/
 static GstFlowReturn gst_tiimgenc_chain(GstPad * pad, GstBuffer * buf)
 {
-    GstTIImgenc *imgenc       = GST_TIIMGENC(GST_OBJECT_PARENT(pad));
-    GstCaps      *caps          = GST_BUFFER_CAPS(buf);
-    gboolean     checkResult;
+    GstTIImgenc   *imgenc = GST_TIIMGENC(GST_OBJECT_PARENT(pad));
+    GstCaps       *caps   = GST_BUFFER_CAPS(buf);
+    gboolean       checkResult;
 
-    GST_LOG("Begin\n");
     /* If the encode thread aborted, signal it to let it know it's ok to
      * shut down, and communicate the failure to the pipeline.
      */
@@ -958,8 +956,6 @@ static GstFlowReturn gst_tiimgenc_chain(GstPad * pad, GstBuffer * buf)
         GST_ERROR("Failed to queue input buffer into circular buffer\n");
         return GST_FLOW_UNEXPECTED;
     }
-
-    GST_LOG("Finish\n");
 
     return GST_FLOW_OK;
 }
@@ -1251,9 +1247,9 @@ static gboolean gst_tiimgenc_set_codec_attrs(GstTIImgenc *imgenc)
  ******************************************************************************/
 static gboolean gst_tiimgenc_init_image(GstTIImgenc *imgenc)
 {
-    Rendezvous_Attrs       rzvAttrs  = Rendezvous_Attrs_DEFAULT;
-    struct sched_param     schedParam;
-    pthread_attr_t         attr;
+    Rendezvous_Attrs    rzvAttrs = Rendezvous_Attrs_DEFAULT;
+    struct sched_param  schedParam;
+    pthread_attr_t      attr;
 
     GST_LOG("Begin\n");
 
@@ -1281,8 +1277,8 @@ static gboolean gst_tiimgenc_init_image(GstTIImgenc *imgenc)
     pthread_mutex_init(&imgenc->threadStatusMutex, NULL);
 
     /* Initialize rendezvous objects for making threads wait on conditions */
-    imgenc->waitOnEncodeDrain  = Rendezvous_create(100, &rzvAttrs);
     imgenc->waitOnEncodeThread = Rendezvous_create(2, &rzvAttrs);
+    imgenc->waitOnEncodeDrain  = Rendezvous_create(100, &rzvAttrs);
     imgenc->waitOnBufTab       = Rendezvous_create(100, &rzvAttrs);
     imgenc->drainingEOS        = FALSE;
 
@@ -1381,6 +1377,7 @@ static gboolean gst_tiimgenc_exit_image(GstTIImgenc *imgenc)
         }
     }
 
+    /* Shut down remaining items */
     if (imgenc->waitOnEncodeDrain) {
         Rendezvous_delete(imgenc->waitOnEncodeDrain);
         imgenc->waitOnEncodeDrain = NULL;
@@ -1768,8 +1765,8 @@ static void* gst_tiimgenc_encode_thread(void *arg)
 thread_failure:
 
     gst_tithread_set_status(imgenc, TIThread_DECODE_ABORTED);
-    threadRet = GstTIThreadFailure;
     gst_ticircbuffer_consumer_aborted(imgenc->circBuf);
+    threadRet = GstTIThreadFailure;
 
 thread_exit:
  
@@ -1815,7 +1812,6 @@ static void gst_tiimgenc_drain_pipeline(GstTIImgenc *imgenc)
 {
     gboolean checkResult;
 
-    GST_LOG("Begin\n");
     imgenc->drainingEOS = TRUE;
 
     /* If the encode thread hasn't been created, there is nothing to drain. */
@@ -1826,10 +1822,8 @@ static void gst_tiimgenc_drain_pipeline(GstTIImgenc *imgenc)
 
     gst_ticircbuffer_drain(imgenc->circBuf, TRUE);
 
-    /* Wait for the encoder to drain */
+    /* Wait for the encoder to finish draining */
     Rendezvous_meet(imgenc->waitOnEncodeDrain);
-
-    GST_LOG("Finish\n");
 }
 
 

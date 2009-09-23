@@ -88,9 +88,9 @@ struct _GstTIImgdec1
 
   /* Decode thread */
   pthread_t                 decodeThread;
+  Rendezvous_Handle         waitOnDecodeThread;
   Rendezvous_Handle         waitOnDecodeDrain;
   Rendezvous_Handle         waitOnBufTab;
-  Rendezvous_Handle         waitOnDecodeThread;
   
   /* Framerate (Num/Den) */
   gint                      framerateNum;
@@ -99,7 +99,7 @@ struct _GstTIImgdec1
   /* Buffer management */
   UInt32                    numOutputBufs;
   BufTab_Handle             hOutBufTab;
-  GstTICircBuffer           *circBuf;
+  GstTICircBuffer          *circBuf;
   Buffer_Handle             hInBuf;
 };
 

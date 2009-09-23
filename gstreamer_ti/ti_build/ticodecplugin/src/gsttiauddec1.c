@@ -382,9 +382,9 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
     auddec1->drainingEOS        = FALSE;
     auddec1->threadStatus       = 0UL;
 
+    auddec1->waitOnDecodeThread = NULL;
     auddec1->waitOnDecodeDrain  = NULL;
     auddec1->waitOnBufTab       = NULL;
-    auddec1->waitOnDecodeThread = NULL;
     
     auddec1->numOutputBufs      = 0UL;
     auddec1->hOutBufTab         = NULL;
@@ -728,8 +728,8 @@ static gboolean gst_tiauddec1_sink_event(GstPad *pad, GstEvent *event)
  ******************************************************************************/
 static GstFlowReturn gst_tiauddec1_chain(GstPad * pad, GstBuffer * buf)
 {
-    GstTIAuddec1 *auddec1 = GST_TIAUDDEC1(GST_OBJECT_PARENT(pad));
-    gboolean     checkResult;
+    GstTIAuddec1  *auddec1 = GST_TIAUDDEC1(GST_OBJECT_PARENT(pad));
+    gboolean       checkResult;
 
     /* If the decode thread aborted, signal it to let it know it's ok to
      * shut down, and communicate the failure to the pipeline.
@@ -797,9 +797,9 @@ static GstFlowReturn gst_tiauddec1_chain(GstPad * pad, GstBuffer * buf)
  ******************************************************************************/
 static gboolean gst_tiauddec1_init_audio(GstTIAuddec1 * auddec1)
 {
-    Rendezvous_Attrs      rzvAttrs  = Rendezvous_Attrs_DEFAULT;
-    struct sched_param    schedParam;
-    pthread_attr_t        attr;
+    Rendezvous_Attrs    rzvAttrs  = Rendezvous_Attrs_DEFAULT;
+    struct sched_param  schedParam;
+    pthread_attr_t      attr;
 
     GST_LOG("begin init_audio\n");
 
@@ -827,8 +827,8 @@ static gboolean gst_tiauddec1_init_audio(GstTIAuddec1 * auddec1)
     pthread_mutex_init(&auddec1->threadStatusMutex, NULL);
 
     /* Initialize rendezvous objects for making threads wait on conditions */
-    auddec1->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
     auddec1->waitOnDecodeThread = Rendezvous_create(2, &rzvAttrs);
+    auddec1->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
     auddec1->waitOnBufTab       = Rendezvous_create(100, &rzvAttrs);
     auddec1->drainingEOS        = FALSE;
 
@@ -1291,8 +1291,8 @@ static void* gst_tiauddec1_decode_thread(void *arg)
 thread_failure:
 
     gst_tithread_set_status(auddec1, TIThread_DECODE_ABORTED);
-    threadRet = GstTIThreadFailure;
     gst_ticircbuffer_consumer_aborted(auddec1->circBuf);
+    threadRet = GstTIThreadFailure;
 
 thread_exit:
 
@@ -1348,7 +1348,7 @@ static void gst_tiauddec1_drain_pipeline(GstTIAuddec1 *auddec1)
 
     gst_ticircbuffer_drain(auddec1->circBuf, TRUE);
 
-    /* Wait for the decoder to drain */
+    /* Wait for the decoder to finish draining */
     Rendezvous_meet(auddec1->waitOnDecodeDrain);
 
 }

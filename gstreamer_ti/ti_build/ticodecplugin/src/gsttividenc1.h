@@ -90,8 +90,8 @@ struct _GstTIVidenc1
 
   /* Encode thread */
   pthread_t          encodeThread;
-  Rendezvous_Handle  waitOnEncodeDrain;
   Rendezvous_Handle  waitOnEncodeThread;
+  Rendezvous_Handle  waitOnEncodeDrain;
   Rendezvous_Handle  waitOnBufTab;
 
   /* Framerate (Num/Den) */

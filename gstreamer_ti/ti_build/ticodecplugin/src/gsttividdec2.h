@@ -79,10 +79,9 @@ struct _GstTIViddec2
 
   /* Decode thread */
   pthread_t          decodeThread;
+  Rendezvous_Handle  waitOnDecodeThread;
   Rendezvous_Handle  waitOnDecodeDrain;
   Rendezvous_Handle  waitOnBufTab;
-
-  Rendezvous_Handle  waitOnDecodeThread;
 
   /* Framerate (Num/Den) */
   gint               framerateNum;

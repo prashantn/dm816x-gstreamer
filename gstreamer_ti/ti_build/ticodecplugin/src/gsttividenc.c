@@ -351,9 +351,8 @@ static void gst_tividenc_init(GstTIVidenc *videnc, GstTIVidencClass *gclass)
     videnc->drainingEOS             = FALSE;
     videnc->threadStatus            = 0UL;
 
-    videnc->waitOnEncodeDrain       = NULL;
-
     videnc->waitOnEncodeThread      = NULL;
+    videnc->waitOnEncodeDrain       = NULL;
     videnc->waitOnBufTab            = NULL;
 
     videnc->framerateNum            = 0;
@@ -717,8 +716,8 @@ static gboolean gst_tividenc_sink_event(GstPad *pad, GstEvent *event)
  ******************************************************************************/
 static GstFlowReturn gst_tividenc_chain(GstPad * pad, GstBuffer * buf)
 {
-    GstTIVidenc *videnc = GST_TIVIDENC(GST_OBJECT_PARENT(pad));
-    gboolean     checkResult;
+    GstTIVidenc   *videnc = GST_TIVIDENC(GST_OBJECT_PARENT(pad));
+    gboolean       checkResult;
 
     /* If the encode thread aborted, signal it to let it know it's ok to
      * shut down, and communicate the failure to the pipeline.
@@ -764,9 +763,9 @@ static GstFlowReturn gst_tividenc_chain(GstPad * pad, GstBuffer * buf)
  ******************************************************************************/
 static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
 {
-    Rendezvous_Attrs      rzvAttrs  = Rendezvous_Attrs_DEFAULT;
-    struct sched_param    schedParam;
-    pthread_attr_t        attr;
+    Rendezvous_Attrs    rzvAttrs = Rendezvous_Attrs_DEFAULT;
+    struct sched_param  schedParam;
+    pthread_attr_t      attr;
 
     GST_LOG("begin init_video\n");
 
@@ -790,8 +789,8 @@ static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
     }
 
     /* Initialize rendezvous objects for making threads wait on conditions */
-    videnc->waitOnEncodeDrain   = Rendezvous_create(100, &rzvAttrs);
     videnc->waitOnEncodeThread  = Rendezvous_create(2, &rzvAttrs);
+    videnc->waitOnEncodeDrain   = Rendezvous_create(100, &rzvAttrs);
     videnc->waitOnBufTab        = Rendezvous_create(100, &rzvAttrs);
     videnc->drainingEOS         = FALSE;
 
@@ -1311,8 +1310,8 @@ static void* gst_tividenc_encode_thread(void *arg)
 thread_failure:
 
     gst_tithread_set_status(videnc, TIThread_DECODE_ABORTED);
-    threadRet = GstTIThreadFailure;
     gst_ticircbuffer_consumer_aborted(videnc->circBuf);
+    threadRet = GstTIThreadFailure;
 
 thread_exit: 
 
@@ -1368,7 +1367,7 @@ static void gst_tividenc_drain_pipeline(GstTIVidenc *videnc)
 
     gst_ticircbuffer_drain(videnc->circBuf, TRUE);
 
-    /* Wait for the encoder to drain */
+    /* Wait for the encoder to finish draining */
     Rendezvous_meet(videnc->waitOnEncodeDrain);
 
 }

@@ -408,10 +408,9 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     viddec2->threadStatus       = 0UL;
     viddec2->firstFrame         = TRUE;
 
-    viddec2->waitOnDecodeDrain  = NULL;
-
     viddec2->waitOnDecodeThread = NULL;
-    viddec2->waitOnBufTab        = NULL;
+    viddec2->waitOnDecodeDrain  = NULL;
+    viddec2->waitOnBufTab       = NULL;
 
     viddec2->framerateNum       = 0;
     viddec2->framerateDen       = 0;
@@ -628,7 +627,7 @@ static gboolean gst_tividdec2_set_sink_caps(GstPad *pad, GstCaps *caps)
         return FALSE;
     }
 
-    /* Shut-down any running video decoder */
+    /* Shut down any running video decoder */
     if (!gst_tividdec2_exit_video(viddec2)) {
         gst_object_unref(viddec2);
         return FALSE;
@@ -776,8 +775,8 @@ static gboolean gst_tividdec2_sink_event(GstPad *pad, GstEvent *event)
  ******************************************************************************/
 static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
 {
-    GstTIViddec2 *viddec2 = GST_TIVIDDEC2(GST_OBJECT_PARENT(pad));
-    gboolean     checkResult;
+    GstTIViddec2  *viddec2 = GST_TIVIDDEC2(GST_OBJECT_PARENT(pad));
+    gboolean       checkResult;
 
     /* If the decode thread aborted, signal it to let it know it's ok to
      * shut down, and communicate the failure to the pipeline.
@@ -848,9 +847,9 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
  ******************************************************************************/
 static gboolean gst_tividdec2_init_video(GstTIViddec2 *viddec2)
 {
-    Rendezvous_Attrs       rzvAttrs  = Rendezvous_Attrs_DEFAULT;
-    struct sched_param     schedParam;
-    pthread_attr_t         attr;
+    Rendezvous_Attrs    rzvAttrs = Rendezvous_Attrs_DEFAULT;
+    struct sched_param  schedParam;
+    pthread_attr_t      attr;
 
     GST_LOG("begin init_video\n");
 
@@ -878,8 +877,8 @@ static gboolean gst_tividdec2_init_video(GstTIViddec2 *viddec2)
     pthread_mutex_init(&viddec2->threadStatusMutex, NULL);
 
     /* Initialize rendezvous objects for making threads wait on conditions */
-    viddec2->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
     viddec2->waitOnDecodeThread = Rendezvous_create(2, &rzvAttrs);
+    viddec2->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
     viddec2->waitOnBufTab       = Rendezvous_create(100, &rzvAttrs);
     viddec2->drainingEOS        = FALSE;
 
@@ -1454,8 +1453,8 @@ static void* gst_tividdec2_decode_thread(void *arg)
 thread_failure:
 
     gst_tithread_set_status(viddec2, TIThread_DECODE_ABORTED);
-    threadRet = GstTIThreadFailure;
     gst_ticircbuffer_consumer_aborted(viddec2->circBuf);
+    threadRet = GstTIThreadFailure;
 
 thread_exit:
 
@@ -1511,9 +1510,8 @@ static void gst_tividdec2_drain_pipeline(GstTIViddec2 *viddec2)
 
     gst_ticircbuffer_drain(viddec2->circBuf, TRUE);
 
-    /* Wait for the decoder to drain */
+    /* Wait for the decoder to finish draining */
     Rendezvous_meet(viddec2->waitOnDecodeDrain);
-
 }
 
 

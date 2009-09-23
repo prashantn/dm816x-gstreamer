@@ -401,10 +401,9 @@ static void gst_tiimgdec_init(GstTIImgdec *imgdec, GstTIImgdecClass *gclass)
     imgdec->threadStatus       = 0UL;
     imgdec->capsSet            = FALSE;
 
+    imgdec->waitOnDecodeThread = NULL;
     imgdec->waitOnDecodeDrain  = NULL;
     imgdec->waitOnBufTab       = NULL;
-
-    imgdec->waitOnDecodeThread = NULL;
 
     imgdec->framerateNum       = 0;
     imgdec->framerateDen       = 0;
@@ -755,11 +754,10 @@ static gboolean gst_tiimgdec_sink_event(GstPad *pad, GstEvent *event)
  ******************************************************************************/
 static GstFlowReturn gst_tiimgdec_chain(GstPad * pad, GstBuffer * buf)
 {
-    GstTIImgdec *imgdec       = GST_TIIMGDEC(GST_OBJECT_PARENT(pad));
-    GstCaps      *caps          = GST_BUFFER_CAPS(buf);
-    gboolean     checkResult;
+    GstTIImgdec   *imgdec = GST_TIIMGDEC(GST_OBJECT_PARENT(pad));
+    GstCaps       *caps   = GST_BUFFER_CAPS(buf);
+    gboolean       checkResult;
 
-    GST_LOG("Begin\n");
     /* If the decode thread aborted, signal it to let it know it's ok to
      * shut down, and communicate the failure to the pipeline.
      */
@@ -799,8 +797,6 @@ static GstFlowReturn gst_tiimgdec_chain(GstPad * pad, GstBuffer * buf)
         GST_ERROR("Failed to queue input buffer into circular buffer\n");
         return GST_FLOW_UNEXPECTED;
     }
-
-    GST_LOG("Finish\n");
 
     return GST_FLOW_OK;
 }
@@ -948,9 +944,9 @@ static int gst_tiimgdec_codec_color_space_to_dmai(int cspace) {
  ******************************************************************************/
 static gboolean gst_tiimgdec_init_image(GstTIImgdec *imgdec)
 {
-    Rendezvous_Attrs       rzvAttrs  = Rendezvous_Attrs_DEFAULT;
-    struct sched_param     schedParam;
-    pthread_attr_t         attr;
+    Rendezvous_Attrs    rzvAttrs = Rendezvous_Attrs_DEFAULT;
+    struct sched_param  schedParam;
+    pthread_attr_t      attr;
 
     GST_LOG("Begin\n");
 
@@ -978,8 +974,8 @@ static gboolean gst_tiimgdec_init_image(GstTIImgdec *imgdec)
     pthread_mutex_init(&imgdec->threadStatusMutex, NULL);
 
     /* Initialize rendezvous objects for making threads wait on conditions */
-    imgdec->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
     imgdec->waitOnDecodeThread = Rendezvous_create(2, &rzvAttrs);
+    imgdec->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
     imgdec->waitOnBufTab       = Rendezvous_create(100, &rzvAttrs);
     imgdec->drainingEOS        = FALSE;
 
@@ -1078,6 +1074,7 @@ static gboolean gst_tiimgdec_exit_image(GstTIImgdec *imgdec)
         }
     }
 
+    /* Shut down any remaining items */
     if (imgdec->waitOnDecodeDrain) {
         Rendezvous_delete(imgdec->waitOnDecodeDrain);
         imgdec->waitOnDecodeDrain = NULL;
@@ -1279,7 +1276,7 @@ static gboolean gst_tiimgdec_codec_start (GstTIImgdec  *imgdec)
  ******************************************************************************/
 static void* gst_tiimgdec_decode_thread(void *arg)
 {
-    GstTIImgdec           *imgdec        = GST_TIIMGDEC(gst_object_ref(arg));
+    GstTIImgdec           *imgdec          = GST_TIIMGDEC(gst_object_ref(arg));
     GstBuffer              *encDataWindow  = NULL;
     gboolean               codecFlushed    = FALSE;
     void                   *threadRet      = GstTIThreadSuccess;
@@ -1458,8 +1455,8 @@ static void* gst_tiimgdec_decode_thread(void *arg)
 thread_failure:
 
     gst_tithread_set_status(imgdec, TIThread_DECODE_ABORTED);
-    threadRet = GstTIThreadFailure;
     gst_ticircbuffer_consumer_aborted(imgdec->circBuf);
+    threadRet = GstTIThreadFailure;
 
 thread_exit:
  
@@ -1505,7 +1502,6 @@ static void gst_tiimgdec_drain_pipeline(GstTIImgdec *imgdec)
 {
     gboolean checkResult;
 
-    GST_LOG("Begin\n");
     imgdec->drainingEOS = TRUE;
 
     /* If the decode thread hasn't been created, there is nothing to drain. */
@@ -1516,10 +1512,8 @@ static void gst_tiimgdec_drain_pipeline(GstTIImgdec *imgdec)
 
     gst_ticircbuffer_drain(imgdec->circBuf, TRUE);
 
-    /* Wait for the decoder to drain */
+    /* Wait for the decoder to finish draining */
     Rendezvous_meet(imgdec->waitOnDecodeDrain);
-
-    GST_LOG("Finish\n");
 }
 
 

@@ -70,7 +70,7 @@ struct _GstTIAuddec1
 
   /* Element state */
   Engine_Handle    hEngine;
-  Adec1_Handle      hAd;
+  Adec1_Handle     hAd;
   gint             channels;
   gboolean         drainingEOS;
   pthread_mutex_t  threadStatusMutex;
@@ -78,11 +78,10 @@ struct _GstTIAuddec1
 
   /* Decode thread */
   pthread_t          decodeThread;
+  Rendezvous_Handle  waitOnDecodeThread;
   Rendezvous_Handle  waitOnDecodeDrain;
   Rendezvous_Handle  waitOnBufTab;
 
-  Rendezvous_Handle  waitOnDecodeThread;
-  
   /* Buffer management */
   UInt32            numOutputBufs;
   BufTab_Handle     hOutBufTab;

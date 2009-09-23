@@ -88,8 +88,8 @@ struct _GstTIImgdec
 
   /* Decode thread */
   pthread_t                 decodeThread;
-  Rendezvous_Handle         waitOnDecodeDrain;
   Rendezvous_Handle         waitOnDecodeThread;
+  Rendezvous_Handle         waitOnDecodeDrain;
   Rendezvous_Handle         waitOnBufTab;
   
   /* Framerate (Num/Den) */
