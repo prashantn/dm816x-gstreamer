@@ -888,6 +888,7 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
             videnc, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down encode thread\n");
 
+        Rendezvous_force(videnc->waitOnEncodeThread);
         if (pthread_join(videnc->encodeThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("encode thread exited with an error condition\n");
@@ -1167,6 +1168,7 @@ static void* gst_tividenc_encode_thread(void *arg)
 
     /* Notify main thread that is ok to continue initialization */
     Rendezvous_meet(videnc->waitOnEncodeThread);
+    Rendezvous_reset(videnc->waitOnEncodeThread);
 
     if (ret == FALSE) {
         GST_ERROR("failed to start codec\n");
@@ -1331,6 +1333,13 @@ thread_exit:
         gst_ticircbuffer_data_consumed(videnc->circBuf, encDataWindow, 0);
     }
 
+    /* We have to wait to shut down this thread until we can guarantee that
+     * no more input buffers will be queued into the circular buffer
+     * (we're about to delete it).  
+     */
+    Rendezvous_meet(videnc->waitOnEncodeThread);
+    Rendezvous_reset(videnc->waitOnEncodeThread);
+
     /* Notify main thread that we are done draining before we shutdown the
      * codec, or we will hang.  We proceed in this order so the EOS event gets
      * propagated downstream before we attempt to shut down the codec.  The
@@ -1369,6 +1378,9 @@ static void gst_tividenc_drain_pipeline(GstTIVidenc *videnc)
     }
 
     gst_ticircbuffer_drain(videnc->circBuf, TRUE);
+
+    /* Tell the encode thread that it is ok to shut down */
+    Rendezvous_force(videnc->waitOnEncodeThread);
 
     /* Wait for the encoder to finish draining */
     Rendezvous_meet(videnc->waitOnEncodeDrain);

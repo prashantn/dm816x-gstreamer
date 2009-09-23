@@ -918,6 +918,7 @@ static gboolean gst_tiauddec_exit_audio(GstTIAuddec *auddec)
             auddec, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down decode thread\n");
 
+        Rendezvous_force(auddec->waitOnDecodeThread);
         if (pthread_join(auddec->decodeThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("decode thread exited with an error condition\n");
@@ -1154,6 +1155,7 @@ static void* gst_tiauddec_decode_thread(void *arg)
 
     /* Notify main thread that is ok to continue initialization */
     Rendezvous_meet(auddec->waitOnDecodeThread);
+    Rendezvous_reset(auddec->waitOnDecodeThread);
 
     if (ret == FALSE) {
         GST_ERROR("failed to start codec\n");
@@ -1310,6 +1312,13 @@ thread_exit:
         gst_ticircbuffer_data_consumed(auddec->circBuf, encDataWindow, 0);
     }
 
+    /* We have to wait to shut down this thread until we can guarantee that
+     * no more input buffers will be queued into the circular buffer
+     * (we're about to delete it).  
+     */
+    Rendezvous_meet(auddec->waitOnDecodeThread);
+    Rendezvous_reset(auddec->waitOnDecodeThread);
+
     /* Notify main thread that we are done draining before we shutdown the
      * codec, or we will hang.  We proceed in this order so the EOS event gets
      * propagated downstream before we attempt to shut down the codec.  The
@@ -1348,6 +1357,9 @@ static void gst_tiauddec_drain_pipeline(GstTIAuddec *auddec)
     }
 
     gst_ticircbuffer_drain(auddec->circBuf, TRUE);
+
+    /* Tell the decode thread that it is ok to shut down */
+    Rendezvous_force(auddec->waitOnDecodeThread);
 
     /* Wait for the decoder to finish draining */
     Rendezvous_meet(auddec->waitOnDecodeDrain);

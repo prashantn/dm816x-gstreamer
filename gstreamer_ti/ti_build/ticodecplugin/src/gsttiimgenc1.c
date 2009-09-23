@@ -1377,6 +1377,7 @@ static gboolean gst_tiimgenc1_exit_image(GstTIImgenc1 *imgenc1)
             imgenc1, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down encode thread\n");
 
+        Rendezvous_force(imgenc1->waitOnEncodeThread);
         if (pthread_join(imgenc1->encodeThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("encode thread exited with an error condition\n");
@@ -1621,6 +1622,7 @@ static void* gst_tiimgenc1_encode_thread(void *arg)
 
     /* Notify main thread that is ok to continue initialization */
     Rendezvous_meet(imgenc1->waitOnEncodeThread);
+    Rendezvous_reset(imgenc1->waitOnEncodeThread);
 
     if (ret == FALSE) {
         GST_ERROR("failed to start codec\n");
@@ -1790,6 +1792,13 @@ thread_exit:
         gst_ticircbuffer_data_consumed(imgenc1->circBuf, encDataWindow, 0);
     }
 
+    /* We have to wait to shut down this thread until we can guarantee that
+     * no more input buffers will be queued into the circular buffer
+     * (we're about to delete it).  
+     */
+    Rendezvous_meet(imgenc1->waitOnEncodeThread);
+    Rendezvous_reset(imgenc1->waitOnEncodeThread);
+
     /* Notify main thread that we are done draining before we shutdown the
      * codec, or we will hang.  We proceed in this order so the EOS event gets
      * propagated downstream before we attempt to shut down the codec.  The
@@ -1828,6 +1837,9 @@ static void gst_tiimgenc1_drain_pipeline(GstTIImgenc1 *imgenc1)
     }
 
     gst_ticircbuffer_drain(imgenc1->circBuf, TRUE);
+
+    /* Tell the encode thread that it is ok to shut down */
+    Rendezvous_force(imgenc1->waitOnEncodeThread);
 
     /* Wait for the encoder to finish draining */
     Rendezvous_meet(imgenc1->waitOnEncodeDrain);

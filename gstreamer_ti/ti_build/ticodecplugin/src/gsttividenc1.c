@@ -937,6 +937,7 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
             videnc1, TIThread_DECODE_CREATED, checkResult)) {
         GST_LOG("shutting down encode thread\n");
 
+        Rendezvous_force(videnc1->waitOnEncodeThread);
         if (pthread_join(videnc1->encodeThread, &thread_ret) == 0) {
             if (thread_ret == GstTIThreadFailure) {
                 GST_DEBUG("encode thread exited with an error condition\n");
@@ -1263,6 +1264,7 @@ static void* gst_tividenc1_encode_thread(void *arg)
 
     /* Notify main thread that is ok to continue initialization */
     Rendezvous_meet(videnc1->waitOnEncodeThread);
+    Rendezvous_reset(videnc1->waitOnEncodeThread);
 
     if (ret == FALSE) {
         GST_ERROR("failed to start codec\n");
@@ -1478,6 +1480,13 @@ thread_exit:
         gst_ticircbuffer_data_consumed(videnc1->circBuf, encDataWindow, 0);
     }
 
+    /* We have to wait to shut down this thread until we can guarantee that
+     * no more input buffers will be queued into the circular buffer
+     * (we're about to delete it).  
+     */
+    Rendezvous_meet(videnc1->waitOnEncodeThread);
+    Rendezvous_reset(videnc1->waitOnEncodeThread);
+
     if (hCcvBuf) {
         Buffer_delete(hCcvBuf);
     }
@@ -1523,6 +1532,9 @@ static void gst_tividenc1_drain_pipeline(GstTIVidenc1 *videnc1)
     }
 
     gst_ticircbuffer_drain(videnc1->circBuf, TRUE);
+
+    /* Tell the encode thread that it is ok to shut down */
+    Rendezvous_force(videnc1->waitOnEncodeThread);
 
     /* Wait for the encoder to finish draining */
     Rendezvous_meet(videnc1->waitOnEncodeDrain);
