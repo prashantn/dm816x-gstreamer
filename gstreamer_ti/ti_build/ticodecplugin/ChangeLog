@@ -1,3 +1,7 @@
+2009-08-22 Brijesh Singh, Texas Instruments, Inc.
+	* src/{gstticircbuffer.c}:
+	Add error check in circular buffer API.
+
 2009-09-23 Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec.c, gsttiauddec1.c}:
 	Correct circular buffer allocation for TIAuddec and TIAuddec1.

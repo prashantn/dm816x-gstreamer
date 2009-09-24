@@ -129,6 +129,10 @@ static void gst_ticircbuffer_class_init(gpointer g_class,
  ******************************************************************************/
 static void gst_ticircbuffer_finalize(GstTICircBuffer* circBuf)
 {
+    if (circBuf == NULL) {
+        return;
+    }
+
     GST_LOG("Maximum bytes consumed:  %lu\n", circBuf->maxConsumed);
 
     if (circBuf->hBuf) {
@@ -323,6 +327,11 @@ cleanup:
 gboolean gst_ticircbuffer_set_bufferGfx_attrs(GstTICircBuffer *circBuf,
     BufferGfx_Attrs *gfxAttrs)
 {
+
+    if (circBuf == NULL) {
+        return FALSE;
+    }
+
     circBuf->gfxAttrs = calloc(1, sizeof(BufferGfx_Attrs));
 
     if (circBuf->gfxAttrs == NULL) {
@@ -341,6 +350,10 @@ gboolean gst_ticircbuffer_set_bufferGfx_attrs(GstTICircBuffer *circBuf,
  ******************************************************************************/
 gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
 {
+    if (circBuf == NULL) {
+        return FALSE;
+    }
+
     /* Reset our mutex condition so a call to wait_on_consumer will block */
     Rendezvous_reset(circBuf->waitOnConsumer);
 
@@ -486,6 +499,10 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
 gboolean gst_ticircbuffer_data_consumed(
              GstTICircBuffer *circBuf, GstBuffer *buf, Int32 bytesConsumed)
 {
+    if (circBuf == NULL) {
+        return FALSE;
+    }
+
     /* Make sure the client didn't consume more data than we gave out */
     if (GST_BUFFER_SIZE(buf) < bytesConsumed) {
         GST_WARNING("%ld bytes reported consumed from the circular buffer "
@@ -533,6 +550,10 @@ gboolean gst_ticircbuffer_data_consumed(
 gboolean gst_ticircbuffer_time_consumed(GstTICircBuffer *circBuf,
              GstClockTime timeConsumed)
 {
+    if (circBuf == NULL) {
+        return FALSE;
+    }
+
     if (!GST_CLOCK_TIME_IS_VALID(timeConsumed)) {
         circBuf->dataDuration = GST_CLOCK_TIME_NONE;
     }
@@ -557,6 +578,10 @@ GstBuffer* gst_ticircbuffer_get_data(GstTICircBuffer *circBuf)
     Buffer_Attrs   bAttrs;
     GstBuffer     *result;
     Int32          bufSize;
+
+    if (circBuf == NULL) {
+        return NULL;
+    }
 
     /* Reset our mutex condition so calling wait_on_consumer will block */
     Rendezvous_reset(circBuf->waitOnProducer);
@@ -680,6 +705,10 @@ static void gst_ticircbuffer_broadcast_consumer(GstTICircBuffer *circBuf)
  ******************************************************************************/
 void gst_ticircbuffer_consumer_aborted(GstTICircBuffer *circBuf)
 {
+    if (circBuf == NULL) {
+        return;
+    }
+
     circBuf->consumerAborted = TRUE;
     Rendezvous_force(circBuf->waitOnConsumer);
 }
@@ -692,6 +721,10 @@ void gst_ticircbuffer_consumer_aborted(GstTICircBuffer *circBuf)
  ******************************************************************************/
 void gst_ticircbuffer_drain(GstTICircBuffer *circBuf, gboolean status)
 {
+    if (circBuf == NULL) {
+        return;
+    }
+
     circBuf->drain = status;
 
     if (status == TRUE) {
