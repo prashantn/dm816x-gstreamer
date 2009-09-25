@@ -30,7 +30,7 @@
 #        values:
 #            MVL_4_0_1:  MontaVista   v4.0.1
 #            MVL_5_0:    MontaVista   v5.0
-#            CS_2007Q3:  CodeSourcery v2007q3
+#            CS_2008Q1:  CodeSourcery v2008q1
 #
 # These paths must be specified or the build will fail.
 #------------------------------------------------------------------------------
@@ -78,6 +78,7 @@ export CODEC_INSTALL_DIR
 export DMAI_INSTALL_DIR
 export FC_INSTALL_DIR
 export LINK_INSTALL_DIR
+export LINUXLIBS_INSTALL_DIR
 export LINUXKERNEL_INSTALL_DIR
 export LPM_INSTALL_DIR
 export MVTOOL_DIR
@@ -108,7 +109,7 @@ ifndef CROSS_COMPILER
         CROSS_COMPILER=MVL_5_0
     endif
     ifeq ($(PLATFORM), omap3530)
-        CROSS_COMPILER=CS_2007Q3
+        CROSS_COMPILER=CS_2008Q1
     endif
 endif
 
@@ -166,6 +167,8 @@ ifeq ($(PLATFORM), omap3530)
     export XDC_PLATFORM  = ti.platforms.evm3530
     export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
     export MVTOOL_DIR    = $(CSTOOL_DIR)
+    export PLATFORM_XDC  = ${XDC_PLATFORM}
+    export CROSS_COMPILE = ${CSTOOL_PREFIX}
 endif
 
 #------------------------------------------------------------------------------
@@ -179,7 +182,7 @@ endif
 # Enable ALSA support based on PLATFORM and CROSS_COMPILER variable
 #------------------------------------------------------------------------------
 ifeq ($(PLATFORM), omap3530)
-    export ALSA_SUPPORT = --enable-alsa --with-alsa-inc-prefix=$(DVSDK_INSTALL_DIR)/linuxlibs/include --with-alsa-prefix=$(DVSDK_INSTALL_DIR)/linuxlibs/lib
+    export ALSA_SUPPORT = --enable-alsa --with-alsa-inc-prefix=$(LINUXLIBS_INSTALL_DIR)/include --with-alsa-prefix=$(LINUXLIBS_INSTALL_DIR)/lib 
 else
     ifeq ($(CROSS_COMPILER), MVL_5_0)
         export	ALSA_SUPPORT = --enable-alsa

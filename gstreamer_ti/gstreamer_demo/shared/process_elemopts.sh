@@ -100,11 +100,12 @@ if [ ! -f $fileName ]; then
     exit 1
 fi
 
-if [ $PLATFORM == "dm357" ]
-then
-	engineName="hmjcp"
+if [ "${PLATFORM}" = "dm357" ]; then
+    engineName="hmjcp"
+elif [ "${PLATFORM}" = "omap3530" ]; then
+    engineName="codecServer"
 else
-	engineName="decode"
+    engineName="decode"
 fi
 
 # main loop

@@ -145,6 +145,8 @@ case "$streamType" in
         # codecname and other informations
         if [ "${PLATFORM}" = "dm357" ]; then
             engineName="hmjcp"
+        elif [ "${PLATFORM}" = "omap3530" ]; then
+            engineName="codecServer"
         else
             engineName="encode"
         fi

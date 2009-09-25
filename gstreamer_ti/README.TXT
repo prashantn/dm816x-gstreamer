@@ -125,7 +125,7 @@ Platform    DVSDK Version
 DM6446      2.00.00.22
 DM355       2.00.00.22
 DM6467      2.00.00.22
-OMAP35xx    3.00.00.29
+OMAP35xx    3.00.02.44
 DM357       2.05.00.14
 DM365       2.10.01.18
 
@@ -153,17 +153,6 @@ Prerequisites
   earlier than 2.00 are not actively supported.
 - The DVSDK is configured to use the Linux kernel provided by the LSP package
   associated with the DVSDK being used.
-- The minimum version of DMAI must be installed.  The proper version for
-  each platform is given below.
-	* DM644x          - DMAI 1.20
-	* DM355           - DMAI 1.20
-	* DM6467          - DMAI 1.20
-	* OMAP35x	      - DMAI 1.20
-	* DM357		      - DMAI 1.20
-	* DM365  	      - DMAI 2.10
-- For OMAP35xx platforms, the "zlib" library needs to be installed on the
-  target filesystem.  To instal it, please cd to the root of the target
-  filesystem and extract OMAP35x_SDK/bin/zlib-1.2.3.tar.gz.
 
 Build Instructions
 ==================
@@ -183,7 +172,7 @@ Set the following variables at the top of the file:
                         on the platform you are building for, but you can set
                         it explicitly to one of these values:
                             MVL_5_0:    MontaVista   v5.0
-                            CS_2007Q3:  CodeSourcery v2007q3
+                            CS_2008Q1:  CodeSourcery v2008q1
 
 Execute this command from the top-level "gstreamer_ti" directory:
 % make all install VERBOSE=true
@@ -205,6 +194,34 @@ initialize the relevant kernel modules for your platform.
 
 Other scripts are also available in this directory that demonstrate how you can
 use the TI plugin via the gst-launch command, and are explained below.
+
+Special Notes on OMAP35xx EVM Set-Up
+------------------------------------
+These additional set-up steps are required when using an OMAP35xx EVM.
+* Before running the loadmodules.sh script mentioned above, you must first run 
+  /opt/dvsdk/omap3530/unloadmodules.sh on the EVM to ensure the kernel
+  modules are configured properly for GStreamer.
+* On OMAP35xx EVMs with only 128M of memory, it may be desirable to use the
+  following bootargs setting in U-Boot to reduce the amount of memory allocated
+  by the video driver and make it available to the system:
+
+  OMAP3_EVM # setenv nfshost <ip address of nfs host> 
+  OMAP3_EVM # setenv rootpath <directory to mount> 
+  OMAP3_EVM # setenv bootargs 'console=ttyS0,115200n8 noinitrd rw ip=dhcp
+                  root=/dev/nfs nfsroot=$(nfshost):$(rootpath),nolock mem=99M
+                  mpurate=600 omapfb.rotate=1 omapfb.rotate_type=1
+                  omap_vout.vid1_static_vrfb_alloc=y
+                  omap_vout.video1_numbuffers=3 omap_vout.video1_bufsize=829440
+                  omap_vout.video2_numbuffers=0'
+
+  Each "setenv" command should be entered on a single line.
+
+  Depending on the complexity of your GStreamer pipeline and the clips you are
+  playing, failure to adjust the video driver's memory allocation could result
+  in OOM killers.
+
+  Other platforms should use the bootargs settings in the DVSDK Getting
+  Started Guide.
 
 Playing Clips
 =============

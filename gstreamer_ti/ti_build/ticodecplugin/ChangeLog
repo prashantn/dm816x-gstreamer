@@ -1,3 +1,7 @@
+2009-09-24  Don Darling, Texas Instruments, Inc.
+	* src/{gstticodecplugin_omap3530.cfg,gstticodecs_omap3530.c}:
+	Update OMAP3530 Support to use DVSDK 3.00.02.44.
+
 2009-08-22 Brijesh Singh, Texas Instruments, Inc.
 	* src/{gstticircbuffer.c}:
 	Add error check in circular buffer API.

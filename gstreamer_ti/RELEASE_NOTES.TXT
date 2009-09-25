@@ -23,6 +23,10 @@ Release 1.00:
 Known Issues
 ------------
 
+    - Tighter memory constraints in OMAP35x may cause OOM killers in some
+      cases.  See the README.TXT for information on modifying bootarg settings
+      to make more memory available to the system.
+
 Release 1.00:
 	- Video encode is not supported on DM6467.  DM6467 requires DMAI
 	  version at least 1.20.00.06 which is meant to be used with 
