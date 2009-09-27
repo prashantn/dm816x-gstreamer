@@ -152,7 +152,8 @@ static gboolean
 static gboolean
  gst_tidmaivideosink_exit_display(GstTIDmaiVideoSink * sink);
 static gboolean
- gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink * sink);
+ gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink * sink, 
+    ColorSpace_Type colorSpace);
 static GstFlowReturn
  gst_tidmaivideosink_render(GstBaseSink * bsink, GstBuffer * buffer);
 static gboolean
@@ -935,7 +936,8 @@ static int gst_tidmaivideosink_convert_attrs(int attr,
  *    this function sets the display attributes to the DMAI defaults
  *    and overrides those default with user input if entered.
 *******************************************************************************/
-static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink)
+static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink,
+    ColorSpace_Type colorSpace)
 {
     int ret;
 
@@ -965,6 +967,7 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink)
         #if defined(Platform_dm365)
         case Cpu_Device_DM365:
             sink->dAttrs = Display_Attrs_DM365_VID_DEFAULT;
+            sink->dAttrs.colorSpace = colorSpace;
             break;
         #endif
         default:
@@ -1138,7 +1141,7 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink,
      * 3.  autoselect was enabled and no working standard could be found
      */
     while (TRUE) {
-        if (!gst_tidmaivideosink_set_display_attrs(sink)) {
+        if (!gst_tidmaivideosink_set_display_attrs(sink, colorSpace)) {
             GST_ERROR("Error while trying to set the display attributes\n");
             return FALSE;
         }
@@ -1308,8 +1311,18 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         else {
             memcpy(Buffer_getUserPtr(inBuf), buf->data, buf->size);
         }
-
     }
+
+    #if defined(Platform_dm365)
+    /* DM365: TO componsate resizer 32-byte alignment, we need to set
+     * lineLength to roundup on 32-byte boundry.
+     */
+    if (inBufColorSpace == ColorSpace_YUV420PSEMI) {
+        BufferGfx_getDimensions(inBuf, &dim);
+        dim.lineLength = Dmai_roundUp(dim.lineLength, 32);
+        BufferGfx_setDimensions(inBuf, &dim);
+    }
+    #endif
 
     /* If the Display_Handle element is NULL, then either this is our first
      * buffer or the upstream element has re-nogatiated our capabilities which
