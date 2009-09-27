@@ -1,0 +1,971 @@
+diff -uNr orig/gst-plugins-good-0.10.15/sys/v4l2/gstv4l2src.c gst-plugins-good-0.10.15/sys/v4l2/gstv4l2src.c
+--- orig/gst-plugins-good-0.10.15/sys/v4l2/gstv4l2src.c	2009-09-23 20:11:46.000000000 -0500
++++ gst-plugins-good-0.10.15/sys/v4l2/gstv4l2src.c	2009-09-23 20:12:07.000000000 -0500
+@@ -73,7 +73,11 @@
+   PROP_0,
+   V4L2_STD_OBJECT_PROPS,
+   PROP_QUEUE_SIZE,
+-  PROP_ALWAYS_COPY
++  PROP_ALWAYS_COPY,
++  #if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++  PROP_INPUT_SRC,
++  PROP_FORCE_720P_30,
++  #endif
+ };
+ 
+ static const guint32 gst_v4l2_formats[] = {
+@@ -316,6 +320,17 @@
+           "If the buffer will or not be used directly from mmap",
+           DEFAULT_PROP_ALWAYS_COPY, G_PARAM_READWRITE));
+ 
++  #if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++  g_object_class_install_property (gobject_class, PROP_INPUT_SRC,
++      g_param_spec_string ("input-src", "Select the input source",
++          "Select the input source (composite, component, svideo)",
++          NULL, G_PARAM_READWRITE));
++  g_object_class_install_property (gobject_class, PROP_FORCE_720P_30,
++      g_param_spec_boolean ("force-720p-30", "Configure 720P @ 30fps",
++          "Force driver to work on 720P @ 30fps",
++          FALSE, G_PARAM_READWRITE));
++  #endif
++
+   basesrc_class->get_caps = GST_DEBUG_FUNCPTR (gst_v4l2src_get_caps);
+   basesrc_class->set_caps = GST_DEBUG_FUNCPTR (gst_v4l2src_set_caps);
+   basesrc_class->start = GST_DEBUG_FUNCPTR (gst_v4l2src_start);
+@@ -342,6 +357,10 @@
+   v4l2src->always_copy = DEFAULT_PROP_ALWAYS_COPY;
+ 
+   v4l2src->formats = NULL;
++  #if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++  v4l2src->input_src = NULL;
++  v4l2src->force_720p_30 = FALSE;
++  #endif
+ 
+   v4l2src->is_capturing = FALSE;
+ 
+@@ -395,6 +414,14 @@
+       case PROP_ALWAYS_COPY:
+         v4l2src->always_copy = g_value_get_boolean (value);
+         break;
++      #if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++      case PROP_INPUT_SRC:
++        v4l2src->input_src = g_strdup(g_value_get_string(value));
++        break;
++      case PROP_FORCE_720P_30:
++        v4l2src->force_720p_30 = g_value_get_boolean (value);
++        break;
++      #endif
+       default:
+         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+         break;
+@@ -418,6 +445,14 @@
+       case PROP_ALWAYS_COPY:
+         g_value_set_boolean (value, v4l2src->always_copy);
+         break;
++      #if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++      case PROP_INPUT_SRC:
++        g_value_set_string(value, v4l2src->input_src);
++        break;
++      case PROP_FORCE_720P_30:
++        g_value_set_boolean (value, v4l2src->force_720p_30);
++        break;
++      #endif
+       default:
+         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+         break;
+@@ -989,8 +1024,13 @@
+         break;
+       case GST_MAKE_FOURCC ('N', 'V', '1', '2'):
+         fourcc = V4L2_PIX_FMT_NV12;
++#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++        outsize = GST_ROUND_UP_32 (*w) * GST_ROUND_UP_2 (*h);
++        outsize += (GST_ROUND_UP_32 (*w) * *h) / 2;
++#else
+         outsize = GST_ROUND_UP_4 (*w) * GST_ROUND_UP_2 (*h);
+         outsize += (GST_ROUND_UP_4 (*w) * *h) / 2;
++#endif
+         break;
+       case GST_MAKE_FOURCC ('N', 'V', '2', '1'):
+         fourcc = V4L2_PIX_FMT_NV21;
+diff -uNr orig/gst-plugins-good-0.10.15/sys/v4l2/gstv4l2src.h gst-plugins-good-0.10.15/sys/v4l2/gstv4l2src.h
+--- orig/gst-plugins-good-0.10.15/sys/v4l2/gstv4l2src.h	2009-01-21 18:04:30.000000000 -0600
++++ gst-plugins-good-0.10.15/sys/v4l2/gstv4l2src.h	2009-09-23 20:12:07.000000000 -0500
+@@ -112,6 +112,12 @@
+   guint64 offset;
+ 
+   gint     fps_d, fps_n;       /* framerate if device is open */
++
++  #if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++  gchar *input_src;
++  gboolean force_720p_30;
++  #endif
++
+ };
+ 
+ struct _GstV4l2SrcClass
+diff -uNr orig/gst-plugins-good-0.10.15/sys/v4l2/Makefile.am gst-plugins-good-0.10.15/sys/v4l2/Makefile.am
+--- orig/gst-plugins-good-0.10.15/sys/v4l2/Makefile.am	2009-02-06 05:34:12.000000000 -0600
++++ gst-plugins-good-0.10.15/sys/v4l2/Makefile.am	2009-09-23 20:12:07.000000000 -0500
+@@ -17,6 +17,7 @@
+ 				gstv4l2vidorient.c \
+ 				v4l2_calls.c \
+ 				v4l2src_calls.c \
++				v4l2src_davinci.c \
+ 				$(xv_source)
+ 
+ libgstvideo4linux2_la_CFLAGS =   $(GST_PLUGINS_BASE_CFLAGS) \
+@@ -38,4 +39,5 @@
+ noinst_HEADERS = gstv4l2object.h v4l2_calls.h \
+ 		 gstv4l2src.h v4l2src_calls.h \
+ 		 gstv4l2tuner.h gstv4l2xoverlay.h \
+-		 gstv4l2colorbalance.h gstv4l2vidorient.h
++		 gstv4l2colorbalance.h gstv4l2vidorient.h \
++		 v4l2src_davinci.h \
+diff -uNr orig/gst-plugins-good-0.10.15/sys/v4l2/Makefile.in gst-plugins-good-0.10.15/sys/v4l2/Makefile.in
+--- orig/gst-plugins-good-0.10.15/sys/v4l2/Makefile.in	2009-05-20 13:52:55.000000000 -0500
++++ gst-plugins-good-0.10.15/sys/v4l2/Makefile.in	2009-09-23 20:12:07.000000000 -0500
+@@ -96,7 +96,8 @@
+ 	libgstvideo4linux2_la-gstv4l2tuner.lo \
+ 	libgstvideo4linux2_la-gstv4l2vidorient.lo \
+ 	libgstvideo4linux2_la-v4l2_calls.lo \
+-	libgstvideo4linux2_la-v4l2src_calls.lo
++	libgstvideo4linux2_la-v4l2src_calls.lo \
++	libgstvideo4linux2_la-v4l2src_davinci.lo
+ libgstvideo4linux2_la_OBJECTS = $(am_libgstvideo4linux2_la_OBJECTS)
+ libgstvideo4linux2_la_LINK = $(LIBTOOL) --tag=CC \
+ 	$(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+@@ -447,6 +448,7 @@
+ 				gstv4l2vidorient.c \
+ 				v4l2_calls.c \
+ 				v4l2src_calls.c \
++				v4l2src_davinci.c \
+ 				$(xv_source)
+ 
+ libgstvideo4linux2_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) \
+@@ -467,7 +469,8 @@
+ noinst_HEADERS = gstv4l2object.h v4l2_calls.h \
+ 		 gstv4l2src.h v4l2src_calls.h \
+ 		 gstv4l2tuner.h gstv4l2xoverlay.h \
+-		 gstv4l2colorbalance.h gstv4l2vidorient.h
++		 gstv4l2colorbalance.h gstv4l2vidorient.h \
++		 v4l2src_davinci.h \
+ 
+ all: all-am
+ 
+@@ -595,7 +598,12 @@
+ @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='gstv4l2src.c' object='libgstvideo4linux2_la-gstv4l2src.lo' libtool=yes @AMDEPBACKSLASH@
+ @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+ @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -c -o libgstvideo4linux2_la-gstv4l2src.lo `test -f 'gstv4l2src.c' || echo '$(srcdir)/'`gstv4l2src.c
+-
++libgstvideo4linux2_la-v4l2src_davinci.lo: v4l2src_davinci.c
++@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -MT libgstvideo4linux2_la-v4l2src_davinci.lo -MD -MP -MF $(DEPDIR)/libgstvideo4linux2_la-v4l2src_davinci.Tpo -c -o libgstvideo4linux2_la-v4l2src_davinci.lo `test -f 'v4l2src_davinci.c' || echo '$(srcdir)/'`v4l2src_davinci.c
++@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libgstvideo4linux2_la-v4l2src_davinci.Tpo $(DEPDIR)/libgstvideo4linux2_la-v4l2src_davinci.Plo
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='v4l2src_davinci.c' object='libgstvideo4linux2_la-v4l2src_davinci.lo' libtool=yes @AMDEPBACKSLASH@
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
++@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -c -o libgstvideo4linux2_la-v4l2src_davinci.lo `test -f 'v4l2src_davinci.c' || echo '$(srcdir)/'`v4l2src_davinci.c
+ libgstvideo4linux2_la-gstv4l2tuner.lo: gstv4l2tuner.c
+ @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -MT libgstvideo4linux2_la-gstv4l2tuner.lo -MD -MP -MF $(DEPDIR)/libgstvideo4linux2_la-gstv4l2tuner.Tpo -c -o libgstvideo4linux2_la-gstv4l2tuner.lo `test -f 'gstv4l2tuner.c' || echo '$(srcdir)/'`gstv4l2tuner.c
+ @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libgstvideo4linux2_la-gstv4l2tuner.Tpo $(DEPDIR)/libgstvideo4linux2_la-gstv4l2tuner.Plo
+diff -uNr orig/gst-plugins-good-0.10.15/sys/v4l2/v4l2_calls.c gst-plugins-good-0.10.15/sys/v4l2/v4l2_calls.c
+--- orig/gst-plugins-good-0.10.15/sys/v4l2/v4l2_calls.c	2009-05-15 17:34:32.000000000 -0500
++++ gst-plugins-good-0.10.15/sys/v4l2/v4l2_calls.c	2009-09-23 20:12:07.000000000 -0500
+@@ -47,6 +47,10 @@
+ 
+ #include "gstv4l2src.h"
+ 
++#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++#include "v4l2src_davinci.h"
++#endif
++
+ /* Those are ioctl calls */
+ #ifndef V4L2_CID_HCENTER
+ #define V4L2_CID_HCENTER V4L2_CID_HCENTER_DEPRECATED
+@@ -407,6 +411,13 @@
+   int libv4l2_fd;
+   GstPollFD pollfd = GST_POLL_FD_INIT;
+ 
++#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++   GST_LOG("Opening IPIPE module (rsz+prev) to enable NV12\n");
++   if (dm365_resize_create(v4l2object) < 0) {
++     GST_INFO("failed to open ipipe module\n");
++   }
++#endif
++
+   GST_DEBUG_OBJECT (v4l2object->element, "Trying to open device %s",
+       v4l2object->videodev);
+ 
+@@ -531,6 +542,12 @@
+   gst_poll_remove_fd (v4l2object->poll, &pollfd);
+   v4l2object->video_fd = -1;
+ 
++#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++  if (dm365_resize_destroy(v4l2object) < 0) {
++    GST_LOG("failed to close ipipe module\n");
++  }
++#endif
++
+   /* empty lists */
+   gst_v4l2_empty_lists (v4l2object);
+ 
+diff -uNr orig/gst-plugins-good-0.10.15/sys/v4l2/v4l2src_calls.c gst-plugins-good-0.10.15/sys/v4l2/v4l2src_calls.c
+--- orig/gst-plugins-good-0.10.15/sys/v4l2/v4l2src_calls.c	2009-09-23 20:11:40.000000000 -0500
++++ gst-plugins-good-0.10.15/sys/v4l2/v4l2src_calls.c	2009-09-23 20:12:45.000000000 -0500
+@@ -44,6 +44,10 @@
+ 
+ #include "gstv4l2tuner.h"
+ 
++#if defined(DAVINCI_LSP_WORKAROUND)
++#include "v4l2src_davinci.h"
++#endif
++
+ GST_DEBUG_CATEGORY_EXTERN (v4l2src_debug);
+ #define GST_CAT_DEFAULT v4l2src_debug
+ 
+@@ -564,118 +568,6 @@
+   }
+ }
+ 
+-#if defined(DAVINCI_LSP_WORKAROUND)
+-/******************************************************
+- * gst_v4l2src_get_resolution
+- *   get the video resolution
+- *****************************************************/
+-static void  gst_v4l2src_get_resolution (GstV4l2Src *v4l2src, gint *width,
+-        gint *height, gint *fps_num, gint *fps_denom)
+-{
+-  gint fd = v4l2src->v4l2object->video_fd;
+-  gint failCount = 0, ret;
+-  v4l2_std_id  std;
+-
+-  /* It might take a few tries to detect the signal */
+-  do {
+-    ret = ioctl(fd, VIDIOC_QUERYSTD, &std);
+-    if (ret == -1 && errno == EAGAIN) {
+-        usleep(1);
+-        failCount++;
+-    }
+-  }while(ret == -1 && errno == EAGAIN && failCount < 5);
+-
+-  if (ret == -1) {
+-    GST_ERROR("failed to query standard, Video input connected ?\n");
+-  }
+-
+-  if (std & V4L2_STD_NTSC) {
+-    GST_LOG("found ntsc standard\n");
+-    *width = 720;
+-    *height = 480;
+-    *fps_num = 30000;
+-    *fps_denom = 1001;
+-  }
+-  else if (std & V4L2_STD_PAL) {
+-    GST_LOG("found pal standard\n");
+-    *width = 720;
+-    *height = 576;
+-    *fps_num = 25;
+-    *fps_denom = 1;
+-  }
+-  else if (std & V4L2_STD_525P_60) {
+-    GST_LOG("found 525p standard\n");
+-    *width = 720;
+-    *height = 480;
+-    *fps_num = 30000;
+-    *fps_denom = 1001;
+-  }
+-  else if (std & V4L2_STD_625P_50) {
+-    GST_LOG("found 625p standard\n");
+-    *width = 720;
+-    *height = 576;
+-    *fps_num = 25;
+-    *fps_denom = 1;
+-  }
+-  else if (std & V4L2_STD_720P_60) {
+-    GST_LOG("found 720p @60fps standard\n");
+-    *width = 1280;
+-    *height = 720;
+-    *fps_num = 60;
+-    *fps_denom = 1;
+-  }
+-  else if (std & V4L2_STD_720P_50) {
+-    GST_LOG("found 720p @50fps standard\n");
+-    *width = 1280;
+-    *height = 720;
+-    *fps_num = 50;
+-    *fps_denom = 1;
+-  }
+-  else if (std & V4L2_STD_1080I_60) {
+-    GST_LOG("found 1080i @60fps standard\n");
+-    *width = 1920;
+-    *height = 1080;
+-    *fps_num = 60;
+-    *fps_denom = 1;
+-  }
+-  else if (std & V4L2_STD_1080I_50) {
+-    GST_LOG("found 1080i @50fps standard\n");
+-    *width = 1920;
+-    *height = 1080;
+-    *fps_num = 50;
+-    *fps_denom = 1;
+-  }
+-  else if (std & V4L2_STD_1080P_30) {
+-    GST_LOG("found 1080p @30fps standard\n");
+-    *width = 1920;
+-    *height = 1080;
+-    *fps_num = 30;
+-    *fps_denom = 1;
+-  }
+-  else if (std & V4L2_STD_1080P_25) {
+-    GST_LOG("found 1080p @25fps standard\n");
+-    *width = 1920;
+-    *height = 1080;
+-    *fps_num = 25;
+-    *fps_denom = 1;
+-  }
+-  else if (std & V4L2_STD_1080P_24) {
+-    GST_LOG("found 1080p @24fps standard\n");
+-    *width = 1920;
+-    *height = 1080;
+-    *fps_num = 24;
+-    *fps_denom = 1;
+-  }
+-  else {
+-    GST_WARNING("failed to detect video standard\n");
+-    *width = 1;
+-    *height = 1;
+-    *fps_num = 1;
+-    *fps_denom = 1;
+-  }
+-}
+-#endif
+-
+ /******************************************************
+  * gst_v4l2src_clear_format_list():
+  *   free list of supported capture formats
+@@ -1328,6 +1220,13 @@
+   GST_V4L2_CHECK_OPEN (v4l2src->v4l2object);
+   GST_V4L2_CHECK_NOT_ACTIVE (v4l2src->v4l2object);
+ 
++  #if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++  if (pixelformat != V4L2_PIX_FMT_NV12) {
++    GST_INFO("closing ipipe module\n");
++    dm365_resize_destroy(v4l2src->v4l2object);
++  }
++  #endif
++
+   memset (&format, 0x00, sizeof (struct v4l2_format));
+   format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+ 
+@@ -1341,16 +1240,33 @@
+   /* request whole frames; change when gstreamer supports interlaced video
+    * (INTERLACED mode returns frames where the fields have already been
+    *  combined, there are other modes for requesting fields individually) */
+-  #if defined(DAVINCI_LSP_WORKAROUND) && !defined(Platform_dm6467)
++  #if defined(DAVINCI_LSP_WORKAROUND) && !defined(Platform_dm6467) 
+   format.fmt.pix.field = V4L2_FIELD_INTERLACED;
+   #endif
+   #if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm6467) 
+   v4l2src->frame_byte_size = format.fmt.pix.sizeimage;
+   #endif
+ 
+-  if (v4l2_ioctl (fd, VIDIOC_S_FMT, &format) < 0) {
++  #if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++  if(v4l2src->input_src) {
++    if (!strcmp(v4l2src->input_src, "component"))
++        format.fmt.pix.field = V4L2_FIELD_NONE;
++    else        
++        format.fmt.pix.field = V4L2_FIELD_INTERLACED;
++  }
++  else 
++        format.fmt.pix.field = V4L2_FIELD_NONE;
++
++  if (v4l2_ioctl (fd, VIDIOC_TRY_FMT, &format) < 0) {
+     if (errno != EINVAL)
+       goto set_fmt_failed;
++  }
++  #endif
++  
++  if (v4l2_ioctl (fd, VIDIOC_S_FMT, &format) < 0) {
++    if (errno != EINVAL) {
++      goto set_fmt_failed;
++    }
+ 
+     /* try again with progressive video */
+     format.fmt.pix.width = width;
+@@ -1557,7 +1473,6 @@
+   }
+ }
+ 
+-
+ /******************************************************
+  * gst_v4l2src_capture_start():
+  *   start streaming capture
+@@ -1576,6 +1491,12 @@
+   v4l2src->quit = FALSE;
+ 
+   if (v4l2src->use_mmap) {
++    #if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++    if (v4l2src->force_720p_30) {
++        if (!gst_v4l2_force_720p_30(v4l2src))
++            return FALSE;
++    }
++    #endif
+     if (!gst_v4l2_buffer_pool_activate (v4l2src->pool, v4l2src))
+       goto pool_activate_failed;
+ 
+diff -uNr orig/gst-plugins-good-0.10.15/sys/v4l2/v4l2src_davinci.c gst-plugins-good-0.10.15/sys/v4l2/v4l2src_davinci.c
+--- orig/gst-plugins-good-0.10.15/sys/v4l2/v4l2src_davinci.c	1969-12-31 18:00:00.000000000 -0600
++++ gst-plugins-good-0.10.15/sys/v4l2/v4l2src_davinci.c	2009-09-23 20:13:28.000000000 -0500
+@@ -0,0 +1,495 @@
++/*
++ * v4l2src_davinci.c
++ *
++ * This file defines functions needed to get v4l2src on dm6446, dm355, dm6467
++ * , dm357 and dm365 LSP's.
++ *
++ *
++ * Most the code is copied from DMAI capture routines with following license:
++ *
++ * --COPYRIGHT--,BSD
++ * Copyright (c) 2009, Texas Instruments Incorporated
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ * *  Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *
++ * *  Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * *  Neither the name of Texas Instruments Incorporated nor the names of
++ *    its contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
++ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ * --/COPYRIGHT--*/
++
++#ifdef HAVE_CONFIG_H
++#include <config.h>
++#endif
++
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <sys/ioctl.h>
++#include <sys/mman.h>
++#include <string.h>
++#include <errno.h>
++#include <unistd.h>
++#ifdef __sun
++/* Needed on older Solaris Nevada builds (72 at least) */
++#include <stropts.h>
++#include <sys/ioccom.h>
++#endif
++
++#include "v4l2src_davinci.h"
++
++#if defined(DAVINCI_LSP_WORKAROUND)
++void gst_v4l2src_convert_to_upper (char *str)
++{
++    int ch, i;
++    if (str == NULL)
++        return;
++  
++    for(i=0; i<strlen(str); i++) {
++        ch = toupper(str[i]);
++        str[i]  = ch;
++    }
++}
++
++/******************************************************
++ * gst_v4l2src_get_resolution
++ *   get the video resolution
++ *****************************************************/
++void  gst_v4l2src_get_resolution (GstV4l2Src *v4l2src, gint *width,
++        gint *height, gint *fps_num, gint *fps_denom)
++{
++  gint fd = v4l2src->v4l2object->video_fd;
++  v4l2_std_id  std;
++  gint failCount = 0, ret;
++  
++  #if defined(Platform_dm365) 
++  struct v4l2_input  v4l2Input;
++  int input, queryInput, idx;
++  char *strings[6] = {"RAW", "RAW-1", "COMPOSITE", "SVIDEO", "COMPONENT" };
++
++  gst_v4l2src_convert_to_upper(v4l2src->input_src); 
++  
++  v4l2Input.type = V4L2_INPUT_TYPE_CAMERA;
++  v4l2Input.index = 0;
++  GST_LOG ("Enumerating video inputs\n");
++  do {
++    idx = v4l2Input.index;
++    if (ioctl(fd, VIDIOC_ENUMINPUT, &v4l2Input) < 0) {
++        if (errno == EINVAL || errno == ENOTTY)
++            break;
++    }
++
++    if (v4l2src->input_src && !strcmp(v4l2src->input_src, strings[idx])) {
++        break;
++    }
++    v4l2Input.index++;
++
++  }while(1);
++
++  input = v4l2Input.index;
++  GST_LOG("setting index=%d, name=%s\n", v4l2Input.index, v4l2Input.name);
++
++  ioctl(fd, VIDIOC_S_INPUT, &input);
++  ioctl(fd, VIDIOC_G_INPUT, &queryInput);
++  #endif  
++
++  do {
++    ret = ioctl(fd, VIDIOC_QUERYSTD, &std);
++    if (ret == -1 && errno == EAGAIN) {
++        usleep(1);
++        failCount++;
++    }
++  }while(ret == -1 && errno == EAGAIN && failCount < 5);
++
++  if (ret == -1) { 
++    GST_ERROR("failed to query standard, Video input connected ?\n");
++  }
++
++  /* It might take a few tries to detect the signal */
++  if (std & V4L2_STD_NTSC) {
++    GST_LOG("found ntsc standard\n");
++    *width = 720;
++    *height = 480;
++    *fps_num = 30000;
++    *fps_denom = 1001;
++  }
++  else if (std & V4L2_STD_PAL) {
++    GST_LOG("found pal standard\n");
++    *width = 720;
++    *height = 576;
++    *fps_num = 25;
++    *fps_denom = 1;
++  }
++  else if (std & V4L2_STD_525P_60) {
++    GST_LOG("found 525p standard\n");
++    *width = 720;
++    *height = 480;
++    *fps_num = 30000;
++    *fps_denom = 1001;
++  }
++  else if (std & V4L2_STD_625P_50) {
++    GST_LOG("found 625p standard\n");
++    *width = 720;
++    *height = 576;
++    *fps_num = 25;
++    *fps_denom = 1;
++  }
++  else if (std & V4L2_STD_720P_60) {
++    GST_LOG("found 720p @60fps standard\n");
++    *width = 1280;
++    *height = 720;
++    *fps_num = 60;
++    *fps_denom = 1;
++    #if defined(Platform_dm365)
++    if (v4l2src->force_720p_30) {
++        *fps_num = 30000;
++        *fps_denom = 1001;
++    }
++    #endif
++  }
++  else if (std & V4L2_STD_720P_50) {
++    GST_LOG("found 720p @50fps standard\n");
++    *width = 1280;
++    *height = 720;
++    *fps_num = 50;
++    *fps_denom = 1;
++  }
++  else if (std & V4L2_STD_1080I_60) {
++    GST_LOG("found 1080i @60fps standard\n");
++    *width = 1920;
++    *height = 1080;
++    *fps_num = 60;
++    *fps_denom = 1;
++  }
++  else if (std & V4L2_STD_1080I_50) {
++    GST_LOG("found 1080i @50fps standard\n");
++    *width = 1920;
++    *height = 1080;
++    *fps_num = 50;
++    *fps_denom = 1;
++  }
++  else if (std & V4L2_STD_1080P_30) {
++    GST_LOG("found 1080p @30fps standard\n");
++    *width = 1920;
++    *height = 1080;
++    *fps_num = 30;
++    *fps_denom = 1;
++  }
++  else if (std & V4L2_STD_1080P_25) {
++    GST_LOG("found 1080p @25fps standard\n");
++    *width = 1920;
++    *height = 1080;
++    *fps_num = 25;
++    *fps_denom = 1;
++  }
++  else if (std & V4L2_STD_1080P_24) {
++    GST_LOG("found 1080p @24fps standard\n");
++    *width = 1920;
++    *height = 1080;
++    *fps_num = 24;
++    *fps_denom = 1;
++  }
++  else {
++    GST_WARNING("failed to detect video standard\n");
++    *width = 1;
++    *height = 1;
++    *fps_num = 1;
++    *fps_denom = 1;
++  }
++}
++
++#if defined(Platform_dm365)
++#include <asm/arch/imp_resizer.h>
++#include <asm/arch/imp_previewer.h>
++#include <asm/arch/dm365_ipipe.h>
++
++#define RESIZER_DEVICE   "/dev/davinci_resizer"
++#define PREVIEWER_DEVICE "/dev/davinci_previewer"
++
++/* resizer and previewer file descriptors */
++static gint resizer_fd   = -1;
++static gint previewer_fd = -1;
++
++/******************************************************
++ * gst_v4l2src_force_720p_30
++ *****************************************************/
++gboolean gst_v4l2_force_720p_30 (GstV4l2Src * v4l2src)
++{
++  gint fd = v4l2src->v4l2object->video_fd;
++  struct v4l2_standard   stdinfo;        
++  struct v4l2_streamparm streamparam, streamparam_s;
++  gboolean                   found;
++
++  stdinfo.index = 0;
++  found = 0;
++  while ( 0 == ioctl(fd, VIDIOC_ENUMSTD, &stdinfo)) {
++    if (stdinfo.id == V4L2_STD_720P_60) {
++        found = 1;
++        break;
++    }
++    stdinfo.index++;
++  }
++
++  if (found) {
++    /* set the streaming parameter to reduce the capture frequency to half */
++    streamparam.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
++    streamparam.parm.capture.timeperframe.numerator = 
++        stdinfo.frameperiod.numerator;
++    streamparam.parm.capture.timeperframe.denominator =
++        stdinfo.frameperiod.denominator / 2;    
++    streamparam_s = streamparam;
++    if (ioctl(fd, VIDIOC_S_PARM , &streamparam) < 0 ) {
++        GST_ERROR("failed to VIDIOC_S_PARM\n");
++        return FALSE;
++    }
++
++    /* verify the params */
++    if (ioctl(fd, VIDIOC_G_PARM, &streamparam) < 0) {
++        GST_ERROR("VIDIOC_G_PARM failed\n");
++        return FALSE;
++    }
++
++    if ((streamparam.parm.capture.timeperframe.numerator != 
++        streamparam_s.parm.capture.timeperframe.numerator) ||
++        (streamparam.parm.capture.timeperframe.denominator !=
++            streamparam_s.parm.capture.timeperframe.denominator)) {
++            GST_ERROR("Could not set capture driver for 30fps\n");
++            return FALSE;            
++    }
++  }
++
++  GST_ELEMENT_WARNING(v4l2src, RESOURCE, WRITE, ("forcing from 720P @60fps to "
++    "720P @30fps\n"), (NULL));
++  return TRUE;
++}
++
++static gint
++gst_v4l2_setresize_continuous(void)
++{
++    gint rsz_fd;
++    unsigned int oper_mode, user_mode;
++    struct rsz_channel_config rsz_chan_config;
++    struct rsz_continuous_config rsz_cont_config;
++
++    user_mode = IMP_MODE_CONTINUOUS;
++    rsz_fd = open((const char *)RESIZER_DEVICE, O_RDWR);
++    if (rsz_fd <= 0) {
++        GST_DEBUG ("Failed to open resizer device %s", RESIZER_DEVICE);
++        return -1;
++    }
++
++    if (ioctl(rsz_fd, RSZ_S_OPER_MODE, &user_mode) < 0) {
++        GST_DEBUG ("Can't set operation mode (%s)\n", strerror(errno));
++        close(rsz_fd);
++        return -1;
++    }
++
++    if (ioctl(rsz_fd, RSZ_G_OPER_MODE, &oper_mode) < 0) {
++        GST_DEBUG ("Can't get operation mode (%s)\n", strerror(errno));
++        close(rsz_fd);
++        return -1;
++    }
++
++    if (oper_mode == user_mode) {
++        GST_DEBUG ("Successfully set mode to continuous in resizer\n");
++    }
++    else {
++        GST_DEBUG ("Failed to set mode to continuous in resizer\n");
++        close(rsz_fd);
++        return -1;
++    }
++
++    /* set configuration to chain resizer with preview */
++    rsz_chan_config.oper_mode = user_mode;
++    rsz_chan_config.chain  = 1;
++    rsz_chan_config.len = 0;
++    rsz_chan_config.config = NULL; /* to set defaults in driver */
++    if (ioctl(rsz_fd, RSZ_S_CONFIG, &rsz_chan_config) < 0) {
++        GST_DEBUG ("Error in setting default configuration in resizer (%s)\n",
++            strerror(errno));
++        close(rsz_fd);
++        return -1;
++    }
++
++    bzero(&rsz_cont_config, sizeof(struct rsz_continuous_config));
++    rsz_chan_config.oper_mode = user_mode;
++    rsz_chan_config.chain = 1;
++    rsz_chan_config.len = sizeof(struct rsz_continuous_config);
++    rsz_chan_config.config = &rsz_cont_config;
++
++    if (ioctl(rsz_fd, RSZ_G_CONFIG, &rsz_chan_config) < 0) {
++        GST_DEBUG ("Error in getting channel configuration from resizer (%s)\n",
++            strerror(errno));
++        close(rsz_fd);
++        return -1;
++    }
++
++    /* we can ignore the input spec since we are chaining. So only set output
++     * specs
++     */
++    rsz_cont_config.output1.enable  = 1;
++    rsz_cont_config.output2.enable  = 0;
++    rsz_chan_config.len = sizeof(struct rsz_continuous_config);
++    rsz_chan_config.config = &rsz_cont_config;
++    if (ioctl(rsz_fd, RSZ_S_CONFIG, &rsz_chan_config) < 0) {
++        GST_DEBUG ("Error in setting resizer configuration (%s)\n",
++                    strerror(errno));
++        close(rsz_fd);
++        return -1;
++    }
++
++    GST_DEBUG ("Resizer initialized\n");
++    return rsz_fd;
++}
++
++static gint
++gst_v4l2_setpreview_continuous(void)
++{
++    gint preview_fd;
++    unsigned int oper_mode, user_mode;
++    struct prev_channel_config prev_chan_config;
++    struct prev_continuous_config prev_cont_config;
++
++    user_mode = IMP_MODE_CONTINUOUS;
++
++    preview_fd = open((const char *)PREVIEWER_DEVICE, O_RDWR);
++    if (preview_fd <= 0) {
++        GST_DEBUG ("Cannot open previewer device \n");
++        return -1;
++    }
++
++    if (ioctl(preview_fd,PREV_S_OPER_MODE, &user_mode) < 0) {
++        GST_DEBUG ("Can't set operation mode in previewer (%s)\n",
++                    strerror(errno));
++        close(preview_fd);
++        return -1;
++    }
++
++    if (ioctl(preview_fd,PREV_G_OPER_MODE, &oper_mode) < 0) {
++        GST_DEBUG ("Can't get operation mode from previewer (%s)\n",
++                    strerror(errno));
++        close(preview_fd);
++        return -1;
++    }
++
++    if (oper_mode == user_mode) {
++        GST_DEBUG ("Operating mode changed successfully to continuous"
++                   " in previewer");
++    }
++    else {
++        GST_DEBUG ("failed to set mode to continuous in previewer\n");
++        close(preview_fd);
++        return -1;
++    }
++
++    prev_chan_config.oper_mode = oper_mode;
++    prev_chan_config.len = 0;
++    prev_chan_config.config = NULL; /* to set defaults in driver */
++    if (ioctl(preview_fd, PREV_S_CONFIG, &prev_chan_config) < 0) {
++        GST_DEBUG ("Error in setting default previewer configuration (%s)\n",
++            strerror(errno));
++        close(preview_fd);
++        return -1;
++    }
++
++    prev_chan_config.oper_mode = oper_mode;
++    prev_chan_config.len = sizeof(struct prev_continuous_config);
++    prev_chan_config.config = &prev_cont_config;
++    if (ioctl(preview_fd, PREV_G_CONFIG, &prev_chan_config) < 0) {
++        GST_DEBUG ("Error in getting configuration from previewer (%s)\n",
++                strerror(errno));
++        close(preview_fd);
++        return -1;
++    }
++
++    prev_chan_config.oper_mode = oper_mode;
++    prev_chan_config.len = sizeof(struct prev_continuous_config);
++    prev_chan_config.config = &prev_cont_config;
++    if (ioctl(preview_fd, PREV_S_CONFIG, &prev_chan_config) < 0) {
++        GST_DEBUG ("Error in setting previewer configuration (%s)\n",
++                    strerror(errno));
++        close(preview_fd);
++        return -1;
++    }
++
++    GST_DEBUG ("Previewer initialized\n");
++    return preview_fd;
++}
++
++static void
++gst_v4l2_delete_resize(gint fd)
++{
++    if (fd) {
++        if (close(fd) == -1) {
++            GST_DEBUG ("Failed to close resizer device (%s)\n",
++                strerror(errno));
++            return;
++        }
++    }
++}
++
++static void
++gst_v4l2_delete_preview(gint fd)
++{
++    if (fd) {
++        if (close(fd) == -1) {
++            GST_DEBUG ("Failed to close previewer device (%s)\n",
++                        strerror(errno));
++            return;
++        }
++    }
++}
++
++int dm365_resize_create(GstV4l2Object * v4l2object)
++{
++    resizer_fd = gst_v4l2_setresize_continuous();
++    if(resizer_fd <= 0) {
++        GST_DEBUG_OBJECT (v4l2object->element,
++            "Unable to configure resizer device\n");
++        return -1;
++    }
++
++    previewer_fd = gst_v4l2_setpreview_continuous();
++    if(previewer_fd <= 0) {
++        GST_DEBUG_OBJECT (v4l2object->element,
++            "Unable to configure previewer device\n");
++        return -1;
++    }
++    return 0;
++}
++
++int dm365_resize_destroy(GstV4l2Object * v4l2object)
++{
++    if(previewer_fd > 0) {
++        gst_v4l2_delete_preview(previewer_fd);
++        previewer_fd = -1;
++    }
++    if(resizer_fd > 0) {
++        gst_v4l2_delete_resize(resizer_fd);
++        resizer_fd = -1;
++    }
++    return 0;
++}
++#endif /* Platform_dm365 */
++#endif /* DAVINCI_LSP_WORKAROUND */
+diff -uNr orig/gst-plugins-good-0.10.15/sys/v4l2/v4l2src_davinci.h gst-plugins-good-0.10.15/sys/v4l2/v4l2src_davinci.h
+--- orig/gst-plugins-good-0.10.15/sys/v4l2/v4l2src_davinci.h	1969-12-31 18:00:00.000000000 -0600
++++ gst-plugins-good-0.10.15/sys/v4l2/v4l2src_davinci.h	2009-09-23 20:12:07.000000000 -0500
+@@ -0,0 +1,55 @@
++/*
++ * v42lsrc_davinci.h
++ *
++ * This file defines functions needed to get v4l2src on dm6446, dm355, dm6467
++ * , dm357 and dm365 LSP's.
++ *
++ * Most the code is copied from DMAI capture routines with following license:
++ *
++ * --COPYRIGHT--,BSD
++ * Copyright (c) 2009, Texas Instruments Incorporated
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ * *  Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *
++ * *  Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * *  Neither the name of Texas Instruments Incorporated nor the names of
++ *    its contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
++ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ * --/COPYRIGHT--*/
++
++#ifndef __GST_DM365_RESIZER_H__
++#define __GST_DM365_RESIZER_H__
++
++#include <gstv4l2object.h>
++#include "v4l2src_calls.h"
++
++void  gst_v4l2src_get_resolution (GstV4l2Src *v4l2src, gint *width, 
++ gint *height, gint *fps_num, gint *fps_denom);
++void gst_v4l2src_convert_to_upper (char *str);
++int dm365_resize_create(GstV4l2Object * v4l2object);
++int dm365_resize_destroy(GstV4l2Object * v4l2object);
++gboolean gst_v4l2_force_720p_30 (GstV4l2Src * v4l2src);
++
++#endif /* __GST_DM365_RESIZER_H__ */
++
