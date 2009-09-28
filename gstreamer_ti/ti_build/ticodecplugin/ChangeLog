@@ -1,4 +1,10 @@
 2009-09-27 Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttiauddec.c, gsttiauddec1.c, gsttiimgdec.c, 
+	gsttiimgdec1.c, gsttiimgenc.c, gsttiimgenc1.c, gsttividdec.c, 
+	gsttividdec2.c, gsttividenc.c, gsttividenc1.c}:
+	Replace GST_ERROR function with GST_ELEMENT_ERROR in all elements.
+
+2009-09-27 Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttidmaivideosink.c}:
 	DM365: Set the display colorspace attribute based on the input buffer 
 	fourcc.

@@ -546,7 +546,8 @@ static gboolean gst_tiimgdec1_set_sink_caps_helper(GstPad *pad, GstCaps *caps)
 
     /* Report if the required codec was not found */
     if (!codec) {
-        GST_ERROR("unable to find codec needed for stream");
+        GST_ELEMENT_ERROR(imgdec1, STREAM, CODEC_NOT_FOUND,
+        ("unable to find codec needed for stream"), (NULL));
         return FALSE;
     }
 
@@ -597,7 +598,8 @@ static gboolean gst_tiimgdec1_set_sink_caps_helper(GstPad *pad, GstCaps *caps)
 
     /* Shut-down any running image decoder */
     if (!gst_tiimgdec1_exit_image(imgdec1)) {
-        GST_ERROR("unable to shut-down running image decoder");
+        GST_ELEMENT_ERROR(imgdec1, RESOURCE, FAILED,
+        ("unable to shut-down running image decoder"), (NULL));
         return FALSE;
     }
 
@@ -621,7 +623,8 @@ static gboolean gst_tiimgdec1_set_sink_caps(GstPad *pad, GstCaps *caps)
 
     /* If this call fails then unref the gobject */
     if (!gst_tiimgdec1_set_sink_caps_helper(pad, caps)) {
-        GST_ERROR("stream type not supported");
+        GST_ELEMENT_ERROR(imgdec1, STREAM, NOT_IMPLEMENTED,
+        ("stream type not supported"), (NULL));
         gst_object_unref(imgdec1);
         return FALSE;
     }
@@ -771,7 +774,8 @@ static GstFlowReturn gst_tiimgdec1_chain(GstPad * pad, GstBuffer * buf)
     /* If we have not negotiated the caps at least once then do so now */
     if (!imgdec1->capsSet) {
         if (!gst_tiimgdec1_set_sink_caps_helper(pad, caps)) {
-            GST_ERROR("Could not set caps");
+            GST_ELEMENT_ERROR(imgdec1, RESOURCE, FAILED,
+            ("Could not set caps"), (NULL));
             flow = GST_FLOW_UNEXPECTED;
             goto exit;
         }
@@ -785,7 +789,8 @@ static GstFlowReturn gst_tiimgdec1_chain(GstPad * pad, GstBuffer * buf)
      */
     if (imgdec1->hEngine == NULL) {
         if (!gst_tiimgdec1_init_image(imgdec1)) {
-            GST_ERROR("unable to initialize image\n");
+            GST_ELEMENT_ERROR(imgdec1, RESOURCE, FAILED,
+            ("unable to initialize image\n"), (NULL));
             flow = GST_FLOW_UNEXPECTED;
             goto exit;
         }
@@ -797,7 +802,8 @@ static GstFlowReturn gst_tiimgdec1_chain(GstPad * pad, GstBuffer * buf)
 
     /* Queue up the encoded data stream into a circular buffer */
     if (!gst_ticircbuffer_queue_data(imgdec1->circBuf, buf)) {
-        GST_ERROR("Failed to queue input buffer into circular buffer\n");
+        GST_ELEMENT_ERROR(imgdec1, RESOURCE, WRITE,
+        ("Failed to queue input buffer into circular buffer\n"), (NULL));
         flow = GST_FLOW_UNEXPECTED;
         goto exit;
     }
@@ -959,19 +965,22 @@ static gboolean gst_tiimgdec1_init_image(GstTIImgdec1 *imgdec1)
     /* If image has already been initialized, shut down previous decoder */
     if (imgdec1->hEngine) {
         if (!gst_tiimgdec1_exit_image(imgdec1)) {
-            GST_ERROR("failed to shut down existing image decoder\n");
+            GST_ELEMENT_ERROR(imgdec1, RESOURCE, FAILED,
+            ("failed to shut down existing image decoder\n"), (NULL));
             return FALSE;
         }
     }
 
     /* Make sure we know what codec we're using */
     if (!imgdec1->engineName) {
-        GST_ERROR("engine name not specified\n");
+        GST_ELEMENT_ERROR(imgdec1, RESOURCE, FAILED,
+        ("engine name not specified\n"), (NULL));
         return FALSE;
     }
 
     if (!imgdec1->codecName) {
-        GST_ERROR("codec name not specified\n");
+        GST_ELEMENT_ERROR(imgdec1, RESOURCE, FAILED,
+        ("codec name not specified\n"), (NULL));
         return FALSE;
     }
 
@@ -1023,7 +1032,8 @@ static gboolean gst_tiimgdec1_init_image(GstTIImgdec1 *imgdec1)
     /* Create decoder thread */
     if (pthread_create(&imgdec1->decodeThread, &attr,
             gst_tiimgdec1_decode_thread, (void*)imgdec1)) {
-        GST_ERROR("failed to create decode thread\n");
+        GST_ELEMENT_ERROR(imgdec1, RESOURCE, FAILED,
+        ("failed to create decode thread\n"), (NULL));
         gst_tiimgdec1_exit_image(imgdec1);
         return FALSE;
     }
@@ -1042,8 +1052,9 @@ static gboolean gst_tiimgdec1_init_image(GstTIImgdec1 *imgdec1)
     Rendezvous_meet(imgdec1->waitOnDecodeThread);
 
     if (imgdec1->circBuf == NULL || imgdec1->hOutBufTab == NULL) {
-        GST_ERROR("decode thread failed to create circbuf or display buffer"
-                  " handles\n");
+        GST_ELEMENT_ERROR(imgdec1, RESOURCE, FAILED,
+        ("decode thread failed to create circbuf or display buffer handles\n"),
+        (NULL));
         return FALSE;
     }
 
@@ -1214,13 +1225,15 @@ static gboolean gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1)
     imgdec1->hEngine = Engine_open((Char *) imgdec1->engineName, NULL, NULL);
 
     if (imgdec1->hEngine == NULL) {
-        GST_ERROR("failed to open codec engine \"%s\"\n", imgdec1->engineName);
+        GST_ELEMENT_ERROR(imgdec1, RESOURCE, FAILED,
+        ("failed to open codec engine \"%s\"\n", imgdec1->engineName), (NULL));
         return FALSE;
     }
     GST_LOG("opened codec engine \"%s\" successfully\n", imgdec1->engineName);
 
     if (!gst_tiimgdec1_set_codec_attrs(imgdec1)) {
-        GST_ERROR("Error while trying to set the codec attrs\n");
+        GST_ELEMENT_ERROR(imgdec1, RESOURCE, FAILED,
+        ("Error while trying to set the codec attrs\n"), (NULL));
         return FALSE;
     }
 
@@ -1229,7 +1242,8 @@ static gboolean gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1)
                       &imgdec1->params, &imgdec1->dynParams);
 
     if (imgdec1->hIe == NULL) {
-        GST_ERROR("failed to create image decoder: %s\n", imgdec1->codecName);
+        GST_ELEMENT_ERROR(imgdec1, STREAM, CODEC_NOT_FOUND,
+        ("failed to create image decoder: %s\n", imgdec1->codecName), (NULL));
         GST_DEBUG("Verify that the values being used for input and output ColorSpace are supported by your coded.\n");
         GST_LOG("closing codec engine\n");
         return FALSE;
@@ -1240,7 +1254,8 @@ static gboolean gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1)
                            Idec1_getInBufSize(imgdec1->hIe), 3, FALSE);
 
     if (imgdec1->circBuf == NULL) {
-        GST_ERROR("failed to create circular input buffer\n");
+        GST_ELEMENT_ERROR(imgdec1, RESOURCE, NO_SPACE_LEFT,
+        ("failed to create circular input buffer\n"), (NULL));
         return FALSE;
     }
 
@@ -1274,7 +1289,8 @@ static gboolean gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1)
             BufferGfx_getBufferAttrs(&gfxAttrs));
 
     if (imgdec1->hOutBufTab == NULL) {
-        GST_ERROR("failed to create output buffers\n");
+        GST_ELEMENT_ERROR(imgdec1, RESOURCE, NO_SPACE_LEFT,
+        ("failed to create output buffers\n"), (NULL));
         return FALSE;
     }
 
@@ -1316,7 +1332,8 @@ static void* gst_tiimgdec1_decode_thread(void *arg)
     Rendezvous_reset(imgdec1->waitOnDecodeThread);
 
     if (ret == FALSE) {
-        GST_ERROR("failed to start codec\n");
+        GST_ELEMENT_ERROR(imgdec1, RESOURCE, FAILED,
+        ("failed to start codec\n"), (NULL));
         goto thread_exit;
     }
 
@@ -1353,8 +1370,9 @@ static void* gst_tiimgdec1_decode_thread(void *arg)
             hDstBuf = BufTab_getFreeBuf(imgdec1->hOutBufTab);
 
             if (hDstBuf == NULL) {
-                GST_ERROR("failed to get a free contiguous buffer from "
-                            " BufTab\n");
+                GST_ELEMENT_ERROR(imgdec1, RESOURCE, FAILED,
+                ("failed to get a free contiguous buffer from BufTab\n"), 
+                (NULL));
                 goto thread_failure;
             }
         }
@@ -1398,13 +1416,15 @@ static void* gst_tiimgdec1_decode_thread(void *arg)
         Buffer_delete(imgdec1->hInBuf);
 
         if (ret < 0) {
-            GST_ERROR("failed to decode image buffer\n");
+            GST_ELEMENT_ERROR(imgdec1, STREAM, DECODE, 
+            ("failed to decode image buffer\n"), (NULL));
             goto thread_failure;
         }
 
         /* If no data was used we must have some kind of decode error */
         if (ret == Dmai_EBITERROR && encDataConsumed == 0 && !codecFlushed) {
-            GST_ERROR("fatal bit error\n");
+            GST_ELEMENT_ERROR(imgdec1, STREAM, DECODE,
+            ("fatal bit error\n"), (NULL));
             goto thread_failure;
         }
 

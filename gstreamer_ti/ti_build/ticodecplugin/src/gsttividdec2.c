@@ -615,14 +615,16 @@ static gboolean gst_tividdec2_set_sink_caps(GstPad *pad, GstCaps *caps)
 
     /* Mime type not supported */
     else {
-        GST_ERROR("stream type not supported");
+        GST_ELEMENT_ERROR(viddec2, STREAM, NOT_IMPLEMENTED,
+        ("stream type not supported"), (NULL));
         gst_object_unref(viddec2);
         return FALSE;
     }
 
     /* Report if the required codec was not found */
     if (!codec) {
-        GST_ERROR("unable to find codec needed for stream");
+        GST_ELEMENT_ERROR(viddec2, STREAM, CODEC_NOT_FOUND,
+        ("unable to find codec needed for stream"), (NULL));
         gst_object_unref(viddec2);
         return FALSE;
     }
@@ -796,7 +798,8 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
      */
     if (viddec2->hEngine == NULL) {
         if (!gst_tividdec2_init_video(viddec2)) {
-            GST_ERROR("unable to initialize video\n");
+            GST_ELEMENT_ERROR(viddec2, RESOURCE, FAILED,
+            ("unable to initialize video\n"), (NULL));
             flow = GST_FLOW_UNEXPECTED;
             goto exit;
         }
@@ -824,7 +827,8 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
         if (gst_h264_parse_and_queue(viddec2->circBuf, buf, 
                 viddec2->sps_pps_data, viddec2->nal_code_prefix,
                 viddec2->nal_length) < 0) {
-            GST_ERROR("Failed to queue input buffer into circular buffer\n");
+            GST_ELEMENT_ERROR(viddec2, RESOURCE, WRITE,
+            ("Failed to queue input buffer into circular buffer\n"), (NULL));
             flow = GST_FLOW_UNEXPECTED;
             goto exit;
         }
@@ -832,7 +836,8 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
     else {
         /* Queue up the encoded data stream into a circular buffer */
         if (!gst_ticircbuffer_queue_data(viddec2->circBuf, buf)) {
-            GST_ERROR("Failed to queue input buffer into circular buffer\n");
+            GST_ELEMENT_ERROR(viddec2, RESOURCE, WRITE,
+            ("Failed to queue input buffer into circular buffer\n"), (NULL));
             flow = GST_FLOW_UNEXPECTED;
             goto exit;
         }
@@ -866,12 +871,14 @@ static gboolean gst_tividdec2_init_video(GstTIViddec2 *viddec2)
 
     /* Make sure we know what codec we're using */
     if (!viddec2->engineName) {
-        GST_ERROR("engine name not specified\n");
+        GST_ELEMENT_ERROR(viddec2, RESOURCE, FAILED,
+        ("engine name not specified\n"), (NULL));
         return FALSE;
     }
 
     if (!viddec2->codecName) {
-        GST_ERROR("codec name not specified\n");
+        GST_ELEMENT_ERROR(viddec2, RESOURCE, FAILED,
+        ("codec name not specified\n"), (NULL));
         return FALSE;
     }
 
@@ -923,7 +930,8 @@ static gboolean gst_tividdec2_init_video(GstTIViddec2 *viddec2)
     /* Create decoder thread */
     if (pthread_create(&viddec2->decodeThread, &attr,
             gst_tividdec2_decode_thread, (void*)viddec2)) {
-        GST_ERROR("failed to create decode thread\n");
+        GST_ELEMENT_ERROR(viddec2, RESOURCE, FAILED,
+        ("failed to create decode thread\n"), (NULL));
         gst_tividdec2_exit_video(viddec2);
         return FALSE;
     }
@@ -942,8 +950,9 @@ static gboolean gst_tividdec2_init_video(GstTIViddec2 *viddec2)
     Rendezvous_meet(viddec2->waitOnDecodeThread);
 
     if (viddec2->circBuf == NULL || viddec2->hOutBufTab == NULL) {
-        GST_ERROR("decode thread failed to create circbuf or display buffer"
-                  " handles\n");
+        GST_ELEMENT_ERROR(viddec2, RESOURCE, FAILED,
+        ("decode thread failed to create circbuf or display buffer handles\n"),
+        (NULL));
         return FALSE;
     }
 
@@ -1142,13 +1151,15 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
     viddec2->hEngine = Engine_open((Char *) viddec2->engineName, NULL, NULL);
 
     if (viddec2->hEngine == NULL) {
-        GST_ERROR("failed to open codec engine \"%s\"\n", viddec2->engineName);
+        GST_ELEMENT_ERROR(viddec2, RESOURCE, FAILED,
+        ("failed to open codec engine \"%s\"\n", viddec2->engineName), (NULL));
         return FALSE;
     }
 
     /* Determine which device the application is running on */
     if (Cpu_getDevice(NULL, &device) < 0) {
-        GST_ERROR("Failed to determine target board\n");
+        GST_ELEMENT_ERROR(viddec2, RESOURCE, FAILED,
+        ("Failed to determine target board\n"), (NULL));
         return FALSE;
     }
 
@@ -1184,7 +1195,8 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
                       &params, &dynParams);
 
     if (viddec2->hVd == NULL) {
-        GST_ERROR("failed to create video decoder: %s\n", viddec2->codecName);
+        GST_ELEMENT_ERROR(viddec2, STREAM, CODEC_NOT_FOUND,
+        ("failed to create video decoder: %s\n", viddec2->codecName), (NULL));
         GST_LOG("closing codec engine\n");
         return FALSE;
     }
@@ -1197,7 +1209,8 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
         gst_ticircbuffer_new(Vdec2_getInBufSize(viddec2->hVd), 3, FALSE);
 
     if (viddec2->circBuf == NULL) {
-        GST_ERROR("failed to create circular input buffer\n");
+        GST_ELEMENT_ERROR(viddec2, RESOURCE, NO_SPACE_LEFT,
+        ("failed to create circular input buffer\n"), (NULL));
         return FALSE;
     }
 
@@ -1229,7 +1242,8 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
             BufferGfx_getBufferAttrs(&gfxAttrs));
 
     if (viddec2->hOutBufTab == NULL) {
-        GST_ERROR("failed to create output buffers\n");
+        GST_ELEMENT_ERROR(viddec2, RESOURCE, NO_SPACE_LEFT,
+        ("failed to create output buffers\n"), (NULL));
         return FALSE;
     }
 
@@ -1274,7 +1288,8 @@ static void* gst_tividdec2_decode_thread(void *arg)
     Rendezvous_reset(viddec2->waitOnDecodeThread);
 
     if (ret == FALSE) {
-        GST_ERROR("failed to start codec\n");
+        GST_ELEMENT_ERROR(viddec2, RESOURCE, FAILED, 
+        ("failed to start codec\n"), (NULL));
         goto thread_exit;
     }
 
@@ -1332,8 +1347,9 @@ static void* gst_tividdec2_decode_thread(void *arg)
             hDstBuf = BufTab_getFreeBuf(viddec2->hOutBufTab);
 
             if (hDstBuf == NULL) {
-                GST_ERROR("failed to get a free contiguous buffer"
-                          " from BufTab\n");
+                GST_ELEMENT_ERROR(viddec2, RESOURCE, READ,
+                ("failed to get a free contiguous buffer from BufTab\n"), 
+                (NULL));
                 goto thread_exit;
             }
         }
@@ -1351,7 +1367,8 @@ static void* gst_tividdec2_decode_thread(void *arg)
                           Buffer_getNumBytesUsed(hEncDataWindow);
 
         if (ret < 0) {
-            GST_ERROR("failed to decode video buffer\n");
+            GST_ELEMENT_ERROR(viddec2, STREAM, DECODE,
+            ("failed to decode video buffer\n"), (NULL));
             goto thread_failure;
         }
 
@@ -1366,7 +1383,8 @@ static void* gst_tividdec2_decode_thread(void *arg)
 
                 /* If no encoded data was used we cannot find the next frame */
                 if (encDataConsumed == 0 && !codecFlushed) {
-                    GST_ERROR("fatal bit error\n");
+                    GST_ELEMENT_ERROR(viddec2, STREAM, DECODE,
+                    ("fatal bit error\n"), (NULL));
                     goto thread_failure;
                 }
             }
@@ -1392,8 +1410,9 @@ static void* gst_tividdec2_decode_thread(void *arg)
          */
         if (viddec2->firstFrame) {
             if (!gst_tividdec2_resizeBufTab(viddec2)) {
-                GST_ERROR("failed to re-partition decode buffers after "
-                          "processing first frame\n");
+                GST_ELEMENT_ERROR(viddec2, RESOURCE, READ,
+                ("failed to re-partition decode buffers after processing"
+                 "first frame\n"), (NULL));
                 goto thread_failure;
             }
             viddec2->firstFrame = FALSE;

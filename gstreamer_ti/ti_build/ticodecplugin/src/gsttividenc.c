@@ -149,11 +149,11 @@ static void
 static GstClockTime
  gst_tividenc_frame_duration(GstTIVidenc *videnc);
 static ColorSpace_Type 
-    gst_tividenc_find_colorSpace (const char *colorSpace);
+ gst_tividenc_find_colorSpace (const char *colorSpace);
 static gboolean
-    gst_tividenc_codec_start (GstTIVidenc *videnc);
+ gst_tividenc_codec_start (GstTIVidenc *videnc);
 static gboolean
-    gst_tividenc_codec_stop (GstTIVidenc *videnc);
+ gst_tividenc_codec_stop (GstTIVidenc *videnc);
 
 /******************************************************************************
  * gst_tividenc_class_init_trampoline
@@ -550,7 +550,8 @@ static gboolean gst_tividenc_set_sink_caps(GstPad *pad, GstCaps *caps)
                     break;
 
                 default:
-                    GST_ERROR("unsupported fourcc in video stream\n");
+                    GST_ELEMENT_ERROR(videnc, STREAM, NOT_IMPLEMENTED,
+                    ("unsupported fourcc in video stream\n"), (NULL));
                     gst_object_unref(videnc);
                     return FALSE;
             }
@@ -567,7 +568,8 @@ static gboolean gst_tividenc_set_sink_caps(GstPad *pad, GstCaps *caps)
 
     /* Mime type not supported */
     else {
-        GST_ERROR("stream type not supported");
+        GST_ELEMENT_ERROR(videnc, STREAM, NOT_IMPLEMENTED,
+        ("stream type not supported"), (NULL));
         gst_object_unref(videnc);
         return FALSE;
     }
@@ -738,7 +740,8 @@ static GstFlowReturn gst_tividenc_chain(GstPad * pad, GstBuffer * buf)
     if (videnc->hEngine == NULL) {
         videnc->upstreamBufSize =  GST_BUFFER_SIZE(buf);
         if (!gst_tividenc_init_video(videnc)) {
-            GST_ERROR("unable to initialize video\n");
+            GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
+            ("unable to initialize video\n"), (NULL));
             flow = GST_FLOW_UNEXPECTED;
             goto exit;
         }
@@ -750,7 +753,8 @@ static GstFlowReturn gst_tividenc_chain(GstPad * pad, GstBuffer * buf)
 
     /* Queue up the encoded data stream into a circular buffer */
     if (!gst_ticircbuffer_queue_data(videnc->circBuf, buf)) {
-        GST_ERROR("Failed to send buffer to queue thread\n");
+        GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
+        ("Failed to send buffer to queue thread\n"), (NULL));
         flow = GST_FLOW_UNEXPECTED;
         goto exit;
     }
@@ -775,19 +779,22 @@ static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
     /* If video has already been initialized, shut down previous encoder */
     if (videnc->hEngine) {
         if (!gst_tividenc_exit_video(videnc)) {
-            GST_ERROR("failed to shut down existing video encoder\n");
+            GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
+            ("failed to shut down existing video encoder\n"), (NULL));
             return FALSE;
         }
     }
 
     /* Make sure we know what codec we're using */
     if (!videnc->engineName) {
-        GST_ERROR("engine name not specified\n");
+        GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
+        ("engine name not specified\n"), (NULL));
         return FALSE;
     }
 
     if (!videnc->codecName) {
-        GST_ERROR("codec name not specified\n");
+        GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
+        ("codec name not specified\n"), (NULL));
         return FALSE;
     }
 
@@ -839,7 +846,8 @@ static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
     /* Create encoder thread */
     if (pthread_create(&videnc->encodeThread, &attr,
             gst_tividenc_encode_thread, (void*)videnc)) {
-        GST_ERROR("failed to create encode thread\n");
+        GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
+        ("failed to create encode thread\n"), (NULL));
         gst_tividenc_exit_video(videnc);
         return FALSE;
     }
@@ -858,8 +866,9 @@ static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
     Rendezvous_meet(videnc->waitOnEncodeThread);
 
     if (videnc->circBuf == NULL || videnc->hOutBufTab == NULL) {
-        GST_ERROR("encode thread failed to create circbuf or display buffer"
-                  " handles\n");
+        GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
+        ("encode thread failed to create circbuf or display buffer handles\n"),
+        (NULL));
         return FALSE;
     }
 
@@ -1029,7 +1038,8 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
     videnc->hEngine = Engine_open((Char *) videnc->engineName, NULL, NULL);
 
     if (videnc->hEngine == NULL) {
-        GST_ERROR("failed to open codec engine \"%s\"\n", videnc->engineName);
+        GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
+        ("failed to open codec engine \"%s\"\n", videnc->engineName), (NULL));
         return FALSE;
     }
 
@@ -1068,7 +1078,8 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
                       &params, &dynParams);
 
     if (videnc->hVe == NULL) {
-        GST_ERROR("failed to create video encoder: %s\n", videnc->codecName);
+        GST_ELEMENT_ERROR(videnc, STREAM, CODEC_NOT_FOUND,
+        ("failed to create video encoder: %s\n", videnc->codecName), (NULL));
         GST_LOG("closing codec engine\n");
         return FALSE;
     }
@@ -1122,7 +1133,8 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
             BufferGfx_getBufferAttrs(&gfxAttrs));
 
     if (videnc->hOutBufTab == NULL) {
-        GST_ERROR("failed to create output buffers\n");
+        GST_ELEMENT_ERROR(videnc, RESOURCE, NO_SPACE_LEFT,
+        ("failed to create output buffers\n"), (NULL));
         return FALSE;
     }
 
@@ -1133,7 +1145,8 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
     if (videnc->contiguousInputFrame && 
             gst_ticircbuffer_set_bufferGfx_attrs(videnc->circBuf, 
             &gfxAttrs) < 0) {
-        GST_ERROR("failed to set the graphics attribute on circular buffer\n");
+        GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
+        ("failed to set the graphics attribute on circular buffer\n"), (NULL));
         return FALSE;
     }
 
@@ -1175,7 +1188,8 @@ static void* gst_tividenc_encode_thread(void *arg)
     Rendezvous_reset(videnc->waitOnEncodeThread);
 
     if (ret == FALSE) {
-        GST_ERROR("failed to start codec\n");
+        GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
+        ("failed to start codec\n"), (NULL));
         goto thread_exit;
     }
 
@@ -1211,8 +1225,9 @@ static void* gst_tividenc_encode_thread(void *arg)
             hDstBuf = BufTab_getFreeBuf(videnc->hOutBufTab);
 
             if (hDstBuf == NULL) {
-                GST_ERROR("failed to get a free contiguous buffer from"
-                            " BufTab\n");
+                GST_ELEMENT_ERROR(videnc, RESOURCE, READ,
+                ("failed to get a free contiguous buffer from BufTab\n"),
+                (NULL));
                 goto thread_failure;
             }
         }
@@ -1246,13 +1261,15 @@ static void* gst_tividenc_encode_thread(void *arg)
         encDataConsumed = Buffer_getNumBytesUsed(hEncDataWindow);
 
         if (ret < 0) {
-            GST_ERROR("failed to encode video buffer\n");
+            GST_ELEMENT_ERROR(videnc, STREAM, ENCODE,
+            ("failed to encode video buffer\n"), (NULL));
             goto thread_failure;
         }
 
         /* If no encoded data was used we cannot find the next frame */
         if (ret == Dmai_EBITERROR && encDataConsumed == 0) {
-            GST_ERROR("fatal bit error\n");
+            GST_ELEMENT_ERROR(videnc, STREAM, ENCODE,
+            ("fatal bit error\n"), (NULL));
             goto thread_failure;
         }
 

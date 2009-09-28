@@ -576,7 +576,8 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
 
         /* MPEG version not supported */
         else {
-            GST_ERROR("MPEG version not supported");
+            GST_ELEMENT_ERROR(auddec1, STREAM, NOT_IMPLEMENTED,
+            ("MPEG version not supported"), (NULL));
             gst_object_unref(auddec1);
             return FALSE;
         }
@@ -584,14 +585,16 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
 
     /* Mime type not supported */
     else {
-        GST_ERROR("stream type not supported");
+        GST_ELEMENT_ERROR(auddec1, STREAM, NOT_IMPLEMENTED,
+        ("stream type not supported"), (NULL));
         gst_object_unref(auddec1);
         return FALSE;
     }
 
     /* Report if the required codec was not found */
     if (!codec) {
-        GST_ERROR("unable to find codec needed for stream");
+        GST_ELEMENT_ERROR(auddec1, STREAM, CODEC_NOT_FOUND,
+        ( "unable to find codec needed for stream"), (NULL));
         gst_object_unref(auddec1);
         return FALSE;
     }
@@ -749,7 +752,8 @@ static GstFlowReturn gst_tiauddec1_chain(GstPad * pad, GstBuffer * buf)
      */
     if (auddec1->hEngine == NULL) {
         if (!gst_tiauddec1_init_audio(auddec1)) {
-            GST_ERROR("unable to initialize audio\n");
+            GST_ELEMENT_ERROR(auddec1, RESOURCE, FAILED,
+            ("unable to initialize audio\n"), (NULL));
             flow = GST_FLOW_UNEXPECTED;
             goto exit;
         }
@@ -769,7 +773,8 @@ static GstFlowReturn gst_tiauddec1_chain(GstPad * pad, GstBuffer * buf)
                 /* Queue up the aac header data into a circular buffer */
                 if (!gst_ticircbuffer_queue_data(auddec1->circBuf,
                     auddec1->aac_header_data)) {
-                    GST_ERROR("Failed to send buffer to queue thread\n");
+                    GST_ELEMENT_ERROR(auddec1, RESOURCE, WRITE,
+                    ("Failed to send buffer to queue thread\n"), (NULL));
                     flow = GST_FLOW_UNEXPECTED;
                     goto exit;
                 }
@@ -783,7 +788,8 @@ static GstFlowReturn gst_tiauddec1_chain(GstPad * pad, GstBuffer * buf)
 
     /* Queue up the encoded data stream into a circular buffer */
     if (!gst_ticircbuffer_queue_data(auddec1->circBuf, buf)) {
-        GST_ERROR("Failed to queue input buffer into circular buffer\n");
+        GST_ELEMENT_ERROR(auddec1, RESOURCE, WRITE,
+        ("Failed to queue input buffer into circular buffer\n"), (NULL));
         flow = GST_FLOW_UNEXPECTED;
         goto exit;
     }
@@ -809,19 +815,22 @@ static gboolean gst_tiauddec1_init_audio(GstTIAuddec1 * auddec1)
     /* If audio has already been initialized, shut down previous decoder */
     if (auddec1->hEngine) {
         if (!gst_tiauddec1_exit_audio(auddec1)) {
-            GST_ERROR("failed to shut down existing audio decoder\n");
+            GST_ELEMENT_ERROR(auddec1, RESOURCE, FAILED,
+            ("failed to shut down existing audio decoder\n"), (NULL));
             return FALSE;
         }
     }
 
     /* Make sure we know what codec we're using */
     if (!auddec1->engineName) {
-        GST_ERROR("engine name not specified\n");
+        GST_ELEMENT_ERROR(auddec1, RESOURCE, FAILED,
+        ("engine name not specified\n"), (NULL));
         return FALSE;
     }
 
     if (!auddec1->codecName) {
-        GST_ERROR("codec name not specified\n");
+        GST_ELEMENT_ERROR(auddec1, RESOURCE, FAILED,
+        ("codec name not specified\n"), (NULL));
         return FALSE;
     }
 
@@ -873,7 +882,8 @@ static gboolean gst_tiauddec1_init_audio(GstTIAuddec1 * auddec1)
     /* Create decoder thread */
     if (pthread_create(&auddec1->decodeThread, &attr,
             gst_tiauddec1_decode_thread, (void*)auddec1)) {
-        GST_ERROR("failed to create decode thread\n");
+        GST_ELEMENT_ERROR(auddec1, RESOURCE, FAILED,
+        ("failed to create decode thread\n"), (NULL));
         gst_tiauddec1_exit_audio(auddec1);
         return FALSE;
     }
@@ -892,8 +902,9 @@ static gboolean gst_tiauddec1_init_audio(GstTIAuddec1 * auddec1)
     Rendezvous_meet(auddec1->waitOnDecodeThread);
 
     if (auddec1->circBuf == NULL || auddec1->hOutBufTab == NULL) {
-        GST_ERROR("decode thread failed to create circbuf or display buffer"
-                  " handles\n");
+        GST_ELEMENT_ERROR(auddec1, RESOURCE, FAILED,
+        ("decode thread failed to create circbuf or display buffer handles\n"),
+        (NULL));
         return FALSE;
     }
 
@@ -1070,7 +1081,8 @@ static gboolean gst_tiauddec1_codec_start (GstTIAuddec1  *auddec1)
     auddec1->hEngine = Engine_open((Char *) auddec1->engineName, NULL, NULL);
 
     if (auddec1->hEngine == NULL) {
-        GST_ERROR("failed to open codec engine \"%s\"\n", auddec1->engineName);
+        GST_ELEMENT_ERROR(auddec1, RESOURCE, FAILED,
+        ("failed to open codec engine \"%s\"\n", auddec1->engineName), (NULL));
         return FALSE;
     }
 
@@ -1080,7 +1092,8 @@ static gboolean gst_tiauddec1_codec_start (GstTIAuddec1  *auddec1)
                       &params, &dynParams);
 
     if (auddec1->hAd == NULL) {
-        GST_ERROR("failed to create audio decoder: %s\n", auddec1->codecName);
+        GST_ELEMENT_ERROR(auddec1, STREAM, CODEC_NOT_FOUND,
+        ("failed to create audio decoder: %s\n", auddec1->codecName), (NULL));
         GST_LOG("closing codec engine\n");
         return FALSE;
     }
@@ -1090,7 +1103,8 @@ static gboolean gst_tiauddec1_codec_start (GstTIAuddec1  *auddec1)
                             Adec1_getInBufSize(auddec1->hAd), 30, FALSE);
 
     if (auddec1->circBuf == NULL) {
-        GST_ERROR("failed to create circular input buffer\n");
+        GST_ELEMENT_ERROR(auddec1, RESOURCE, NO_SPACE_LEFT,
+        ("failed to create circular input buffer\n"), (NULL));
         return FALSE;
     }
 
@@ -1127,7 +1141,8 @@ static gboolean gst_tiauddec1_codec_start (GstTIAuddec1  *auddec1)
             Adec1_getOutBufSize(auddec1->hAd), &bAttrs);
 
     if (auddec1->hOutBufTab == NULL) {
-        GST_ERROR("failed to create output buffer\n");
+        GST_ELEMENT_ERROR(auddec1, RESOURCE, NO_SPACE_LEFT,
+        ("failed to create output buffer\n"), (NULL));
         return FALSE;
     }
 
@@ -1167,7 +1182,8 @@ static void* gst_tiauddec1_decode_thread(void *arg)
     Rendezvous_reset(auddec1->waitOnDecodeThread);
 
     if (ret == FALSE) {
-        GST_ERROR("failed to start codec\n");
+        GST_ELEMENT_ERROR(auddec1, STREAM, FAILED,
+        ("failed to start codec\n"), (NULL));
         goto thread_exit;
     }
 
@@ -1197,8 +1213,9 @@ static void* gst_tiauddec1_decode_thread(void *arg)
             hDstBuf = BufTab_getFreeBuf(auddec1->hOutBufTab);
 
             if (hDstBuf == NULL) {
-                GST_ERROR("failed to get a free contiguous buffer"
-                          " from BufTab\n");
+                GST_ELEMENT_ERROR(auddec1, RESOURCE, NO_SPACE_LEFT,
+                ("failed to get a free contiguous buffer from BufTab\n"), 
+                (NULL));
                 goto thread_exit;
             }
         }
@@ -1214,13 +1231,15 @@ static void* gst_tiauddec1_decode_thread(void *arg)
         encDataConsumed = Buffer_getNumBytesUsed(hEncDataWindow);
 
         if (ret < 0) {
-            GST_ERROR("failed to decode audio buffer\n");
+            GST_ELEMENT_ERROR(auddec1, STREAM, DECODE,
+            ("failed to decode audio buffer\n"), (NULL));
             goto thread_failure;
         }
 
         /* If no encoded data was used we cannot find the next frame */
         if (ret == Dmai_EBITERROR && encDataConsumed == 0) {
-            GST_ERROR("fatal bit error\n");
+            GST_ELEMENT_ERROR(auddec1, STREAM, DECODE,
+            ("fatal bit error\n"), (NULL));
             goto thread_failure;
         }
 
