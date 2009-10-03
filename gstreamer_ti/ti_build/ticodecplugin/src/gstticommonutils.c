@@ -81,6 +81,45 @@ gint gst_ti_correct_display_bufSize (Buffer_Handle hDstBuf)
     return Buffer_getNumBytesUsed(hDstBuf);
 }
 
+
+/******************************************************************************
+ * gst_ti_calc_buffer_size
+ *
+ *     Calculate the size of a buffer based on its dimensions and colorspace.
+ *     This function is based on the DMAI function called BufferGfx_calcSize,
+ *     but it takes a video standard instead of dimensions.  You don't really
+ *     need to know the video standard to calculate the size (some of which
+ *     only vary in framerates), and in some cases the video standard is not
+ *     known.
+ *
+ *     It would be good if this function could be added to DMAI and the current
+ *     "BufferGfx_calcSize" function just calls it using the dimensions from
+ *     the video standard.
+ ******************************************************************************/
+gint gst_ti_calc_buffer_size(gint width, gint height,
+                             ColorSpace_Type colorSpace)
+{
+    Int32 lineLength, bufSize;
+
+    lineLength = BufferGfx_calcLineLength(width, colorSpace);
+
+    if (lineLength < 0) {
+        return lineLength;
+    }
+
+    if (colorSpace == ColorSpace_YUV422PSEMI) {
+        bufSize = (lineLength * height) << 1;
+    }
+    else if (colorSpace == ColorSpace_YUV420PSEMI) {
+        bufSize = (lineLength * height * 3) >> 1;
+    }
+    else {
+        bufSize = lineLength * height;
+    }
+
+    return bufSize;
+}
+
 /******************************************************************************
  * gst_ti_get_env_boolean 
  *   Function will return environment boolean. 
