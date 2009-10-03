@@ -1439,7 +1439,7 @@ static void* gst_tividdec2_decode_thread(void *arg)
             outBuf = gst_tidmaibuffertransport_new(hDstBuf, 
                                                     viddec2->waitOnBufTab);
             gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
-                gst_ti_calculate_display_bufSize(hDstBuf));
+                gst_ti_correct_display_bufSize(hDstBuf));
             gst_buffer_set_caps(outBuf, GST_PAD_CAPS(viddec2->srcpad));
 
             /* Set output buffer timestamp */ 

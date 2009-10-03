@@ -56,14 +56,14 @@ static void gst_ti_commonutils_debug_init(void)
 }
 
 /******************************************************************************
- * gst_ti_calculate_display_bufSize 
+ * gst_ti_correct_display_bufSize 
  *    Function to calculate video output buffer size.
  *
  *    In some cases codec does not return the correct output buffer size. But
  *    downstream elements like "ffmpegcolorspace" expect the correct output
- *    buffer.
+ *    buffer.  Return the corrected numBytesUsed by the buffer, if needed.
  *****************************************************************************/
-gint gst_ti_calculate_display_bufSize (Buffer_Handle hDstBuf)
+gint gst_ti_correct_display_bufSize (Buffer_Handle hDstBuf)
 {
     BufferGfx_Dimensions    dim;
 

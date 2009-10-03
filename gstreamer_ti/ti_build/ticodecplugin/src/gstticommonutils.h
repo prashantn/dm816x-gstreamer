@@ -39,8 +39,8 @@
  */
 extern int gst_ti_flush_fifo;
 
-/* Function to calculate the display buffer size */
-gint gst_ti_calculate_display_bufSize (Buffer_Handle hDstBuf);
+/* Function to correct the display buffer size */
+gint gst_ti_correct_display_bufSize (Buffer_Handle hDstBuf);
 
 /* Function to read environment variable and return its boolean value */
 gboolean gst_ti_env_get_boolean (gchar *env);

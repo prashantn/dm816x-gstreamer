@@ -1456,7 +1456,7 @@ static void* gst_tiimgdec_decode_thread(void *arg)
          */
         outBuf = gst_tidmaibuffertransport_new(hDstBuf, imgdec->waitOnBufTab);
         gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
-             gst_ti_calculate_display_bufSize(hDstBuf));
+             gst_ti_correct_display_bufSize(hDstBuf));
         gst_buffer_set_caps(outBuf, GST_PAD_CAPS(imgdec->srcpad));
 
         /* If we have a valid time stamp, set it on the buffer */
