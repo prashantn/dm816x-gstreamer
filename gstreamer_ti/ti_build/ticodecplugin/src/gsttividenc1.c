@@ -942,6 +942,20 @@ static Int gst_tividenc1_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
         return gst_tividenc1_422psemi_420psemi(dst, src, videnc1);
     }
 
+    /* TODO:
+     * DMAI 1.20.00.06 has BUG in non-accel framecopy for YUV420PSEMI. 
+     * Use memcpy() to copy upstream buffer in circular buffer. And this 
+     * workaround  *must* be removed once move to later version of DMAI for 
+     * DM6467.
+     */
+    if (!(videnc1->contiguousInputFrame) &&
+            (videnc1->device == Cpu_Device_DM6467) &&
+             (videnc1->colorSpace == ColorSpace_YUV420PSEMI)) {
+
+        memcpy(dst, GST_BUFFER_DATA(src), GST_BUFFER_SIZE(src));
+        return GST_BUFFER_SIZE(src);
+    }
+
     GST_LOG("gst_tividenc1_circbuf_framecopy - begin\n");
 
     if (videnc1->hFc == NULL) {
