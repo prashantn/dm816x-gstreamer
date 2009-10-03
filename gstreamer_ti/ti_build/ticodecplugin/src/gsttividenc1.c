@@ -10,8 +10,8 @@
  *         fakesink silent=TRUE
  *
  * Notes:
- *  * This element currently assumes that video input is in  UYVY and Y8C8
- *    formats.
+ *  * This element currently assumes that video input is in  UYVY, Y8C8
+ *    and NV12 formats.
  *
  *    Note: On DM6467, VDCE is used to perform Ccv from YUV422P semi to
  *    YUV420P semi.
@@ -110,6 +110,8 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
  *        Y component and one with the CbCr components interleaved (hence semi)  *
  *        See the LSP VDCE documentation for a thorough description of this
  *        format.
+ * NV12 - 8-bit Y plane followed by an interleaved U/V plane with 2x2 
+ *        subsampling
  */
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     "sink",
@@ -123,6 +125,11 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
          "height=(int)[ 1, MAX ];"
      "video/x-raw-yuv, "                        /* Y8C8 - YUV422 semi planar */
          "format=(fourcc)Y8C8, "               
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ];"
+     "video/x-raw-yuv, "                        /* NV12 - YUV420 semi planar */
+         "format=(fourcc)NV12, "               
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
          "height=(int)[ 1, MAX ]"
@@ -278,7 +285,7 @@ static void gst_tividenc1_class_init(GstTIVidenc1Class *klass)
 
     g_object_class_install_property(gobject_class, PROP_IN_COLORSPACE,
         g_param_spec_string("iColorSpace", "Input colorspace",
-            "Input color space (UYVY or Y8C8)",
+            "Input color space (UYVY, Y8C8 or NV12)",
             "unspecified", G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_BITRATE,
@@ -422,6 +429,8 @@ static ColorSpace_Type gst_tividenc1_find_colorSpace (const gchar *colorSpace)
         return ColorSpace_UYVY;
     else if (!strcmp(colorSpace, "Y8C8")) 
         return ColorSpace_YUV422PSEMI;
+    else if (!strcmp(colorSpace, "NV12")) 
+        return ColorSpace_YUV420PSEMI;
     else 
         return ColorSpace_NOTSET; 
 }
@@ -629,6 +638,10 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
 
                 case GST_MAKE_FOURCC('Y', '8', 'C', '8'):
                     videnc1->colorSpace = ColorSpace_YUV422PSEMI;
+                    break;
+
+                case GST_MAKE_FOURCC('N', 'V', '1', '2'):
+                    videnc1->colorSpace = ColorSpace_YUV420PSEMI;
                     break;
 
                 default:
@@ -919,6 +932,10 @@ static Int gst_tividenc1_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
     Int ret                     = -1;
     Framecopy_Attrs fcAttrs     = Framecopy_Attrs_DEFAULT;
 
+    #if defined(Platform_dm365)
+    BufferGfx_Dimensions  dim;
+    #endif
+
     /* Check to see if we need to execute ccv on dm6467 */
     if (videnc1->device == Cpu_Device_DM6467 &&
          videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
@@ -950,6 +967,17 @@ static Int gst_tividenc1_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
         GST_ERROR("failed to get dmai buffer\n");
         goto exit;
     }
+
+    #if defined(Platform_dm365)
+    /* Handle resizer 32-byte issue on DM365 platform */
+    if (videnc1->device ==  Cpu_Device_DM365) {
+        if ((videnc1->colorSpace ==  ColorSpace_YUV420PSEMI)) {
+            BufferGfx_getDimensions(hInBuf, &dim);
+            dim.lineLength = Dmai_roundUp(dim.lineLength,32);
+            BufferGfx_setDimensions(hInBuf, &dim);
+        }
+    }
+    #endif
 
     /* Prepare output buffer */
     gfxAttrs.bAttrs.reference = TRUE;
@@ -1032,6 +1060,18 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
             videnc1->upstreamBufSize = GST_BUFFER_SIZE(buf);
         }
     
+        /* DM365: If we are recieving YUV420PSEMI buffer from upstream
+         * then we may need to componsate resizer 32-byte alignment issue. 
+         * Hence create big enough circular buffer to hold the 32-byte aligned 
+         * data from upstream.
+         */
+        #if defined(Platform_dm365)
+        if ((videnc1->device == Cpu_Device_DM365) && 
+             (videnc1->colorSpace == ColorSpace_YUV420PSEMI)) {
+            videnc1->upstreamBufSize = GST_BUFFER_SIZE(buf);
+        }
+        #endif
+
         /* Initialize video encoder thread */
         if (!gst_tividenc1_init_video(videnc1)) {
             GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
@@ -1382,6 +1422,18 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
             params.inputChromaFormat = XDM_YUV_420P;
             params.reconChromaFormat = XDM_CHROMA_NA;
             break;
+
+        #if defined(Platform_dm365)
+        case Cpu_Device_DM365:
+            if (videnc1->colorSpace == ColorSpace_UYVY) {
+                params.inputChromaFormat = XDM_YUV_422ILE;
+            }
+            else {
+                params.inputChromaFormat = XDM_YUV_420SP;
+                params.reconChromaFormat = XDM_YUV_420SP;
+            }
+            break;
+        #endif
 
         default:
             GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED, 

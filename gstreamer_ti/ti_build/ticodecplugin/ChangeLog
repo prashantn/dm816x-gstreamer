@@ -1,3 +1,7 @@
+2009-09-29 Brijesh Singh, Texas Instruments, Inc
+	* src/{gsttividenc1.c}:
+	Add support for DM365 video encoders.
+
 2009-09-29 Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividenc1.{c,h}, gsttividenc.{c,h}, gstticircbuffer.{c,h}}:
 	Extend circular buffer to execute user defined function instead of regular
