@@ -75,6 +75,7 @@ struct _GstTIVidenc
   gint              numOutputBufs;
   glong             bitRate;
   gboolean          contiguousInputFrame;
+  gint              rateControlPreset;
             
   /* Element state */
   Engine_Handle     hEngine;
@@ -82,8 +83,7 @@ struct _GstTIVidenc
   gboolean          drainingEOS;
   pthread_mutex_t   threadStatusMutex;
   UInt32            threadStatus;
-  gint              queueMaxBuffers;
-  gint              upstreamBufSize;
+  Framecopy_Handle  hFc;
               
   /* Encode thread */
   pthread_t         encodeThread;

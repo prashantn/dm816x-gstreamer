@@ -76,6 +76,7 @@ struct _GstTIVidenc1
   gint           numInputBufs;
   gint           numOutputBufs;
   gint32         bitRate;
+  gint           rateControlPreset;
 
   /* Element state */
   Engine_Handle    hEngine;
@@ -85,7 +86,6 @@ struct _GstTIVidenc1
   UInt32           threadStatus;
   Cpu_Device       device;
   Cpu_Handle       hCpu;
-  gint             queueMaxBuffers;
   gint             upstreamBufSize;
 
   /* Encode thread */
@@ -104,11 +104,12 @@ struct _GstTIVidenc1
 
   /* Frame color space */
   ColorSpace_Type colorSpace;
+  Ccv_Handle     hCcv;
+  Framecopy_Handle hFc;
 
   /* Buffer management */
   BufTab_Handle    hOutBufTab;
   GstTICircBuffer *circBuf;
-
 };
 
 /* _GstTIVidenc1Class object */

@@ -58,6 +58,8 @@
 GST_DEBUG_CATEGORY_STATIC (gst_tividenc_debug);
 #define GST_CAT_DEFAULT gst_tividenc_debug
 
+#define DEFAULT_BIT_RATE 2000000
+
 /* Element property identifiers */
 enum
 {
@@ -71,7 +73,8 @@ enum
   PROP_BITRATE,         /* bitRate        (int)     */
   PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
   PROP_CONTIG_INPUT_BUF,/* contiguousInputFrame  (boolean) */
-  PROP_GEN_TIMESTAMPS   /* genTimeStamps  (boolean) */
+  PROP_GEN_TIMESTAMPS,  /* genTimeStamps  (boolean) */
+  PROP_RATE_CTRL_PRESET /* rateControlPreset  (gint) */
 };
 
 /* Define source (output) pad capabilities.  Currently, MPEG and H264 are 
@@ -149,11 +152,11 @@ static void
 static GstClockTime
  gst_tividenc_frame_duration(GstTIVidenc *videnc);
 static ColorSpace_Type 
- gst_tividenc_find_colorSpace (const char *colorSpace);
+    gst_tividenc_find_colorSpace (const char *colorSpace);
 static gboolean
- gst_tividenc_codec_start (GstTIVidenc *videnc);
+    gst_tividenc_codec_start (GstTIVidenc *videnc);
 static gboolean
- gst_tividenc_codec_stop (GstTIVidenc *videnc);
+    gst_tividenc_codec_stop (GstTIVidenc *videnc);
 
 /******************************************************************************
  * gst_tividenc_class_init_trampoline
@@ -299,6 +302,15 @@ static void gst_tividenc_class_init(GstTIVidencClass *klass)
         g_param_spec_boolean("genTimeStamps", "Generate Time Stamps",
             "Set timestamps on output buffers",
             TRUE, G_PARAM_WRITABLE));
+
+    g_object_class_install_property(gobject_class, PROP_RATE_CTRL_PRESET,
+        g_param_spec_int("rateControlPreset",
+            "Rate control",
+            "Bit rate control"
+            "\n\t\t\t1 - No rate control"
+            "\n\t\t\t2 - Constant bit rate (CBR)"
+            "\n\t\t\t3 - Variable bit rate (VBR)",
+            1, G_MAXINT32, 1, G_PARAM_WRITABLE));
 }
 
 /******************************************************************************
@@ -366,8 +378,9 @@ static void gst_tividenc_init(GstTIVidenc *videnc, GstTIVidencClass *gclass)
     videnc->width                   = -1;
     videnc->height                  = -1;
     videnc->colorSpace              = -1;
-
+    videnc->hFc                     = NULL;
     videnc->contiguousInputFrame    = FALSE;
+    videnc->rateControlPreset       = 1;
 }
 /******************************************************************************
  * gst_tividenc_find_colorSpace 
@@ -463,6 +476,11 @@ static void gst_tividenc_set_property(GObject *object, guint prop_id,
             videnc->genTimeStamps = g_value_get_boolean(value);
             GST_LOG("setting \"genTimeStamps\" to \"%s\"\n",
                 videnc->genTimeStamps ? "TRUE" : "FALSE");
+            break;
+        case PROP_RATE_CTRL_PRESET:
+            videnc->rateControlPreset = g_value_get_int(value);
+            GST_LOG("setting \"rateControlPreset\" to \"%d\" \n",
+                     videnc->rateControlPreset);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -711,6 +729,116 @@ static gboolean gst_tividenc_sink_event(GstPad *pad, GstEvent *event)
 }
 
 /******************************************************************************
+ * gst_tividenc_convert_gst_to_dmai
+ *  This function convert gstreamer buffer into DMAI graphics buffer.
+ *****************************************************************************/
+static Buffer_Handle gst_tividenc_convert_gst_to_dmai(GstTIVidenc *videnc, 
+    GstBuffer *buf, gboolean reference)
+{
+    BufferGfx_Attrs gfxAttrs   = BufferGfx_Attrs_DEFAULT;
+    Buffer_Handle   hBuf       = NULL;
+ 
+    gfxAttrs.bAttrs.reference  = reference;
+    gfxAttrs.dim.width         = videnc->width;
+    gfxAttrs.dim.height        = videnc->height;
+    gfxAttrs.colorSpace        = videnc->colorSpace;
+    gfxAttrs.dim.lineLength    = BufferGfx_calcLineLength(
+                                    gfxAttrs.dim.width, 
+                                     videnc->colorSpace);
+    hBuf = Buffer_create(GST_BUFFER_SIZE(buf),
+                BufferGfx_getBufferAttrs(&gfxAttrs));
+    if (hBuf == NULL) {
+        GST_ERROR("failed to create  buffer\n");
+        return NULL;
+    }
+    Buffer_setUserPtr(hBuf, (Int8*)GST_BUFFER_DATA(buf));
+    Buffer_setNumBytesUsed(hBuf, GST_BUFFER_SIZE(buf));
+
+    return hBuf;
+}
+
+/*****************************************************************************
+ * gst_tividenc_circbuf_framecopy
+ *  This function will be invoked by circular buffer during copy method.
+ *  Function performs copy from source to destination buffer using
+ *  DMAI framecopy module.
+ ****************************************************************************/
+static Int gst_tividenc_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
+{
+    GstTIVidenc   *videnc     = (GstTIVidenc*) data;
+    BufferGfx_Attrs gfxAttrs    = BufferGfx_Attrs_DEFAULT;
+    Buffer_Handle  hInBuf       = NULL;
+    Buffer_Handle  hOutBuf      = NULL;
+    Int ret                     = FALSE;
+    Framecopy_Attrs fcAttrs     = Framecopy_Attrs_DEFAULT;
+
+    GST_LOG("gst_tividenc_circbuf_framecopy - begin\n");
+    if (videnc->hFc == NULL) {
+        /* Enable the accel framecopy based on contiguousInputFrame.
+         * If accel is set to FALSE then DMAI will use regular memcpy function
+         * else will use HW accelerated framecopy.
+         */
+        fcAttrs.accel = videnc->contiguousInputFrame;
+
+        videnc->hFc = Framecopy_create(&fcAttrs);
+        if (videnc->hFc == NULL) {
+            GST_ERROR("failed to create framecopy handle\n");
+            goto exit;
+        }
+
+        GST_INFO("HW accel framecopy: %s\n", 
+            videnc->contiguousInputFrame ? "enabled":"disabled");
+    }
+
+    /* Prepare input buffer */
+    hInBuf = gst_tividenc_convert_gst_to_dmai(videnc, src, TRUE);
+    if (hInBuf == NULL) {
+        GST_ERROR("failed to get dmai buffer\n");
+        goto exit;
+    }
+
+    /* Prepare output buffer */
+    gfxAttrs.bAttrs.reference = TRUE;
+    gfxAttrs.colorSpace = videnc->colorSpace;
+    gfxAttrs.dim.width  = videnc->width;
+    gfxAttrs.dim.height = videnc->height;
+    gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(videnc->width, 
+                               videnc->colorSpace);
+
+    hOutBuf = Buffer_create(GST_BUFFER_SIZE(src),
+                BufferGfx_getBufferAttrs(&gfxAttrs));
+    if (hOutBuf == NULL) {
+        GST_ERROR("failed to create dest buffer\n");
+        goto exit;
+    }
+    Buffer_setUserPtr(hOutBuf, dst);
+
+    if (Framecopy_config(videnc->hFc, hInBuf, hOutBuf) < 0) {
+        GST_ERROR("failed to configure framecopy\n");
+        goto exit;
+    }
+
+    if (Framecopy_execute(videnc->hFc, hInBuf, hOutBuf) < 0) {
+        GST_ERROR("failed to execute framecopy\n");
+        goto exit;
+    }
+
+    ret = TRUE;
+
+exit:
+    if (hInBuf) {
+        Buffer_delete(hInBuf);
+    }
+
+    if (hOutBuf) {
+        Buffer_delete(hOutBuf);
+    }
+
+    GST_LOG("gst_tividenc_circbuf_framecopy - end\n");
+    return ret;
+}
+
+/******************************************************************************
  * gst_tividenc_chain
  *    This is the main processing routine.  This function receives a buffer
  *    from the sink pad, processes it, and pushes the result to the source
@@ -738,7 +866,6 @@ static GstFlowReturn gst_tividenc_chain(GstPad * pad, GstBuffer * buf)
      * stream.
      */
     if (videnc->hEngine == NULL) {
-        videnc->upstreamBufSize =  GST_BUFFER_SIZE(buf);
         if (!gst_tividenc_init_video(videnc)) {
             GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
             ("unable to initialize video\n"), (NULL));
@@ -749,11 +876,20 @@ static GstFlowReturn gst_tividenc_chain(GstPad * pad, GstBuffer * buf)
         GST_TICIRCBUFFER_TIMESTAMP(videnc->circBuf) =
             GST_CLOCK_TIME_IS_VALID(GST_BUFFER_TIMESTAMP(buf)) ?
             GST_BUFFER_TIMESTAMP(buf) : 0ULL;
+
+        /* set circular buffer to use user defined copy method */
+        if (gst_ticircbuffer_copy_config(videnc->circBuf,  
+              gst_tividenc_circbuf_copy, (void*)videnc) < 0) {
+            GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
+            ("failed to configure user defined copy\n"),(NULL));
+            flow = GST_FLOW_UNEXPECTED;
+            goto exit;
+        }
     }
 
     /* Queue up the encoded data stream into a circular buffer */
     if (!gst_ticircbuffer_queue_data(videnc->circBuf, buf)) {
-        GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
+        GST_ELEMENT_ERROR(videnc, RESOURCE, WRITE,
         ("Failed to send buffer to queue thread\n"), (NULL));
         flow = GST_FLOW_UNEXPECTED;
         goto exit;
@@ -867,7 +1003,7 @@ static gboolean gst_tividenc_init_video(GstTIVidenc *videnc)
 
     if (videnc->circBuf == NULL || videnc->hOutBufTab == NULL) {
         GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
-        ("encode thread failed to create circbuf or display buffer handles\n"),
+        ("encode thread failed to create circbuf or display buffer  handles\n"),
         (NULL));
         return FALSE;
     }
@@ -923,6 +1059,12 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
     if (videnc->waitOnBufTab) {
         Rendezvous_delete(videnc->waitOnBufTab);
         videnc->waitOnBufTab = NULL;
+    }
+
+    if (videnc->hFc) {
+        GST_LOG("freeing framecopy handle\n");
+        Framecopy_delete(videnc->hFc);
+        videnc->hFc = NULL;
     }
 
     GST_LOG("end exit_video\n");
@@ -1031,7 +1173,6 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
     VIDENC_Params         params    = Venc_Params_DEFAULT;
     VIDENC_DynamicParams  dynParams = Venc_DynamicParams_DEFAULT;
     BufferGfx_Attrs       gfxAttrs  = BufferGfx_Attrs_DEFAULT;
-    Int                   inBufSize, outBufSize;
 
     /* Open the codec engine */
     GST_LOG("opening codec engine \"%s\"\n", videnc->engineName);
@@ -1048,21 +1189,25 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
     params.maxWidth          = videnc->width;
     params.maxHeight         = videnc->height;
 
-    /* Set up codec parameters depending on bit rate */
-    if (videnc->bitRate < 0) {
-        /* Variable bit rate */
-        params.rateControlPreset = IVIDEO_NONE;
+    /* set the bit rate control preset */
+    switch(videnc->rateControlPreset) {
+        case 1:
+            params.rateControlPreset = IVIDEO_NONE;
+            break;
+        case 2:
+            params.rateControlPreset = IVIDEO_LOW_DELAY;
+            break;
+        case 3:
+            params.rateControlPreset = IVIDEO_STORAGE;
+            break;
+        default:
+            params.rateControlPreset = IVIDEO_NONE;
+            break;
+    }
 
-        /* If variable bit rate use a bogus bit rate value (> 0) since it will
-         * ignored.
-         */
-        params.maxBitRate = 2000000;
-    }
-    else {
-        /* Constant bit rate */
-        params.rateControlPreset = IVIDEO_LOW_DELAY;
-        params.maxBitRate = videnc->bitRate;
-    }
+    /* set the encoding bitrate */
+    params.maxBitRate = videnc->bitRate < 0 ? 
+        DEFAULT_BIT_RATE : videnc->bitRate;
 
     dynParams.targetBitRate = params.maxBitRate;
     dynParams.inputWidth    = videnc->width;
@@ -1084,31 +1229,21 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
         return FALSE;
     }
 
-    inBufSize = BufferGfx_calcLineLength(videnc->width, 
-                videnc->colorSpace) * videnc->height;
-    outBufSize = inBufSize;
-    
     /* Create a circular input buffer */
     if (videnc->numInputBufs == 0) {
         videnc->numInputBufs = 2;
     }
-    GST_LOG("creating %d buffers in circular buffer with size %d\n", 
-                videnc->numInputBufs, inBufSize);
 
     videnc->circBuf =
-        gst_ticircbuffer_new(inBufSize, videnc->numInputBufs, TRUE);
+        gst_ticircbuffer_new(Venc_getInBufSize(videnc->hVe), 
+            videnc->numInputBufs, TRUE);
 
     if (videnc->circBuf == NULL) {
-        GST_ERROR("failed to create circular input buffer\n");
+        GST_ELEMENT_ERROR(videnc, RESOURCE, NO_SPACE_LEFT,
+        ("failed to create circular input buffer\n"), (NULL));
         return FALSE;
     }
     
-    /* Calculate the maximum number of buffers allowed in queue before
-     * blocking upstream.
-     */
-    videnc->queueMaxBuffers = (inBufSize / videnc->upstreamBufSize) + 3;
-    GST_LOG("setting max queue threadshold to %d\n", videnc->queueMaxBuffers);
-
     /* Create codec output buffers */
     gfxAttrs.colorSpace     = videnc->colorSpace;
     gfxAttrs.dim.width      = videnc->width;
@@ -1125,28 +1260,13 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
         videnc->numOutputBufs = 3;
     }
 
-    GST_LOG("creating %d buffers in output buffer table width size %d\n",
-                videnc->numOutputBufs, outBufSize);
-
     videnc->hOutBufTab =
-        BufTab_create(videnc->numOutputBufs, outBufSize,
+        BufTab_create(videnc->numOutputBufs, Venc_getOutBufSize(videnc->hVe),
             BufferGfx_getBufferAttrs(&gfxAttrs));
 
     if (videnc->hOutBufTab == NULL) {
         GST_ELEMENT_ERROR(videnc, RESOURCE, NO_SPACE_LEFT,
         ("failed to create output buffers\n"), (NULL));
-        return FALSE;
-    }
-
-    /* If element is configured to recieve contiguous input frame from the
-     * upstream then configure the graphics object attributes used. This 
-     * attribute will be used by cicular buffer while creating framecopy job.
-     */
-    if (videnc->contiguousInputFrame && 
-            gst_ticircbuffer_set_bufferGfx_attrs(videnc->circBuf, 
-            &gfxAttrs) < 0) {
-        GST_ELEMENT_ERROR(videnc, RESOURCE, FAILED,
-        ("failed to set the graphics attribute on circular buffer\n"), (NULL));
         return FALSE;
     }
 
@@ -1226,7 +1346,7 @@ static void* gst_tividenc_encode_thread(void *arg)
 
             if (hDstBuf == NULL) {
                 GST_ELEMENT_ERROR(videnc, RESOURCE, READ,
-                ("failed to get a free contiguous buffer from BufTab\n"),
+                ("failed to get a free contiguous buffer from BufTab\n"), 
                 (NULL));
                 goto thread_failure;
             }

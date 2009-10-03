@@ -63,8 +63,6 @@ struct _GstTICircBuffer {
     gboolean           fixedBlockSize;
     gboolean           contiguousData;
     gboolean           consumerAborted;
-    Framecopy_Handle   hFc;
-    BufferGfx_Attrs    *gfxAttrs;
 
     /* Timestamp Management */
     GstClockTime       dataTimeStamp;
@@ -82,6 +80,10 @@ struct _GstTICircBuffer {
     /* Debug / Stats */
     gboolean           displayBuffer;
     Int32              maxConsumed;
+
+    /* Define user copy function */
+    void               *userCopyData;
+    gboolean          (*userCopy) (Int8 *dst, GstBuffer *src, void *data);
 };
 
 /* External function declarations */
@@ -90,8 +92,6 @@ GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize, Int32 numWindows,
                      Bool fixedBlockSize);
 gboolean         gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf,
                      GstBuffer *buf);
-gboolean         gst_ticircbuffer_set_bufferGfx_attrs(GstTICircBuffer *circBuf,
-                      BufferGfx_Attrs *gfxAttrs);
 gboolean         gst_ticircbuffer_data_consumed(GstTICircBuffer *circBuf,
                      GstBuffer* buf, Int32 bytesConsumed);
 gboolean         gst_ticircbuffer_time_consumed(
@@ -102,6 +102,9 @@ void             gst_ticircbuffer_drain(GstTICircBuffer *circBuf,
 void             gst_ticircbuffer_set_display(GstTICircBuffer *circBuf,
                      gboolean disp);
 void             gst_ticircbuffer_consumer_aborted(GstTICircBuffer *circBuf);
+gboolean         gst_ticircbuffer_copy_config (GstTICircBuffer *circBuf,
+                  Int (*userCopy) (Int8* dst, GstBuffer* src, void *data), 
+                    void *data);
 
 G_END_DECLS
 

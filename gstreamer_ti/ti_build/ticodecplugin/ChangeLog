@@ -1,3 +1,16 @@
+2009-09-29 Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttividenc1.{c,h}, gsttividenc.{c,h}, gstticircbuffer.{c,h}}:
+	Extend circular buffer to execute user defined function instead of regular
+	memcpy() during queue_data. This feature is mainly used by video encoders 
+	to use its own copy function instead of memcpy() while queuing the data
+	into circular buffer. 
+
+	Refactor video encoders to use user defined function to queue data in 
+	circular buffer. 
+
+	Add new property "rateControlPreset" in encoder elements, this can be used
+	to set the codec rate control preset values.
+
 2009-09-27 Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttiauddec.c, gsttiauddec1.c, gsttiimgdec.c, 
 	gsttiimgdec1.c, gsttiimgenc.c, gsttiimgenc1.c, gsttividdec.c, 

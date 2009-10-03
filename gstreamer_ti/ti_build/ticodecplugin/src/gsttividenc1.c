@@ -10,7 +10,7 @@
  *         fakesink silent=TRUE
  *
  * Notes:
- *  * This element currently assumes that video input is in  UYVY or Y8C8
+ *  * This element currently assumes that video input is in  UYVY and Y8C8
  *    formats.
  *
  *    Note: On DM6467, VDCE is used to perform Ccv from YUV422P semi to
@@ -60,6 +60,8 @@
 GST_DEBUG_CATEGORY_STATIC (gst_tividenc1_debug);
 #define GST_CAT_DEFAULT gst_tividenc1_debug
 
+#define DEFAULT_BIT_RATE 2000000
+
 /* Element property identifiers */
 enum
 {
@@ -74,7 +76,8 @@ enum
   PROP_FRAMERATE,       /* frameRate      (int)     */
   PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
   PROP_CONTIG_INPUT_BUF,/* contiguousInputFrame  (boolean) */
-  PROP_GEN_TIMESTAMPS   /* genTimeStamps  (boolean) */
+  PROP_GEN_TIMESTAMPS,  /* genTimeStamps  (boolean) */
+  PROP_RATE_CTRL_PRESET /* rateControlPreset  (gint) */
 };
 
 /* Define source (output) pad capabilities.  Currently, MPEG2/4 and H264 are 
@@ -98,7 +101,8 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     )
 );
 
-/* Define sink (input) pad capabilities.  Currently, UYVY and Y8C8 supported.
+/* Define sink (input) pad capabilities.  Currently, UYVY, NV12 and Y8C8 
+ * supported.
  *
  * UYVY - YUV 422 interleaved corresponding to V4L2_PIX_FMT_UYVY in v4l2
  * Y8C8 - YUV 422 semi planar. The dm6467 VDCE outputs this format after a
@@ -167,9 +171,9 @@ static GstClockTime
 static ColorSpace_Type 
  gst_tividenc1_find_colorSpace (const gchar *colorSpace);
 static gboolean
-    gst_tividenc1_codec_start (GstTIVidenc1 *videnc1);
+ gst_tividenc1_codec_start (GstTIVidenc1 *videnc1);
 static gboolean
-    gst_tividenc1_codec_stop (GstTIVidenc1 *videnc1);
+ gst_tividenc1_codec_stop (GstTIVidenc1 *videnc1);
 
 /******************************************************************************
  * gst_tividenc1_class_init_trampoline
@@ -281,7 +285,7 @@ static void gst_tividenc1_class_init(GstTIVidenc1Class *klass)
         g_param_spec_int("bitRate",
             "encoder bitrate",
             "Set the video encoder bit rate",
-            1, G_MAXINT32, 200000, G_PARAM_WRITABLE));
+            1, G_MAXINT32, DEFAULT_BIT_RATE, G_PARAM_WRITABLE));
 
     /* Number of input buffers in the circular queue.
      * This is the buffer that is recieved from the upstream 
@@ -302,6 +306,15 @@ static void gst_tividenc1_class_init(GstTIVidenc1Class *klass)
             "Number of Ouput Buffers",
             "Number of output buffers to allocate for codec",
             3, G_MAXINT32, 3, G_PARAM_WRITABLE));
+
+    g_object_class_install_property(gobject_class, PROP_RATE_CTRL_PRESET,
+        g_param_spec_int("rateControlPreset",
+            "Rate control",
+            "Bit rate control"
+            "\n\t\t\t1 - No rate control"
+            "\n\t\t\t2 - Constant bit rate (CBR)"
+            "\n\t\t\t3 - Variable bit rate (VBR)",
+            1, G_MAXINT32, 1, G_PARAM_WRITABLE));
 
     g_object_class_install_property(gobject_class, PROP_FRAMERATE,
         g_param_spec_int("frameRate",
@@ -393,7 +406,10 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
 
     videnc1->numOutputBufs          = 0;
     videnc1->numInputBufs           = 0;
-
+    videnc1->upstreamBufSize        = -1;
+    videnc1->hCcv                   = NULL;
+    videnc1->hFc                    = NULL;
+    videnc1->rateControlPreset      = 1;
     videnc1->contiguousInputFrame   = FALSE;
 }
 
@@ -471,6 +487,11 @@ static void gst_tividenc1_set_property(GObject *object, guint prop_id,
             videnc1->numOutputBufs = g_value_get_int(value);
             GST_LOG("setting \"numOutputBufs\" to \"%d\" \n",
                      videnc1->numOutputBufs);
+            break;
+        case PROP_RATE_CTRL_PRESET:
+            videnc1->rateControlPreset = g_value_get_int(value);
+            GST_LOG("setting \"rateControlPreset\" to \"%d\" \n",
+                     videnc1->rateControlPreset);
             break;
         case PROP_NUM_INPUT_BUFS:
             videnc1->numInputBufs = g_value_get_int(value);
@@ -558,6 +579,7 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
     GstStructure *capStruct;
     const gchar  *mime;
     char         *string;
+    Cpu_Attrs    cpuAttrs   = Cpu_Attrs_DEFAULT;
 
     videnc1    = GST_TIVIDENC1(gst_pad_get_parent(pad));
     capStruct = gst_caps_get_structure(caps, 0);
@@ -566,6 +588,21 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
     string = gst_caps_to_string(caps);
     GST_INFO("requested sink caps:  %s", string);
     g_free(string);
+
+    /* Determine target board type */
+    videnc1->hCpu = Cpu_create(&cpuAttrs);
+    
+    if (videnc1->hCpu == NULL) {
+        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
+        ("Failed to create cpu module\n"), (NULL));
+        return FALSE;
+    }
+
+    if (Cpu_getDevice(NULL, &videnc1->device) < 0) {
+        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
+        ("Failed to determine target board\n"), (NULL));
+        return FALSE;
+    }
 
     /* Generic Video Properties */
     if (!strncmp(mime, "video/", 6)) {
@@ -590,7 +627,7 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
                     videnc1->colorSpace = ColorSpace_UYVY;
                     break;
 
-                case GST_MAKE_FOURCC('Y', '8', 'C', '8'):                    
+                case GST_MAKE_FOURCC('Y', '8', 'C', '8'):
                     videnc1->colorSpace = ColorSpace_YUV422PSEMI;
                     break;
 
@@ -602,11 +639,11 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
             }
 
             if (!gst_structure_get_int(capStruct, "width", &videnc1->width)) {
-                        videnc1->width = 0;
+                videnc1->width = 0;
             }
 
             if (!gst_structure_get_int(capStruct, "height", &videnc1->height)) {
-                        videnc1->height = 0;
+                videnc1->height = 0;
             }
         }
     }
@@ -759,6 +796,203 @@ static gboolean gst_tividenc1_sink_event(GstPad *pad, GstEvent *event)
 }
 
 /******************************************************************************
+ * gst_tividenc1_convert_gst_to_dmai
+ *  This function convert gstreamer buffer into DMAI graphics buffer.
+ *****************************************************************************/
+static Buffer_Handle gst_tividenc1_convert_gst_to_dmai(GstTIVidenc1 *videnc1, 
+    GstBuffer *buf, gboolean reference)
+{
+    BufferGfx_Attrs gfxAttrs   = BufferGfx_Attrs_DEFAULT;
+    Buffer_Handle   hBuf       = NULL;
+ 
+    gfxAttrs.bAttrs.reference  = reference;
+    gfxAttrs.dim.width         = videnc1->width;
+    gfxAttrs.dim.height        = videnc1->height;
+    gfxAttrs.colorSpace        = videnc1->colorSpace;
+    gfxAttrs.dim.lineLength    = BufferGfx_calcLineLength(
+                                    gfxAttrs.dim.width, 
+                                     videnc1->colorSpace);
+    hBuf = Buffer_create(GST_BUFFER_SIZE(buf),
+                BufferGfx_getBufferAttrs(&gfxAttrs));
+    if (hBuf == NULL) {
+        GST_ERROR("failed to create  buffer\n");
+        return NULL;
+    }
+    Buffer_setUserPtr(hBuf, (Int8*)GST_BUFFER_DATA(buf));
+    Buffer_setNumBytesUsed(hBuf, GST_BUFFER_SIZE(buf));
+
+    return hBuf;
+}
+
+/******************************************************************************
+ * gst_tividenc1_422psemi_420psemi
+ *  this function color convert YUV422PSEMI to YUV420PSEMI.
+ *****************************************************************************/
+static Int gst_tividenc1_422psemi_420psemi(Int8* dst, GstBuffer *src, 
+    GstTIVidenc1   *videnc1)
+{
+    BufferGfx_Attrs gfxAttrs    = BufferGfx_Attrs_DEFAULT;
+    Buffer_Handle  hInBuf       = NULL;
+    Buffer_Handle  hOutBuf      = NULL;
+    Int ret                     = -1;
+    Ccv_Attrs       ccvAttrs   = Ccv_Attrs_DEFAULT;
+
+    GST_LOG("gst_tividenc1_422psemi_420psemi - begin\n");
+
+    /* create ccv handle */
+    if (videnc1->hCcv == NULL) {
+        /* Enable the accel ccv based on contiguousInputFrame.
+         * If accel is set to FALSE then DMAI will use software ccv function
+         * else will use HW accelerated ccv engine.
+         */
+        ccvAttrs.accel = videnc1->contiguousInputFrame;
+        videnc1->hCcv = Ccv_create(&ccvAttrs);
+        if (videnc1->hCcv == NULL) {
+            GST_ERROR("failed to create CCV handle\n");
+            goto exit;
+        }
+        
+        GST_INFO("HW accel CCV: %s\n", 
+            videnc1->contiguousInputFrame ? "enabled":"disabled");
+    }
+
+    /* Prepare input buffer */
+    hInBuf = gst_tividenc1_convert_gst_to_dmai(videnc1, src, TRUE);
+    if (hInBuf == NULL) {
+        GST_ERROR("failed to get dmai buffer\n");
+        goto exit;
+    }
+
+    /* Prepare output buffer */
+    gfxAttrs.bAttrs.reference = TRUE;
+    gfxAttrs.colorSpace = ColorSpace_YUV420PSEMI;
+    gfxAttrs.dim.width  = videnc1->width;
+    gfxAttrs.dim.height = videnc1->height;
+    gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(videnc1->width, 
+                               videnc1->colorSpace);
+
+    hOutBuf = Buffer_create(gfxAttrs.dim.lineLength * videnc1->height * 3 / 2,
+                BufferGfx_getBufferAttrs(&gfxAttrs));
+    if (hOutBuf == NULL) {
+        GST_ERROR("failed to create dest buffer\n");
+        goto exit;
+    }
+    Buffer_setUserPtr(hOutBuf, dst);
+
+    if (Ccv_config(videnc1->hCcv, hInBuf, hOutBuf) < 0) {
+        GST_ERROR("failed to config CCV handle\n");
+        goto exit;
+    }
+
+    if (Ccv_execute(videnc1->hCcv, hInBuf, hOutBuf) < 0) {
+        GST_ERROR("failed to execute Ccv handle\n");
+        goto exit;
+    }
+
+    ret = GST_BUFFER_SIZE(src);
+
+    GST_LOG("gst_tividenc1_422psemi_420psemi - end\n");
+exit:
+    if (hInBuf) {
+        Buffer_delete(hInBuf);
+    }
+
+    if (hOutBuf) {
+        Buffer_delete(hOutBuf);
+    }
+
+    return ret;
+}
+
+/*****************************************************************************
+ * gst_tividenc1_circbuf_framecopy
+ *  This function will be invoked by circular buffer during copy method.
+ *  Function performs copy from source to destination buffer using
+ *  DMAI framecopy module.
+ ****************************************************************************/
+static Int gst_tividenc1_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
+{
+    GstTIVidenc1   *videnc1     = (GstTIVidenc1*) data;
+    BufferGfx_Attrs gfxAttrs    = BufferGfx_Attrs_DEFAULT;
+    Buffer_Handle  hInBuf       = NULL;
+    Buffer_Handle  hOutBuf      = NULL;
+    Int ret                     = -1;
+    Framecopy_Attrs fcAttrs     = Framecopy_Attrs_DEFAULT;
+
+    /* Check to see if we need to execute ccv on dm6467 */
+    if (videnc1->device == Cpu_Device_DM6467 &&
+         videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
+        return gst_tividenc1_422psemi_420psemi(dst, src, videnc1);
+    }
+
+    GST_LOG("gst_tividenc1_circbuf_framecopy - begin\n");
+
+    if (videnc1->hFc == NULL) {
+        /* Enable the accel framecopy based on contiguousInputFrame.
+         * If accel is set to FALSE then DMAI will use regular memcpy function
+         * else will use HW accelerated framecopy.
+         */
+        fcAttrs.accel = videnc1->contiguousInputFrame;
+
+        videnc1->hFc = Framecopy_create(&fcAttrs);
+        if (videnc1->hFc == NULL) {
+            GST_ERROR("failed to create framecopy handle\n");
+            goto exit;
+        }
+
+        GST_INFO("HW accel framecopy: %s\n", 
+            videnc1->contiguousInputFrame ? "enabled":"disabled");
+    }
+
+    /* Prepare input buffer */
+    hInBuf = gst_tividenc1_convert_gst_to_dmai(videnc1, src, TRUE);
+    if (hInBuf == NULL) {
+        GST_ERROR("failed to get dmai buffer\n");
+        goto exit;
+    }
+
+    /* Prepare output buffer */
+    gfxAttrs.bAttrs.reference = TRUE;
+    gfxAttrs.colorSpace = videnc1->colorSpace;
+    gfxAttrs.dim.width  = videnc1->width;
+    gfxAttrs.dim.height = videnc1->height;
+    gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(videnc1->width, 
+                               videnc1->colorSpace);
+
+    hOutBuf = Buffer_create(GST_BUFFER_SIZE(src),
+                BufferGfx_getBufferAttrs(&gfxAttrs));
+    if (hOutBuf == NULL) {
+        GST_ERROR("failed to create dest buffer\n");
+        goto exit;
+    }
+    Buffer_setUserPtr(hOutBuf, dst);
+
+    if (Framecopy_config(videnc1->hFc, hInBuf, hOutBuf) < 0) {
+        GST_ERROR("failed to configure framecopy\n");
+        goto exit;
+    }
+
+    if (Framecopy_execute(videnc1->hFc, hInBuf, hOutBuf) < 0) {
+        GST_ERROR("failed to execute framecopy\n");
+        goto exit;
+    }
+
+    ret = GST_BUFFER_SIZE(src);
+
+exit:
+    if (hInBuf) {
+        Buffer_delete(hInBuf);
+    }
+
+    if (hOutBuf) {
+        Buffer_delete(hOutBuf);
+    }
+
+    GST_LOG("gst_tividenc1_circbuf_framecopy - end\n");
+    return ret;
+}
+
+/******************************************************************************
  * gst_tividenc1_chain
  *    This is the main processing routine.  This function receives a buffer
  *    from the sink pad, processes it, and pushes the result to the source
@@ -766,9 +1000,9 @@ static gboolean gst_tividenc1_sink_event(GstPad *pad, GstEvent *event)
  ******************************************************************************/
 static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
 {
-    GstTIVidenc1  *videnc1 = GST_TIVIDENC1(GST_OBJECT_PARENT(pad));
-    GstFlowReturn  flow    = GST_FLOW_OK;
-    gboolean       checkResult;
+    GstTIVidenc1   *videnc1     = GST_TIVIDENC1(GST_OBJECT_PARENT(pad));
+    GstFlowReturn   flow        = GST_FLOW_OK;
+    gboolean        checkResult;
 
     /* If the encode thread aborted, signal it to let it know it's ok to
      * shut down, and communicate the failure to the pipeline.
@@ -786,7 +1020,19 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
      * stream.
      */
     if (videnc1->hEngine == NULL) {
-        videnc1->upstreamBufSize = GST_BUFFER_SIZE(buf);
+
+        /* Calculate the input buffer size for circular buffer */
+        /* DM6467: If we are recieving YUV422PSEMI from the upstream then create
+         * big enough circular buffer to hold the YUV422PSEMI data. This is 
+         * mainly because codec accepts YUV420PSEMI and we will execute
+         * CCV in encode thread before calling video encoder.
+         */
+        if ((videnc1->device == Cpu_Device_DM6467) && 
+              (videnc1->colorSpace == ColorSpace_YUV422PSEMI)) {
+            videnc1->upstreamBufSize = GST_BUFFER_SIZE(buf);
+        }
+    
+        /* Initialize video encoder thread */
         if (!gst_tividenc1_init_video(videnc1)) {
             GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
             ("unable to initialize video\n"), (NULL));
@@ -797,6 +1043,15 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
         GST_TICIRCBUFFER_TIMESTAMP(videnc1->circBuf) =
             GST_CLOCK_TIME_IS_VALID(GST_BUFFER_TIMESTAMP(buf)) ?
             GST_BUFFER_TIMESTAMP(buf) : 0ULL;
+
+        /* set circular buffer to use user defined copy function */
+        if (gst_ticircbuffer_copy_config(videnc1->circBuf,  
+            gst_tividenc1_circbuf_copy, (void*)videnc1) < 0) {
+            GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
+            ("failed to configure user defined copy\n"),(NULL));
+            flow = GST_FLOW_UNEXPECTED;
+            goto exit;
+        }
     }
 
     /* Queue up the encoded data stream into a circular buffer */
@@ -980,6 +1235,18 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
         videnc1->hCpu = NULL;
     }
 
+    if (videnc1->hFc) {
+        GST_LOG("freeing framecopy handle\n");
+        Framecopy_delete(videnc1->hFc);
+        videnc1->hFc = NULL;
+    }
+
+    if (videnc1->hCcv) {
+        GST_LOG("freeing ccv handle\n");
+        Ccv_delete(videnc1->hCcv);
+        videnc1->hCcv = NULL;
+    }
+
     GST_LOG("end exit_video\n");
     return TRUE;
 }
@@ -1082,68 +1349,65 @@ static gboolean gst_tividenc1_codec_stop (GstTIVidenc1 *videnc1)
  *****************************************************************************/
 static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
 {
-    VIDENC1_Params        params     = Venc1_Params_DEFAULT;
     VIDENC1_DynamicParams dynParams  = Venc1_DynamicParams_DEFAULT;
     BufferGfx_Attrs       gfxAttrs   = BufferGfx_Attrs_DEFAULT;
-    Cpu_Attrs             cpuAttrs   = Cpu_Attrs_DEFAULT;
-
+    Int                   inBufSize;
+    VIDENC1_Params        params     = Venc1_Params_DEFAULT;
 
     /* Open the codec engine */
     GST_LOG("opening codec engine \"%s\"\n", videnc1->engineName);
     videnc1->hEngine = Engine_open((Char *) videnc1->engineName, NULL, NULL);
 
     if (videnc1->hEngine == NULL) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, READ,
+        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
         ("failed to open codec engine \"%s\"\n", videnc1->engineName), (NULL));
         return FALSE;
     }
 
-    /* Determine target board type */
-    videnc1->hCpu = Cpu_create(&cpuAttrs);
-    
-    if (videnc1->hCpu == NULL) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
-        ("Failed to create cpu module\n"), (NULL));
-        return FALSE;
-    }
+    /* setup codec parameters depending on device */
+    switch(videnc1->device) {
+        #if defined(Platform_omap3530)
+        case Cpu_Device_OMAP3530:
+        #endif
+        case Cpu_Device_DM6446:
+            params.inputChromaFormat = XDM_YUV_422ILE;
+            break;
 
-    if (Cpu_getDevice(NULL, &videnc1->device) < 0) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
-        ("Failed to determine target board\n"), (NULL));
-        return FALSE;
-    }
-
-    /* Set up codec input and reconstruction chroma format depending on device.
-     * Refer codec datasheet for supported input and reconstruction chroma 
-     * format.
-     */
-    if (videnc1->device == Cpu_Device_DM6467) {
-       params.inputChromaFormat = XDM_YUV_420P;
-       params.reconChromaFormat = XDM_CHROMA_NA;
-    }
-    else {
-        params.inputChromaFormat = XDM_YUV_422ILE;
-
-        if (videnc1->device == Cpu_Device_DM355) {
+        case Cpu_Device_DM355:
+            params.inputChromaFormat = XDM_YUV_422ILE;
             params.reconChromaFormat = XDM_YUV_420P;
-        }
+            break;
+
+        case Cpu_Device_DM6467:
+            params.inputChromaFormat = XDM_YUV_420P;
+            params.reconChromaFormat = XDM_CHROMA_NA;
+            break;
+
+        default:
+            GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED, 
+             ("unsupport cpu type\n"), (NULL));
+            return FALSE;
     }
 
-    /* Set up codec parameters depending on bit rate */
-    if (videnc1->bitRate < 0) {
-        /* Variable bit rate */
-        params.rateControlPreset = IVIDEO_NONE;
+    /* set the bit rate control preset */
+    switch(videnc1->rateControlPreset) {
+        case 1:
+            params.rateControlPreset = IVIDEO_NONE;
+            break;
+        case 2:
+            params.rateControlPreset = IVIDEO_LOW_DELAY;
+            break;
+        case 3:
+            params.rateControlPreset = IVIDEO_STORAGE;
+            break;
+        default:
+            params.rateControlPreset = IVIDEO_NONE;
+            break;
+    }
 
-        /* If variable bit rate use a bogus bit rate value (> 0) since it will
-         * ignored.
-         */
-        params.maxBitRate = 2000000;
-    }
-    else {
-        /* Constant bit rate */
-        params.rateControlPreset = IVIDEO_LOW_DELAY;
-        params.maxBitRate = videnc1->bitRate;
-    }
+    /* set the encoding bitrate */
+    params.maxBitRate = videnc1->bitRate < 0 ? 
+        DEFAULT_BIT_RATE : videnc1->bitRate;
 
     params.maxWidth         = videnc1->width;
     params.maxHeight        = videnc1->height;
@@ -1151,16 +1415,15 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
     dynParams.inputWidth    = videnc1->width;
     dynParams.inputHeight   = videnc1->height;
 
-    GST_LOG("configuring video encode width=%ld, height=%ld, colorSpace=%d "
-            "bitrate=%ld\n", params.maxWidth, params.maxHeight, 
-            videnc1->colorSpace, params.maxBitRate);
+    GST_LOG("configuring video encode width=%ld, height=%ld, bitrate=%ld\n", 
+            params.maxWidth, params.maxHeight, params.maxBitRate);
 
     GST_LOG("opening video encoder \"%s\"\n", videnc1->codecName);
     videnc1->hVe1 = Venc1_create(videnc1->hEngine, (Char*)videnc1->codecName,
                       &params, &dynParams);
 
     if (videnc1->hVe1 == NULL) {
-        GST_ELEMENT_ERROR(videnc1, STREAM, ENCODE,
+        GST_ELEMENT_ERROR(videnc1, STREAM, CODEC_NOT_FOUND,
         ("failed to create video encoder: %s\n", videnc1->codecName), (NULL));
         GST_LOG("closing codec engine\n");
         gst_tividenc1_exit_video(videnc1);
@@ -1172,33 +1435,16 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
         videnc1->numInputBufs = 2;
     }
 
-    /* DM6467: codec support yuv420P semi format and we will get yuv422P
-     * semi format buffer from upstream. Create ciruclar buffer based on the 
-     * upstream input buffer size.
-     */
-    if (videnc1->device == Cpu_Device_DM6467) {        
-        videnc1->circBuf = gst_ticircbuffer_new(videnc1->upstreamBufSize,
-             videnc1->numInputBufs, TRUE);
-         
-        /* Calculate the maximum number of buffers allowed in queue before
-         * blocking upstream.
-         */
-        videnc1->queueMaxBuffers =  3;
-        GST_LOG("setting max queue threadshold to %d\n", 
-                videnc1->queueMaxBuffers);
+    /* Check if we need to create circular buffer with different size */
+    if (videnc1->upstreamBufSize > 0) {
+        inBufSize = videnc1->upstreamBufSize;
     }
     else {
-        videnc1->circBuf = gst_ticircbuffer_new(
-                    Venc1_getInBufSize(videnc1->hVe1), videnc1->numInputBufs,
-                        TRUE);
-        /* Calculate the maximum number of buffers allowed in queue before
-         * blocking upstream.
-         */
-        videnc1->queueMaxBuffers = (Venc1_getInBufSize(videnc1->hVe1) / 
-                                    videnc1->upstreamBufSize);
-        GST_LOG("setting max queue threadshold to %d\n", 
-                videnc1->queueMaxBuffers);
+        inBufSize = Venc1_getInBufSize(videnc1->hVe1);
     }
+
+    videnc1->circBuf = gst_ticircbuffer_new(inBufSize, 
+                            videnc1->numInputBufs, TRUE);
 
     if (videnc1->circBuf == NULL) {
         GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
@@ -1229,25 +1475,11 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
                 BufferGfx_getBufferAttrs(&gfxAttrs));
 
     if (videnc1->hOutBufTab == NULL) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
-        ("failed to create output buffers\n"), (NULL));
+        GST_ERROR("failed to create output buffers\n");
         gst_tividenc1_exit_video(videnc1);
         return FALSE;
     }
 
-    /* If element is configured to recieve contiguous input frame from the
-     * upstream then configure the graphics object attributes used. This 
-     * attribute will be used by cicular buffer while creating framecopy job.
-     */
-    if (videnc1->contiguousInputFrame && 
-            gst_ticircbuffer_set_bufferGfx_attrs(videnc1->circBuf, 
-                &gfxAttrs) < 0) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
-        ("failed to set the graphics attribute on circular buffer\n"), (NULL));
-        gst_tividenc1_exit_video(videnc1);
-        return FALSE;
-    }
-        
     /* Display buffer contents if displayBuffer=TRUE was specified */
     gst_ticircbuffer_set_display(videnc1->circBuf, videnc1->displayBuffer);
 
@@ -1264,15 +1496,12 @@ static void* gst_tividenc1_encode_thread(void *arg)
     GstBuffer           *encDataWindow  = NULL;
     BufferGfx_Attrs     gfxAttrs        = BufferGfx_Attrs_DEFAULT;
     void                *threadRet      = GstTIThreadSuccess;
-    Buffer_Handle       hDstBuf, hInBuf, hCcvBuf = NULL;
+    Buffer_Handle       hDstBuf, hInBuf = NULL;
     Int32               encDataConsumed;
     GstClockTime        encDataTime;
     GstClockTime        frameDuration;
     Buffer_Handle       hEncDataWindow;
     GstBuffer           *outBuf;
-    Ccv_Handle          hCcv = NULL;
-    Ccv_Attrs           ccvAttrs = Ccv_Attrs_DEFAULT;
-    gint                bufSize;
     Int                 bufIdx;
     Int                 ret;
 
@@ -1287,39 +1516,36 @@ static void* gst_tividenc1_encode_thread(void *arg)
     Rendezvous_reset(videnc1->waitOnEncodeThread);
 
     if (ret == FALSE) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
+        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED, 
         ("failed to start codec\n"), (NULL));
         goto thread_exit;
     }
 
-    /* On DM6467, we need to convert YUV422PSEMI buffer in YUV420PSEMI */
-    if (videnc1->device == Cpu_Device_DM6467) {
-        /* create a color conversion job from 422 to 420 */
-        ccvAttrs.accel = TRUE;
-        hCcv = Ccv_create(&ccvAttrs);
-        
-        if (hCcv == NULL) {
-            GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
-            ("Failed to create Ccv module\n"), (NULL));
-            goto thread_failure;
-        }
+    /* set graphics attrs for input buffer */
+    gfxAttrs.dim.width  = videnc1->width;
+    gfxAttrs.bAttrs.reference = TRUE;
+    gfxAttrs.dim.height  = videnc1->height;
+    gfxAttrs.colorSpace  = videnc1->colorSpace;
+    gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(videnc1->width,
+                                    videnc1->colorSpace);
 
-        /* create ccv output buffer */
-        gfxAttrs.dim.width          = videnc1->width;
-        gfxAttrs.dim.height         = videnc1->height;
-        gfxAttrs.colorSpace         = ColorSpace_YUV420PSEMI;
-        gfxAttrs.dim.lineLength     = BufferGfx_calcLineLength(videnc1->width,
-                                           ColorSpace_YUV420PSEMI);
-        bufSize = gfxAttrs.dim.lineLength * videnc1->height * 3 / 2;
-        hCcvBuf = Buffer_create(bufSize, BufferGfx_getBufferAttrs(&gfxAttrs));
-
-        if (hCcvBuf == NULL) {
-            GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
-            ("Failed to allocate buffer for ccv module\n"), (NULL));
-            goto thread_failure;
-        }
+    /* DM6467: set the colorspace to YUV420PSEMI, this is mainly because on 
+     * dm6467 circular buffer will perform the color conversion from 422-420.
+     */
+    if ((videnc1->device == Cpu_Device_DM6467) && 
+            videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
+        gfxAttrs.colorSpace  = ColorSpace_YUV420PSEMI;
     }
-
+ 
+    /* allocate reference input buffer */
+    hInBuf = Buffer_create(1, 
+                BufferGfx_getBufferAttrs(&gfxAttrs));
+    if (hInBuf == NULL) {
+        GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
+        ("failed to allocate ccv buffer\n"), (NULL));
+        goto thread_failure;
+    }
+ 
     /* Main thread loop */
     while (TRUE) {
 
@@ -1365,55 +1591,24 @@ static void* gst_tividenc1_encode_thread(void *arg)
         /* Make sure the whole buffer is used for output */
         BufferGfx_resetDimensions(hDstBuf);
 
-        /* Create a reference graphics buffer object.
-         * If reference flag is set to TRUE then no buffer will be allocated
-         * instead resulting buffer will be reference to already existing
-         * memory area from the circular buffer. 
-         */
-        gfxAttrs.bAttrs.reference   = TRUE;
-        gfxAttrs.dim.width          = videnc1->width;
-        gfxAttrs.dim.height         = videnc1->height;
-        gfxAttrs.colorSpace         = videnc1->colorSpace;
-        gfxAttrs.dim.lineLength     = BufferGfx_calcLineLength(videnc1->width,
-                                            videnc1->colorSpace);
-
-        hInBuf = Buffer_create(Buffer_getSize(hEncDataWindow),
-                                BufferGfx_getBufferAttrs(&gfxAttrs));
-        Buffer_setUserPtr(hInBuf, Buffer_getUserPtr(hEncDataWindow));
-        Buffer_setNumBytesUsed(hInBuf,Buffer_getSize(hInBuf));
-
-        /* DM6467: Codec supports only YUV420P format. Color convert YUV422P
-         * semi buffer recieved from the upstream in YUV420P semi before giving
-         * it to codec.
-         */
-        if (videnc1->device == Cpu_Device_DM6467) {
-            /* Make sure the whole buffer is used */
-            BufferGfx_resetDimensions(hCcvBuf);
-
-            if (Ccv_config(hCcv, hInBuf, hCcvBuf) < 0) {
-                GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
-                ("Failed to configure CCV job\n"), (NULL));
-                goto thread_failure;
-            }
-
-            GST_LOG("invoking the color conversion\n");            
-            if (Ccv_execute(hCcv, hInBuf, hCcvBuf) < 0) {
-                GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
-                ("Failed to execute CCV job\n"), (NULL));
-                goto thread_failure;
-            }
-
-            /* Invoke the video encoder */
-            GST_LOG("invoking the video encoder\n");
-            ret   = Venc1_process(videnc1->hVe1, hCcvBuf, hDstBuf);
+        /* set the input buffer size */ 
+        if (videnc1->device == Cpu_Device_DM6467 &&
+             videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
+            Buffer_setSize(hInBuf, videnc1->width * videnc1->height * 3 / 2);
         }
         else {
-            /* Invoke the video encoder */
-            GST_LOG("invoking the video encoder\n");
-            ret   = Venc1_process(videnc1->hVe1, hInBuf, hDstBuf);
+            Buffer_setSize(hInBuf, GST_BUFFER_SIZE(encDataWindow));
         }
 
-        encDataConsumed = Buffer_getNumBytesUsed(hEncDataWindow);
+        /* Update the user pointer for input buffer. */        
+        Buffer_setNumBytesUsed(hInBuf, Buffer_getSize(hInBuf));
+        Buffer_setUserPtr(hInBuf, Buffer_getUserPtr(hEncDataWindow));
+
+        /* Invoke the video encoder */
+        GST_LOG("invoking the video encoder\n");
+        ret   = Venc1_process(videnc1->hVe1, hInBuf, hDstBuf);
+
+        encDataConsumed = GST_BUFFER_SIZE(encDataWindow);
 
         if (ret < 0) {
             GST_ELEMENT_ERROR(videnc1, STREAM, ENCODE,
@@ -1431,9 +1626,6 @@ static void* gst_tividenc1_encode_thread(void *arg)
         if (ret > 0) {
             GST_LOG("Venc1_process returned success code %d\n", ret); 
         }
-
-        /* Free the graphics object */
-        Buffer_delete(hInBuf);
 
         /* Release the reference buffer, and tell the circular buffer how much
          * data was consumed.
@@ -1514,14 +1706,6 @@ thread_exit:
      */
     Rendezvous_meet(videnc1->waitOnEncodeThread);
     Rendezvous_reset(videnc1->waitOnEncodeThread);
-
-    if (hCcvBuf) {
-        Buffer_delete(hCcvBuf);
-    }
-
-    if (hCcv) {
-        Ccv_delete(hCcv);
-    }
 
     /* Notify main thread that we are done draining before we shutdown the
      * codec, or we will hang.  We proceed in this order so the EOS event gets
