@@ -771,14 +771,33 @@ static Int gst_tividenc_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
     Buffer_Handle  hOutBuf      = NULL;
     Int ret                     = FALSE;
     Framecopy_Attrs fcAttrs     = Framecopy_Attrs_DEFAULT;
+    gboolean        accel       = FALSE;
+
+    /* If we are not recieving full frame then use memcpy() and let circular
+     * manage everything else.
+     */
+    if (GST_BUFFER_SIZE(src) < gst_ti_calc_buffer_size(videnc->width,
+         videnc->height, videnc->colorSpace)) {
+        memcpy(dst, GST_BUFFER_DATA(src), GST_BUFFER_SIZE(src));
+        return GST_BUFFER_SIZE(src);
+    }
 
     GST_LOG("gst_tividenc_circbuf_framecopy - begin\n");
+
     if (videnc->hFc == NULL) {
         /* Enable the accel framecopy based on contiguousInputFrame.
          * If accel is set to FALSE then DMAI will use regular memcpy function
          * else will use HW accelerated framecopy.
          */
-        fcAttrs.accel = videnc->contiguousInputFrame;
+        /* If we are getting dmai transport buffer then enable HW acceleration*/
+        if (GST_IS_TIDMAIBUFFERTRANSPORT(src)) {
+            accel = TRUE;
+        }
+        else {
+            accel = videnc->contiguousInputFrame;
+        }
+
+        fcAttrs.accel = accel;
 
         videnc->hFc = Framecopy_create(&fcAttrs);
         if (videnc->hFc == NULL) {
@@ -786,8 +805,7 @@ static Int gst_tividenc_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
             goto exit;
         }
 
-        GST_INFO("HW accel framecopy: %s\n", 
-            videnc->contiguousInputFrame ? "enabled":"disabled");
+        GST_INFO("HW accel framecopy: %s\n", accel ? "enabled":"disabled");
     }
 
     /* Prepare input buffer */

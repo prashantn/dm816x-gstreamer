@@ -1,3 +1,7 @@
+2009-10-02 Brijesh Singh, Texas Instruments, Inc.
+	If encoder is recieving dmai transport buffer then use hw accelerated
+	framecopy.
+
 2009-09-30 Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividenc1.c}:
 	Workaround DMAI 1.20.00.06 non-accel framecopy BUG on DM6467 platform.

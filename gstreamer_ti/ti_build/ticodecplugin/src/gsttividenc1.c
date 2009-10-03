@@ -848,7 +848,8 @@ static Int gst_tividenc1_422psemi_420psemi(Int8* dst, GstBuffer *src,
     Buffer_Handle  hInBuf       = NULL;
     Buffer_Handle  hOutBuf      = NULL;
     Int ret                     = -1;
-    Ccv_Attrs       ccvAttrs   = Ccv_Attrs_DEFAULT;
+    Ccv_Attrs       ccvAttrs    = Ccv_Attrs_DEFAULT;
+    gboolean        accel       = FALSE;
 
     GST_LOG("gst_tividenc1_422psemi_420psemi - begin\n");
 
@@ -858,6 +859,16 @@ static Int gst_tividenc1_422psemi_420psemi(Int8* dst, GstBuffer *src,
          * If accel is set to FALSE then DMAI will use software ccv function
          * else will use HW accelerated ccv engine.
          */
+
+        /* If we are getting dmai transport buffer then enable HW 
+         * acceleration */
+        if (GST_IS_TIDMAIBUFFERTRANSPORT(src)) {
+            accel = TRUE;
+        }
+        else {
+            accel = videnc1->contiguousInputFrame;
+        }
+
         ccvAttrs.accel = videnc1->contiguousInputFrame;
         videnc1->hCcv = Ccv_create(&ccvAttrs);
         if (videnc1->hCcv == NULL) {
@@ -865,8 +876,7 @@ static Int gst_tividenc1_422psemi_420psemi(Int8* dst, GstBuffer *src,
             goto exit;
         }
         
-        GST_INFO("HW accel CCV: %s\n", 
-            videnc1->contiguousInputFrame ? "enabled":"disabled");
+        GST_INFO("HW accel CCV: %s\n", accel ? "enabled":"disabled");
     }
 
     /* Prepare input buffer */
@@ -931,11 +941,21 @@ static Int gst_tividenc1_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
     Buffer_Handle  hOutBuf      = NULL;
     Int ret                     = -1;
     Framecopy_Attrs fcAttrs     = Framecopy_Attrs_DEFAULT;
+    gboolean        accel       = FALSE;
 
     #if defined(Platform_dm365)
     BufferGfx_Dimensions  dim;
     #endif
 
+    /* If we are not recieving full frame then use memcpy() and let circular
+     * manage everything else.
+     */
+    if (GST_BUFFER_SIZE(src) < gst_ti_calc_buffer_size(videnc1->width,
+         videnc1->height, videnc1->colorSpace)) {
+        memcpy(dst, GST_BUFFER_DATA(src), GST_BUFFER_SIZE(src));
+        return GST_BUFFER_SIZE(src);
+    }
+ 
     /* Check to see if we need to execute ccv on dm6467 */
     if (videnc1->device == Cpu_Device_DM6467 &&
          videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
@@ -963,6 +983,16 @@ static Int gst_tividenc1_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
          * If accel is set to FALSE then DMAI will use regular memcpy function
          * else will use HW accelerated framecopy.
          */
+
+        /* If we are getting dmai transport buffer then enable HW 
+         * acceleration */
+        if (GST_IS_TIDMAIBUFFERTRANSPORT(src)) {
+            accel = TRUE;
+        }
+        else {
+            accel = videnc1->contiguousInputFrame;
+        }
+
         fcAttrs.accel = videnc1->contiguousInputFrame;
 
         videnc1->hFc = Framecopy_create(&fcAttrs);
@@ -971,8 +1001,7 @@ static Int gst_tividenc1_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
             goto exit;
         }
 
-        GST_INFO("HW accel framecopy: %s\n", 
-            videnc1->contiguousInputFrame ? "enabled":"disabled");
+        GST_INFO("HW accel framecopy: %s\n", accel ? "enabled":"disabled");
     }
 
     /* Prepare input buffer */
