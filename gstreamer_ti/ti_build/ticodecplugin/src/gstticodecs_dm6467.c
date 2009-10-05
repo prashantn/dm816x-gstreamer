@@ -59,6 +59,10 @@ GstTICodec gst_ticodec_codecs[] = {
         "H.264 Video Encoder",  /* String name of codec used by plugin       */
         "h264enc",              /* String name of codec used by CE           */
         encodeEngine            /* Engine that contains this codec           */
+    }, {
+        "AAC Audio Encoder",    /* String name of codec used by plugin       */
+        "aacheenc",             /* String name of codec used by CE           */
+        encodeEngine            /* Engine that contains this codec           */
     },
 
     { NULL }

@@ -44,6 +44,7 @@
 #include "gsttidmaivideosink.h"
 #include "gsttividenc.h"
 #include "gsttividenc1.h"
+#include "gsttiaudenc1.h"
 
 /* entry point to initialize the plug-in
  * initialize the plug-in itself
@@ -128,6 +129,13 @@ TICodecPlugin_init (GstPlugin * TICodecPlugin)
     if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
         TICodecPlugin, "TIAuddec1", GST_RANK_PRIMARY,
         GST_TYPE_TIAUDDEC1))
+        return FALSE;
+
+    env_value = getenv("GST_TI_TIAudenc1_DISABLE");
+
+    if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
+        TICodecPlugin, "TIAudenc1", GST_RANK_PRIMARY,
+        GST_TYPE_TIAUDENC1))
         return FALSE;
 
     env_value = getenv("GST_TI_TIDmaiVideoSink_DISABLE");

@@ -83,12 +83,31 @@ lame-398-2
  
 TI Plugin Elements
 ------------------
-TIViddec
-    xDM 0.9 Video Decoder
 
+== VIDEO ==
 TIViddec2
     xDM 1.2 Video Decoder
 
+TIViddec
+    xDM 0.9 Video Decoder
+
+TIVidenc1
+    xDM 1.x Video Encoder
+
+TIVidenc
+    xDM 0.9 Video Encoder
+
+== AUDIO ==
+TIAuddec1
+    xDM 1.0 Audio Decoder
+
+TIAuddec
+    xDM 0.9 Audio Decoder
+
+TIAudenc1
+    xDM 1.x Audio Encoder
+
+== IMAGING ==
 TIImgenc1
     xDM 1.0 Image Encoder
 
@@ -101,20 +120,9 @@ TIImgdec1
 TIImgdec
     xDM 0.9 Image Decoder
 
-TIAuddec
-    xDM 0.9 Audio Decoder
-
-TIAuddec1
-    xDM 1.0 Audio Decoder
-
+== MISCELLANEOUS ==
 TIDmaiVideoSink
     Video sink supporting both framebuffer and V4L2 displays
-
-TIVidenc
-    xDM 0.9 Video Encoder
-
-TIVidenc1
-    xDM 1.x Video Encoder
 
 Supported Platforms
 ===================

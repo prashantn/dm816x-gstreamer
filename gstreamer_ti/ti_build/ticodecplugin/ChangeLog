@@ -1,3 +1,8 @@
+2009-09-23 Chase Maupin, Texas Instruments, Inc.
+	* src/{gsttiaudenc1.c, gsttiaudenc1.h, gstticodecplugin.c,
+	gstticodecs_dm6467.c, Makefile.am}:
+	Added support for audio encode using xDM 1.0 codecs.  New element is
+	named TIAudenc1.
 2009-10-02 Brijesh Singh, Texas Instruments, Inc.
 	If encoder is recieving dmai transport buffer then use hw accelerated
 	framecopy.
