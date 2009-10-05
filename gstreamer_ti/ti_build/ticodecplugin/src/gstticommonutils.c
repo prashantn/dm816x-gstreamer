@@ -454,7 +454,7 @@ gboolean gst_ti_reclaim_buffers(BufTab_Handle hBufTab)
 
         if (hBuf == NULL) {
 
-            /* Try once a second to re-claim the next buffer, up to two
+            /* Try once a second to re-claim the next buffer, up to six
              * seconds.  If we still don't have them all by then, assume it
              * isn't going to be given back.  This is to gracefully handle
              * prblematic elements like playbin that won't unref sink buffers
@@ -462,7 +462,7 @@ gboolean gst_ti_reclaim_buffers(BufTab_Handle hBufTab)
              * buffers on EOS, we could implement this more efficiently using
              * Rendezvous_meet(waitOnBufTab);
              */
-            const Int timeout = 2;
+            const Int timeout = 6;
             Int       curr_sec;
 
             GST_LOG("Waiting for buffer to be released\n");
@@ -475,7 +475,7 @@ gboolean gst_ti_reclaim_buffers(BufTab_Handle hBufTab)
             }
 
             if (hBuf == NULL) {
-                GST_WARNING("Failed to reclaim all CMEM-allocated buffers "
+                GST_INFO("Failed to reclaim all CMEM-allocated buffers "
                     "from BufTab.  This can happen when downstream elements "
                     "don't release sink buffers on EOS.  These buffers are "
                     "now being freed, which could result in memory corruption "

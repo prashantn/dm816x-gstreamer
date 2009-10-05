@@ -1,4 +1,11 @@
 2009-09-23 Chase Maupin, Texas Instruments, Inc.
+	* src/{gstticommonutils.c}:
+	Increased the default timeout to wait for downstream elements to 
+	free the buffers we sent them from 2 seconds to 6 seconds.  During
+	audio encode testing it was found that downstream elements could take
+	up to 6 seconds to return the buffers passed to them.
+
+2009-09-23 Chase Maupin, Texas Instruments, Inc.
 	* src/{gsttiaudenc1.c, gsttiaudenc1.h, gstticodecplugin.c,
 	gstticodecs_dm6467.c, Makefile.am}:
 	Added support for audio encode using xDM 1.0 codecs.  New element is
