@@ -38,11 +38,12 @@ help ()
     echo " -s | Live source element to use [Default:$audio_live_source] "
     echo " -p | Audio encoder plugin to use [Default:$audio_encoder]"
     echo " -n | Audio encoder codec to use [Default:$audio_encoder_codec_name]"
+    echo " -b | Audio encoder bitrate to use [Default:$audio_encoder_args]"
     exit 1;
 }
 
 #------------------------------------------------------------------------------
-# exectue command and exit on failure
+# execute command and exit on failure
 #------------------------------------------------------------------------------
 execute ()
 {
@@ -54,7 +55,7 @@ execute ()
     fi
 }
 
-args=`getopt f:p:o:s:r:i:n:havl $*`
+args=`getopt f:b:p:o:s:r:i:n:havl $*`
 if test $? != 0 ; then
     help;
 fi
@@ -73,6 +74,7 @@ do
         -r) shift; video_encoder_resolution=$1; shift;;
         -i) shift; video_encoder_color_space=$1; shift;;
         -n) shift; codecname=$1; shift;;
+        -b) shift; bitrate=$1; shift;;
         -h) help;;
     esac
 done
@@ -120,9 +122,27 @@ case "$streamType" in
         ! test -z $plugin || encoder_plugin=$audio_encoder
         execute "$GSTINSPECT $encoder_plugin"
 
-        # if codecname is passed then we assume its TI encoder and set the
-        # codecname and other informations
-        test -z $codecname || encoder_plugin_args="codecName=$codecname engineName=encode $video_encoder_args"
+        # If bitrate value is not passed then use default.
+        if [ -z $bitrate ]
+        then
+            encoder_args=$audio_encoder_args
+        else
+            encoder_args="$encoder_args ""bitrate=$bitrate"
+        fi
+
+        # if codecname is not passed then we assume its TI encoder and set the
+        # codecname and other information
+        if [ -z $codecname ]
+        then
+            encoder_plugin_args="codecName=$audio_encoder_codec_name engineName=encode $encoder_args"
+        fi
+
+        #Set the static caps for the pipeline to a default value when
+        #encoding from a non-live source such as filesrc.
+        if [ -z $live_source ]
+        then
+            static_caps="audio/x-raw-int, endianness=1234, signed=true, width=16, depth=16, rate=44100, channels=2 !"
+        fi
 
         ;;
 

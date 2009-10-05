@@ -24,6 +24,6 @@ DEBUG="--gst-debug-no-color --gst-debug=TI*:2"
 . ../shared/process_elemencopts.sh
 . ../shared/run_pipe.sh
 
-run_pipe "${GSTLAUNCH} ${DEBUG} ${src} ${src_args} ! ${encoder_plugin} ${encoder_plugin_args} ! filesink location=$outputFile"
+run_pipe "${GSTLAUNCH} ${DEBUG} ${src} ${src_args} ! ${static_caps} ${encoder_plugin} ${encoder_plugin_args} ! filesink location=$outputFile"
 exit $?
 

@@ -33,9 +33,11 @@ resizer="FALSE";
 accelFrameCopy="TRUE"
 
 # audio encoder defaults
-audio_live_source="audiotestsrc"
-audio_encoder="lame"
-audio_src_args="num-buffers=100"
+audio_live_source="alsasrc"
+audio_encoder="TIAudenc1"
+audio_src_args="num-buffers=1000"
+audio_encoder_codec_name="aacheenc"
+audio_encoder_args="bitrate=64000"
 
 # video encoder defauls
 video_encoder="TIVidenc1"
