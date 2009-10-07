@@ -124,6 +124,10 @@ TIImgdec
 TIDmaiVideoSink
     Video sink supporting both framebuffer and V4L2 displays
 
+== TRANSFORM ==
+TIVidresize 
+	This element resizes video frames.
+
 Supported Platforms
 ===================
 This GStreamer plug-in has been built and tested on the following platforms:
