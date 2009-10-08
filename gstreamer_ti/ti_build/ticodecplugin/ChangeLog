@@ -1,3 +1,7 @@
+2009-10-05 Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaivideosink.c:
+	Set parent_class in gst_tidmaivideosink_class_init.
+
 2009-10-02 Brijesh Singh, Texas Instruments, Inc.
 	Add new element "TIVidresize" to resize the video using hardware accel.
 

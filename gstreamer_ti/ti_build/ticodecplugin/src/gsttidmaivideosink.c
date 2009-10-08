@@ -191,6 +191,8 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
     gstelement_class   = GST_ELEMENT_CLASS(klass);
     gstbase_sink_class = GST_BASE_SINK_CLASS(klass);
 
+    parent_class = g_type_class_peek_parent (klass);
+
     gobject_class->set_property = GST_DEBUG_FUNCPTR
         (gst_tidmaivideosink_set_property);
     gobject_class->get_property = GST_DEBUG_FUNCPTR
