@@ -1304,6 +1304,21 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         }
         inBuf = sink->tempDmaiBuf;
         
+        #if defined(Platform_dm365)
+        /* DM365: TO componsate resizer 32-byte alignment, we need to set
+         * lineLength to roundup on 32-byte boundry.
+         */
+        if (inBufColorSpace == ColorSpace_YUV420PSEMI) {
+            BufferGfx_getDimensions(inBuf, &dim);
+
+            if (GST_BUFFER_SIZE(buf) > gst_ti_calc_buffer_size(dim.width,
+                dim.height, inBufColorSpace)) {
+                dim.lineLength = Dmai_roundUp(dim.lineLength, 32);
+                BufferGfx_setDimensions(inBuf, &dim);
+            }
+        }
+        #endif
+
         /* If contiguous input frame is not set then use memcpy to copy the 
          * input buffer in contiguous dmai buffer.
          */
@@ -1314,17 +1329,6 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
             memcpy(Buffer_getUserPtr(inBuf), buf->data, buf->size);
         }
     }
-
-    #if defined(Platform_dm365)
-    /* DM365: TO componsate resizer 32-byte alignment, we need to set
-     * lineLength to roundup on 32-byte boundry.
-     */
-    if (inBufColorSpace == ColorSpace_YUV420PSEMI) {
-        BufferGfx_getDimensions(inBuf, &dim);
-        dim.lineLength = Dmai_roundUp(dim.lineLength, 32);
-        BufferGfx_setDimensions(inBuf, &dim);
-    }
-    #endif
 
     /* If the Display_Handle element is NULL, then either this is our first
      * buffer or the upstream element has re-nogatiated our capabilities which

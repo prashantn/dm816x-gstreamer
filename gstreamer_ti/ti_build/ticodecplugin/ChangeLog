@@ -1,5 +1,9 @@
 2009-10-05 Don Darling, Texas Instruments, Inc.
 	* src/gsttidmaivideosink.c:
+	Only adjust display buffer colorspace for non-DMAI input buffers.
+
+2009-10-05 Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaivideosink.c:
 	Set parent_class in gst_tidmaivideosink_class_init.
 
 2009-10-02 Brijesh Singh, Texas Instruments, Inc.
