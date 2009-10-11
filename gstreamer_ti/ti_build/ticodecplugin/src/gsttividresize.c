@@ -494,7 +494,7 @@ static GstFlowReturn gst_tividresize_transform (GstBaseTransform *trans,
 
     /* Create resize handle */
     if (vidresize->hResize == NULL) {
-        GST_LOG("scaling from=%dx%d, size=%d -> to=%dx%d, size=%d\n", 
+        GST_LOG("scaling from=%dx%d, size=%ld -> to=%dx%d, size=%ld\n", 
             vidresize->srcWidth, vidresize->srcHeight, Buffer_getSize(hInBuf),
             vidresize->dstWidth, vidresize->dstHeight, Buffer_getSize(hOutBuf));
 
