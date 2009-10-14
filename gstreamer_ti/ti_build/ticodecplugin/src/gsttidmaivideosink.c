@@ -1300,14 +1300,9 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
     gchar                 ts_str[64];
     gfloat                heightper;
     gfloat                widthper;
-    gint                  framerateDen;
-    gint                  framerateNum;
-    gint                  height;
     gint                  i;
     gint                  origHeight;
     gint                  origWidth;
-    gint                  width;
-    ColorSpace_Type       inBufColorSpace;
 
     GST_DEBUG("\n\n\nBegin\n");
 
@@ -1315,12 +1310,6 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
     if (!gst_tidmaivideosink_process_caps(bsink, GST_BUFFER_CAPS(buf))) {
         goto cleanup;
     }
-
-    width           = sink->dGfxAttrs.dim.width;
-    height          = sink->dGfxAttrs.dim.height;
-    inBufColorSpace = sink->dGfxAttrs.colorSpace;
-    framerateNum    = sink->dFramerateNum;
-    framerateDen    = sink->dFramerateDen;
 
     /* If the input buffer is non dmai buffer, then allocate dmai buffer and 
      *  copy input buffer in dmai buffer using memcpy routine. 
@@ -1348,11 +1337,11 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         /* DM365: TO componsate resizer 32-byte alignment, we need to set
          * lineLength to roundup on 32-byte boundry.
          */
-        if (inBufColorSpace == ColorSpace_YUV420PSEMI) {
+        if (sink->dGfxAttrs.colorSpace == ColorSpace_YUV420PSEMI) {
             BufferGfx_getDimensions(inBuf, &dim);
 
             if (GST_BUFFER_SIZE(buf) > gst_ti_calc_buffer_size(dim.width,
-                dim.height, inBufColorSpace)) {
+                dim.height, sink->dGfxAttrs.colorSpace)) {
                 dim.lineLength = Dmai_roundUp(dim.lineLength, 32);
                 BufferGfx_setDimensions(inBuf, &dim);
             }
@@ -1380,15 +1369,15 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         /* Set the input videostd attrs so that when the display is created
          * we can know what size it needs to be.
          */
-        sink->iattrs.width  = width;
-        sink->iattrs.height = height;
+        sink->iattrs.width  = sink->dGfxAttrs.dim.width;
+        sink->iattrs.height = sink->dGfxAttrs.dim.height;
 
         /* Set the input frame rate.  Round to the nearest integer */
         sink->iattrs.framerate =
-            (int)(((gdouble) framerateNum / framerateDen) + .5);
+            (int)(((gdouble) sink->dFramerateNum / sink->dFramerateDen) + .5);
 
-        GST_DEBUG("Frame rate numerator = %d\n", framerateNum);
-        GST_DEBUG("Frame rate denominator = %d\n", framerateDen);
+        GST_DEBUG("Frame rate numerator = %d\n", sink->dFramerateNum);
+        GST_DEBUG("Frame rate denominator = %d\n", sink->dFramerateDen);
         GST_DEBUG("Frame rate rounded = %d\n", sink->iattrs.framerate);
 
         GST_DEBUG("Display Handle does not exist.  Creating a display\n");
@@ -1431,11 +1420,11 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
 
             /* resize video image while maintaining the aspect ratio */
             BufferGfx_getDimensions(hDispBuf, &dim);
-            if (width > height) {
+            if (sink->dGfxAttrs.dim.width > sink->dGfxAttrs.dim.height) {
 
                 origHeight = dim.height;
-                widthper   = (float)dim.width / width;
-                dim.height = height * widthper;
+                widthper   = (float)dim.width / sink->dGfxAttrs.dim.width;
+                dim.height = sink->dGfxAttrs.dim.height * widthper;
 
                 if (dim.height > origHeight)
                     dim.height = origHeight;
@@ -1445,8 +1434,8 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
             } else {
 
                 origWidth = dim.width;
-                heightper = (float)dim.height / height;
-                dim.width = width * heightper;
+                heightper = (float)dim.height / sink->dGfxAttrs.dim.height;
+                dim.width = sink->dGfxAttrs.dim.width * heightper;
 
                 if (dim.width > origWidth)
                     dim.width = origWidth;
@@ -1478,24 +1467,24 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
              * smaller than the display center it in the screen.
              * TODO: later add an option to resize the video.
              */
-            if (width > dim.width) {
+            if (sink->dGfxAttrs.dim.width > dim.width) {
                 GST_INFO("Input image width (%d) greater than display width"
                          " (%ld)\n Image cropped to fit screen\n",
-                         width, dim.width);
+                         sink->dGfxAttrs.dim.width, dim.width);
                 dim.x = 0;
             } else {
-                dim.x     = ((dim.width - width) / 2) & ~1;
-                dim.width = width;
+                dim.x     = ((dim.width - sink->dGfxAttrs.dim.width) / 2) & ~1;
+                dim.width = sink->dGfxAttrs.dim.width;
             }
 
-            if (height > dim.height) {
+            if (sink->dGfxAttrs.dim.height > dim.height) {
                 GST_INFO("Input image height (%d) greater than display height"
                          " (%ld)\n Image cropped to fit screen\n",
-                         height, dim.height);
+                         sink->dGfxAttrs.dim.height, dim.height);
                 dim.y = 0;
             } else {
-                dim.y      = (dim.height - height) / 2;
-                dim.height = height;
+                dim.y      = (dim.height - sink->dGfxAttrs.dim.height) / 2;
+                dim.height = sink->dGfxAttrs.dim.height;
             }
             BufferGfx_setDimensions(hDispBuf, &dim);
 
@@ -1503,7 +1492,7 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
              * the video thread to the 422Psemi display.
              */
             if (sink->cpu_dev == Cpu_Device_DM6467 && 
-                    inBufColorSpace != ColorSpace_YUV422PSEMI) {
+                    sink->dGfxAttrs.colorSpace != ColorSpace_YUV422PSEMI) {
 
                 /* Configure the 420->422 color conversion job */
                 if (Ccv_config(sink->hCcv, inBuf, hDispBuf) < 0) {
