@@ -148,7 +148,7 @@ static int
  gst_tidmaivideosink_videostd_get_attrs(VideoStd_Type videoStd,
      VideoStd_Attrs * attrs);
 static gboolean
- gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink, ColorSpace_Type);
+ gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink);
 static gboolean
  gst_tidmaivideosink_exit_display(GstTIDmaiVideoSink * sink);
 static gboolean
@@ -391,6 +391,8 @@ static void gst_tidmaivideosink_init_env(GstTIDmaiVideoSink *sink)
 static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
                 GstTIDmaiVideoSinkClass * g_class)
 {
+    BufferGfx_Attrs defaultGfxAttrs  = BufferGfx_Attrs_DEFAULT;
+
     /* Set the default values to NULL or -1.  If the user specifies a value 
      * then the element will be non-null when the display is created.  
      * Anything that has a NULL value will be initialized with DMAI defaults 
@@ -398,6 +400,7 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
      */
     dmaisink->displayStd     = NULL;
     dmaisink->displayDevice  = NULL;
+    dmaisink->dGfxAttrs      = defaultGfxAttrs;
     dmaisink->videoStd       = NULL;
     dmaisink->videoOutput    = NULL;
     dmaisink->numBufs        = -1;
@@ -1123,12 +1126,12 @@ static gboolean gst_tidmaivideosink_exit_display(GstTIDmaiVideoSink * sink)
  *       default display attributes whenever a new device is added.  Hopefully
  *       there is a way around that.
 *******************************************************************************/
-static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink,
-    ColorSpace_Type colorSpace)
+static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
 {
     Resize_Attrs rAttrs = Resize_Attrs_DEFAULT;
     Ccv_Attrs ccvAttrs = Ccv_Attrs_DEFAULT;
     Framecopy_Attrs fcAttrs = Framecopy_Attrs_DEFAULT;
+    ColorSpace_Type colorSpace = sink->dGfxAttrs.colorSpace;
     
 
     GST_DEBUG("Begin\n");
@@ -1214,44 +1217,25 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink,
 }
 
 
-/*******************************************************************************
- * gst_tidmaivideosink_render
- *   This is the main processing routine.  This function will receive a 
- *   buffer containing video data to be displayed on the screen.  If the
- *   display has not been initialized it will be configured and the input
- *   video frame will be copied to the display driver using hardware
- *   acceleration if possible.
-*******************************************************************************/
-static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
-                         GstBuffer * buf)
+/******************************************************************************
+ * gst_tidmaivideosink_process_caps
+ ******************************************************************************/
+static gboolean gst_tidmaivideosink_process_caps(GstBaseSink * bsink,
+                    GstCaps * caps)
 {
-    BufferGfx_Attrs       gfxAttrs  = BufferGfx_Attrs_DEFAULT;
-    Buffer_Handle         hDispBuf  = NULL;
-    Buffer_Handle         inBuf     = NULL;
-    GstCaps              *temp_caps = GST_BUFFER_CAPS(buf);
-    GstStructure         *structure = NULL;
-    GstTIDmaiVideoSink   *sink      = GST_TIDMAIVIDEOSINK_CAST(bsink);
-    BufferGfx_Dimensions  dim;
-    gchar                 dur_str[64];
-    gchar                 ts_str[64];
-    gfloat                heightper;
-    gfloat                widthper;
-    gint                  framerateDen;
-    gint                  framerateNum;
-    gint                  height;
-    gint                  i;
-    gint                  origHeight;
-    gint                  origWidth;
-    gint                  width;
-    ColorSpace_Type       inBufColorSpace;
-    guint32               fourcc;
+    GstTIDmaiVideoSink *dmaisink  = GST_TIDMAIVIDEOSINK_CAST(bsink);
+    GstStructure       *structure = NULL;
+    gint                height;
+    gint                width;
+    guint32             fourcc;
+    ColorSpace_Type     inBufColorSpace;
+    gint                framerateDen;
+    gint                framerateNum;
 
-    GST_DEBUG("\n\n\nBegin\n");
+    structure = gst_caps_get_structure(caps, 0);
 
-    structure = gst_caps_get_structure(temp_caps, 0);
-    /* The width and height of the input buffer are collected here
-     * so that it can be checked against the width and height of the
-     * display buffer.
+    /* The width and height of the input buffer are collected here so that it
+     * can be checked against the width and height of the display buffer.
      */
     gst_structure_get_int(structure, "width", &width);
     gst_structure_get_int(structure, "height", &height);
@@ -1266,16 +1250,78 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         case GST_MAKE_FOURCC('Y', '8', 'C', '8'):
             inBufColorSpace = ColorSpace_YUV422PSEMI;
             break;
-#if defined(Platform_dm365)
+        #if defined(Platform_dm365)
         case GST_MAKE_FOURCC('N', 'V', '1', '2'):
             inBufColorSpace = ColorSpace_YUV420PSEMI;
             break;
-#endif
+        #endif
         default:
-            GST_ERROR("unsupport fourcc\n");
-            goto cleanup;
+            GST_ERROR("unsupported fourcc\n");
+            return FALSE;
     }
+
+    /* Read the frame rate */
+    gst_structure_get_fraction(structure, "framerate", &framerateNum,
+        &framerateDen);
+
+    /* Error check new values against existing ones */
+    /* TBD */
+
+    /* Populate the display graphics attributes */
+    dmaisink->dGfxAttrs.bAttrs.reference = dmaisink->contiguousInputFrame;
+    dmaisink->dGfxAttrs.dim.width        = width;
+    dmaisink->dGfxAttrs.dim.height       = height;
+    dmaisink->dGfxAttrs.dim.lineLength   = BufferGfx_calcLineLength(width, 
+                                               inBufColorSpace);
+    dmaisink->dGfxAttrs.colorSpace       = inBufColorSpace;
+    dmaisink->dFramerateNum              = framerateNum;
+    dmaisink->dFramerateDen              = framerateDen;
         
+    return TRUE;
+}
+
+
+/*******************************************************************************
+ * gst_tidmaivideosink_render
+ *   This is the main processing routine.  This function will receive a 
+ *   buffer containing video data to be displayed on the screen.  If the
+ *   display has not been initialized it will be configured and the input
+ *   video frame will be copied to the display driver using hardware
+ *   acceleration if possible.
+*******************************************************************************/
+static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
+                         GstBuffer * buf)
+{
+    Buffer_Handle         hDispBuf  = NULL;
+    Buffer_Handle         inBuf     = NULL;
+    GstTIDmaiVideoSink   *sink      = GST_TIDMAIVIDEOSINK_CAST(bsink);
+    BufferGfx_Dimensions  dim;
+    gchar                 dur_str[64];
+    gchar                 ts_str[64];
+    gfloat                heightper;
+    gfloat                widthper;
+    gint                  framerateDen;
+    gint                  framerateNum;
+    gint                  height;
+    gint                  i;
+    gint                  origHeight;
+    gint                  origWidth;
+    gint                  width;
+    ColorSpace_Type       inBufColorSpace;
+
+    GST_DEBUG("\n\n\nBegin\n");
+
+    /* Process the buffer caps */
+    if (!gst_tidmaivideosink_process_caps(bsink, GST_BUFFER_CAPS(buf))) {
+        goto cleanup;
+    }
+
+    width           = sink->dGfxAttrs.dim.width;
+    height          = sink->dGfxAttrs.dim.height;
+    inBufColorSpace = sink->dGfxAttrs.colorSpace;
+    framerateNum    = sink->dFramerateNum;
+    framerateDen    = sink->dFramerateDen;
+
     /* If the input buffer is non dmai buffer, then allocate dmai buffer and 
      *  copy input buffer in dmai buffer using memcpy routine. 
      *  This logic will help to display non-dmai buffers. (e.g the video
@@ -1288,14 +1334,8 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         if (sink->tempDmaiBuf == NULL) {
 
             GST_DEBUG("\nInput buffer is non-dmai, allocating new buffer");
-            gfxAttrs.bAttrs.reference   = sink->contiguousInputFrame;
-            gfxAttrs.dim.width          = width;
-            gfxAttrs.dim.height         = height;
-            gfxAttrs.dim.lineLength     = BufferGfx_calcLineLength(width, 
-                                            inBufColorSpace);
-            gfxAttrs.colorSpace         = inBufColorSpace;
-            sink->tempDmaiBuf           = Buffer_create(buf->size,
-                                           BufferGfx_getBufferAttrs(&gfxAttrs));
+            sink->tempDmaiBuf = Buffer_create(
+                buf->size, BufferGfx_getBufferAttrs(&sink->dGfxAttrs));
 
             if (sink->tempDmaiBuf == NULL) {
                 GST_ERROR("Failed to allocate memory for input buffer\n");
@@ -1336,8 +1376,6 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
      * initialize (or re-initialize) our display to handle the new stream.
      */
     if (sink->hDisplay == NULL) {
-        gst_structure_get_fraction(structure, "framerate",
-            &framerateNum, &framerateDen);
 
         /* Set the input videostd attrs so that when the display is created
          * we can know what size it needs to be.
@@ -1355,7 +1393,7 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
 
         GST_DEBUG("Display Handle does not exist.  Creating a display\n");
 
-        if (!gst_tidmaivideosink_init_display(sink, inBufColorSpace)) {
+        if (!gst_tidmaivideosink_init_display(sink)) {
             GST_ERROR("Unable to initialize display\n");
             goto cleanup;
         }

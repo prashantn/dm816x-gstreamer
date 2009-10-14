@@ -1,4 +1,8 @@
 2009-10-05 Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaivideosink.{c,h}:
+	Move caps processing code into gst_tidmaivideosink_process_caps().
+
+2009-10-05 Don Darling, Texas Instruments, Inc.
 	* src/gsttidmaivideosink.c:
 	Only adjust display buffer colorspace for non-DMAI input buffers.
 

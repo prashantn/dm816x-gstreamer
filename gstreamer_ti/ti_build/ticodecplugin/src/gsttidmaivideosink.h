@@ -86,8 +86,14 @@ struct _GstTIDmaiVideoSink {
   gboolean      autoselect;
   gboolean      contiguousInputFrame;
 
+  /* Display Attributes */
   Display_Handle    hDisplay;
   Display_Attrs     dAttrs;
+  BufferGfx_Attrs   dGfxAttrs;
+  gint              dFramerateNum;
+  gint              dFramerateDen;
+
+  /* Attributes for hardware-accelerated frame-copies */
   Framecopy_Handle  hFc;
   Resize_Handle     hResize;
   Ccv_Handle        hCcv;
