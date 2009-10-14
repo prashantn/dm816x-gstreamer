@@ -115,6 +115,7 @@ struct _GstTIDmaiVideoSink {
    * should be repeated to match the display output frame rate.
    */
   int           framerepeat;
+  gboolean      repeat_with_refresh;
   gboolean      signal_handoffs;
 
   /* Hardware accelerated copy */

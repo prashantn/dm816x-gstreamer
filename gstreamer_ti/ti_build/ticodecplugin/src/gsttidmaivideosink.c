@@ -160,6 +160,8 @@ static gboolean
  gst_tidmaivideosink_event(GstBaseSink * bsink, GstEvent * event);
 static void 
     gst_tidmaivideosink_init_env(GstTIDmaiVideoSink *sink);
+static int
+    gst_tidmaivideosink_videostd_get_refresh_latency(VideoStd_Type videoStd);
 
 static guint gst_tidmaivideosink_signals[LAST_SIGNAL] = { 0 };
 
@@ -398,20 +400,30 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
      * Anything that has a NULL value will be initialized with DMAI defaults 
      * in the gst_tidmaivideosink_init_display function.
      */
-    dmaisink->displayStd     = NULL;
-    dmaisink->displayDevice  = NULL;
-    dmaisink->dGfxAttrs      = defaultGfxAttrs;
-    dmaisink->videoStd       = NULL;
-    dmaisink->videoOutput    = NULL;
-    dmaisink->numBufs        = -1;
-    dmaisink->framerate      = -1;
-    dmaisink->rotation       = -1;
-    dmaisink->tempDmaiBuf    = NULL;
-    dmaisink->accelFrameCopy = TRUE;
-    dmaisink->autoselect     = FALSE;
-    dmaisink->prevVideoStd   = 0;
+    dmaisink->displayStd          = NULL;
+    dmaisink->displayDevice       = NULL;
+    dmaisink->dGfxAttrs           = defaultGfxAttrs;
+    dmaisink->videoStd            = NULL;
+    dmaisink->videoOutput         = NULL;
+    dmaisink->numBufs             = -1;
+    dmaisink->framerate           = -1;
+    dmaisink->framerepeat         = 0;
+    dmaisink->repeat_with_refresh = FALSE;
+    dmaisink->rotation            = -1;
+    dmaisink->tempDmaiBuf         = NULL;
+    dmaisink->accelFrameCopy      = TRUE;
+    dmaisink->autoselect          = FALSE;
+    dmaisink->prevVideoStd        = 0;
 
     dmaisink->signal_handoffs = DEFAULT_SIGNAL_HANDOFFS;
+
+    /* On DM365, we don't have the bandwidth to copy a frame multiple times to
+     * display them more than once.  We must put a frame to the display once
+     * and let it be refreshed multiple times.
+     */
+    #if defined(Platform_dm365)
+    dmaisink->repeat_with_refresh = TRUE;
+    #endif
 
     gst_tidmaivideosink_init_env(dmaisink);
 }
@@ -667,6 +679,54 @@ static int gst_tidmaivideosink_videostd_get_attrs(VideoStd_Type videoStd,
     GST_DEBUG("Finish\n");
     return (VideoStd_getResolution(videoStd, (Int32 *) & vattrs->width,
                 (Int32 *) & vattrs->height));
+}
+
+
+/*******************************************************************************
+ * gst_tidmaivideosink_videostd_get_refresh_latency
+ *
+ *    Return the refresh latency in us for the given display standard.
+*******************************************************************************/
+static int gst_tidmaivideosink_videostd_get_refresh_latency(
+               VideoStd_Type videoStd)
+{
+    switch (videoStd) {
+        case VideoStd_1080P_24:
+            return 41667;
+
+        case VideoStd_SIF_PAL:
+        case VideoStd_D1_PAL:
+        case VideoStd_1080P_25:
+        case VideoStd_1080I_25:
+            return 40000;
+
+        case VideoStd_CIF:
+        case VideoStd_SIF_NTSC:
+        case VideoStd_D1_NTSC:
+            return 33367;
+            
+        case VideoStd_1080I_30:
+        case VideoStd_1080P_30:
+            return 33333;
+
+        case VideoStd_576P:
+        case VideoStd_720P_50:
+            return 20000;
+
+        case VideoStd_480P:
+        case VideoStd_720P_60:
+            return 16667;
+
+        #if defined(Platform_omap3530)
+        case VideoStd_VGA:
+            return 16667;
+        #endif
+
+        default:
+            break;
+    }
+    GST_ERROR("Unknown videoStd entered (VideoStd = %d)\n", videoStd);
+    return 0;
 }
 
 
@@ -1393,12 +1453,29 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         sink->framerepeat = gst_tidmaivideosink_get_framerepeat(sink);
     }
 
+    /* Display the frame as many times as specified by framerepeat.  By
+     * default, the input buffer is copied to a display buffer for each time
+     * it is to be repeated.  However, if repeat_with_refresh is TRUE, then
+     * the platform doesn't have the bandwidth for multiple copies.  In this
+     * case we copy and display the input buffer only once, but let it refresh
+     * multiple times.
+     */
     for (i = 0; i < sink->framerepeat; i++) {
 
         /* Get a buffer from the display driver */
         if (Display_get(sink->hDisplay, &hDispBuf) < 0) {
             GST_ERROR("Failed to get display buffer\n");
             goto cleanup;
+        }
+
+        /* If repeat_with_refresh was specified, wait for the display to
+         * refresh framerepeat-1 times to make sure it has finished displaying
+         * this buffer before we write new data into it.
+         */
+        while (sink->repeat_with_refresh && i < (sink->framerepeat-1)) {
+            usleep(gst_tidmaivideosink_videostd_get_refresh_latency(
+                sink->dAttrs.videoStd) + 1);
+            i++;
         }
 
         /* Retrieve the dimensions of the display buffer */
