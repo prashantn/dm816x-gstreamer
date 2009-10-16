@@ -1,12 +1,12 @@
 /*
  * gsttividresize.c
  *
- * This file defines the "TIVidresize" element, which resizes the video frames
+ * This file defines the "TIVidResize" element, which resizes the video frames
  * using hardware resizer (if available).
  *
  * Example usage:
  *     gst-launch videotestsrc ! 'video/x-raw-yuv,width=160,height=120' !
- *       TIVidresize ! 'video/x-raw-yuv,width=320,height=240' ! 
+ *       TIVidResize ! 'video/x-raw-yuv,width=320,height=240' ! 
  *        fakesink silent=TRUE
  *
  * Original Author:
@@ -176,10 +176,10 @@ GType gst_tividresize_get_type(void)
         };
 
         object_type = g_type_register_static(GST_TYPE_BASE_TRANSFORM,
-                          "GstTIVidresize", &object_info, (GTypeFlags)0);
+                          "GstTIVidResize", &object_info, (GTypeFlags)0);
 
         /* Initialize GST_LOG for this object */
-        GST_DEBUG_CATEGORY_INIT(gst_tividresize_debug, "TIVidresize", 0,
+        GST_DEBUG_CATEGORY_INIT(gst_tividresize_debug, "TIVidResize", 0,
             "TI Video Resize");
 
         GST_LOG("initialized get_type\n");

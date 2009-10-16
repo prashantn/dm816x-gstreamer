@@ -1,3 +1,7 @@
+2009-10-16 Chase Maupin, Texas Instruments, Inc.
+	* src/gsttividresize.c, gstticodecplugin.c:
+    Changed name of TIVidresize element to TIVidResize.
+
 2009-10-05 Don Darling, Texas Instruments, Inc.
 	* src/gsttidmaivideosink.{c,h}:
 	Add new method for displaying frames multiple times.  Lets us give a single

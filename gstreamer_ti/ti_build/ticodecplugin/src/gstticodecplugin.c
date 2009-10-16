@@ -146,10 +146,10 @@ TICodecPlugin_init (GstPlugin * TICodecPlugin)
         GST_TYPE_TIDMAIVIDEOSINK))
         return FALSE;
 
-    env_value = getenv("GST_TI_TIVidresize_DISABLE");
+    env_value = getenv("GST_TI_TIVidResize_DISABLE");
 
     if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
-        TICodecPlugin, "TIVidresize", GST_RANK_PRIMARY,
+        TICodecPlugin, "TIVidResize", GST_RANK_PRIMARY,
         GST_TYPE_TIVIDRESIZE))
         return FALSE;
 
