@@ -1545,7 +1545,7 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
              * TODO: later add an option to resize the video.
              */
             if (sink->dGfxAttrs.dim.width > dim.width) {
-                GST_INFO("Input image width (%d) greater than display width"
+                GST_INFO("Input image width (%ld) greater than display width"
                          " (%ld)\n Image cropped to fit screen\n",
                          sink->dGfxAttrs.dim.width, dim.width);
                 dim.x = 0;
@@ -1555,7 +1555,7 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
             }
 
             if (sink->dGfxAttrs.dim.height > dim.height) {
-                GST_INFO("Input image height (%d) greater than display height"
+                GST_INFO("Input image height (%ld) greater than display height"
                          " (%ld)\n Image cropped to fit screen\n",
                          sink->dGfxAttrs.dim.height, dim.height);
                 dim.y = 0;
