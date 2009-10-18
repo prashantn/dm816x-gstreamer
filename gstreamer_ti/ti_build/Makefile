@@ -41,7 +41,9 @@ install:
 
 clean:
 	for dir in $(TI_PLUGINS); do \
-	    cd $${dir}; $(MAKE) clean; \
+	    if [ -r $${dir}/Makefile ] ; then \
+	        cd $${dir}; $(MAKE) distclean; \
+	    fi ; \
 	done
 
 #------------------------------------------------------------------------------
