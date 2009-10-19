@@ -35,12 +35,12 @@ PACKAGES = $(BASE_PACKAGES) $(PLUGIN_PACKAGES)
 
 default:     help
 
-all: .base .plugins
+all: .plugins
 
 .base:
 	$(CMD_PREFIX) $(MAKE) base    $(BUILD_INSTALL) && touch $@
 
-.plugins:
+.plugins: .base
 	$(CMD_PREFIX) $(MAKE) plugins $(BUILD_INSTALL) && touch $@
 
 base:
