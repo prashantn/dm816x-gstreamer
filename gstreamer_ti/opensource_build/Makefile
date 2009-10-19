@@ -35,9 +35,13 @@ PACKAGES = $(BASE_PACKAGES) $(PLUGIN_PACKAGES)
 
 default:     help
 
-all:
-	$(CMD_PREFIX) $(MAKE) base    $(BUILD_INSTALL)
-	$(CMD_PREFIX) $(MAKE) plugins $(BUILD_INSTALL)
+all: .base .plugins
+
+.base:
+	$(CMD_PREFIX) $(MAKE) base    $(BUILD_INSTALL) && touch $@
+
+.plugins:
+	$(CMD_PREFIX) $(MAKE) plugins $(BUILD_INSTALL) && touch $@
 
 base:
 	$(CMD_PREFIX) $(MAKE) glib         $(BUILD_INSTALL)
@@ -60,6 +64,8 @@ install:
 CLEAN_PACKAGES	 = $(addsuffix .clean, $(PACKAGES))
 .PHONY: clean $(CLEAN_PACKAGES)
 clean:	$(CLEAN_PACKAGES)
+	rm -f .base .plugins
+
 $(CLEAN_PACKAGES):
 	@echo "***** Cleaning $(basename $@)"
 	$(CMD_PREFIX) rm -rf $(PACKAGE_$(basename $@)_ARCHIVE_BASENAME)
