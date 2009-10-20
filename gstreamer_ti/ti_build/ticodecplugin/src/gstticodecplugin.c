@@ -46,6 +46,7 @@
 #include "gsttividenc1.h"
 #include "gsttiaudenc1.h"
 #include "gsttividresize.h"
+#include "gsttidmaiperf.h"
 
 /* entry point to initialize the plug-in
  * initialize the plug-in itself
@@ -151,6 +152,13 @@ TICodecPlugin_init (GstPlugin * TICodecPlugin)
     if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
         TICodecPlugin, "TIVidResize", GST_RANK_PRIMARY,
         GST_TYPE_TIVIDRESIZE))
+        return FALSE;
+
+    env_value = getenv("GST_TI_TIDmaiPerf_DISABLE");
+
+    if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
+        TICodecPlugin, "dmaiperf", GST_RANK_PRIMARY,
+        GST_TYPE_DMAIPERF))
         return FALSE;
 
     return TRUE;
