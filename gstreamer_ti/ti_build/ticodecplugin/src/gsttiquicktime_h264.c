@@ -156,7 +156,7 @@ GstBuffer* gst_h264_get_nal_prefix_code (void)
 
 /******************************************************************************
  * gst_h264_parse_and_queue  - This function adds sps and pps header data
- * before pushing input buffer in Fifo.
+ * before pushing input buffer in queue.
  *
  * H264 in quicktime is what we call in gstreamer 'packtized' h264.
  * A codec_data is exchanged in the caps that contains, among other things,
@@ -177,9 +177,6 @@ int gst_h264_parse_and_queue (GstTICircBuffer *circBuf, GstBuffer *buf,
     guint8 *inBuf = GST_BUFFER_DATA(buf);
     int offset = 0;
 
-    /* Increment buffer ref count, we don't want fifo to free the buffer. */
-    gst_buffer_ref(sps_pps_data);
-
     /* Put SPS and PPS data (prefixed with NAL code) in fifo */
     if (!gst_ticircbuffer_queue_data(circBuf, sps_pps_data)) {
         GST_ERROR("Failed to put SPS, PPS data in Fifo \n");
@@ -194,9 +191,6 @@ int gst_h264_parse_and_queue (GstTICircBuffer *circBuf, GstBuffer *buf,
         inBuf += nal_length;
         offset += nal_length;
             
-        /* Increment buffer ref count, we don't want fifo to free the buffer. */
-        gst_buffer_ref(nal_code_prefix);
-
         /* Put NAL prefix code in fifo */
         if (!gst_ticircbuffer_queue_data(circBuf, nal_code_prefix)) {
             GST_ERROR("Failed to put NAL code prefix\n");
@@ -214,16 +208,17 @@ int gst_h264_parse_and_queue (GstTICircBuffer *circBuf, GstBuffer *buf,
         /* Put nal_size data from input buffer in fifo */
         if (!gst_ticircbuffer_queue_data(circBuf, subBuf)) {
             GST_ERROR("Failed to put NAL code prefix\n");
+            gst_buffer_unref(subBuf);
             return FALSE;
         }
+
+        /* Unref the sub buffer */
+        gst_buffer_unref(subBuf);
 
         offset += nal_size;
         inBuf += nal_size;
         avail -= (nal_size + nal_length);
     }while (avail > 0);
-
-    /* unref the parent buffer */
-    gst_buffer_unref(buf);
 
     return TRUE;
 }
