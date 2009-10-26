@@ -1,3 +1,7 @@
+2009-10-26 Don Darling, Texas Instruments, Inc.
+	* src/{gsttiauddec.c, gsttiauddec1.c}:
+	Fix memory leak while handling AAC packetized streams.
+
 2009-10-25 Bob Faskos
 	* src/gsttiquicktime_h264.c:
 	Fix memory leak while handling H.264 packetized streams. see bug#964.

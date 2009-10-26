@@ -525,6 +525,12 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
     GST_INFO("requested sink caps:  %s", string);
     g_free(string);
 
+    /* Shut-down any running audio decoder */
+    if (!gst_tiauddec1_exit_audio(auddec1)) {
+        gst_object_unref(auddec1);
+        return FALSE;
+    }
+
     /* Generic Audio Properties */
     if (!strncmp(mime, "audio/", 6)) {
 
@@ -595,12 +601,6 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
     if (!codec) {
         GST_ELEMENT_ERROR(auddec1, STREAM, CODEC_NOT_FOUND,
         ( "unable to find codec needed for stream"), (NULL));
-        gst_object_unref(auddec1);
-        return FALSE;
-    }
-
-    /* Shut-down any running audio decoder */
-    if (!gst_tiauddec1_exit_audio(auddec1)) {
         gst_object_unref(auddec1);
         return FALSE;
     }
@@ -947,6 +947,11 @@ static gboolean gst_tiauddec1_exit_audio(GstTIAuddec1 *auddec1)
     pthread_mutex_destroy(&auddec1->threadStatusMutex);
 
     /* Shut down remaining items */
+    if (auddec1->aac_header_data) {
+        gst_buffer_unref(auddec1->aac_header_data);
+        auddec1->aac_header_data = NULL;
+    }
+
     if (auddec1->waitOnDecodeDrain) {
         Rendezvous_delete(auddec1->waitOnDecodeDrain);
         auddec1->waitOnDecodeDrain = NULL;
