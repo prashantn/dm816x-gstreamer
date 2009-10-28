@@ -48,7 +48,7 @@ static void      gst_ticircbuffer_broadcast_producer(GstTICircBuffer *circBuf);
 static void      gst_ticircbuffer_wait_on_consumer(GstTICircBuffer *circBuf,
                                                    Int32 bytesNeeded);
 static void      gst_ticircbuffer_broadcast_consumer(GstTICircBuffer *circBuf);
-static Int32     gst_ticircbuffer_shift_data(GstTICircBuffer *circBuf);
+static gboolean  gst_ticircbuffer_shift_data(GstTICircBuffer *circBuf);
 static Int32     gst_ticircbuffer_reset_read_pointer(GstTICircBuffer *circBuf);
 static gboolean  gst_ticircbuffer_window_available(GstTICircBuffer *circBuf);
 static Int32     gst_ticircbuffer_data_available(GstTICircBuffer *circBuf);
@@ -644,13 +644,14 @@ void gst_ticircbuffer_drain(GstTICircBuffer *circBuf, gboolean status)
  * gst_ticircbuffer_shift_data
  *    Look for uncopied data in the last window and move it to the first one.
  ******************************************************************************/
-static Int32 gst_ticircbuffer_shift_data(GstTICircBuffer *circBuf)
+static gboolean gst_ticircbuffer_shift_data(GstTICircBuffer *circBuf)
 {
-    Int8* firstWindow   = Buffer_getUserPtr(circBuf->hBuf);
-    Int32 lastWinOffset = Buffer_getSize(circBuf->hBuf) -
-                          (circBuf->windowSize + circBuf->readAheadSize);
-    Int8* lastWindow    = firstWindow + lastWinOffset;
-    Int32 bytesToCopy   = 0;
+    Int8*     firstWindow   = Buffer_getUserPtr(circBuf->hBuf);
+    Int32     lastWinOffset = Buffer_getSize(circBuf->hBuf) -
+                              (circBuf->windowSize + circBuf->readAheadSize);
+    Int8*     lastWindow    = firstWindow + lastWinOffset;
+    Int32     bytesToCopy   = 0;
+    gboolean  writePtrReset = FALSE;
 
     /* In fixedBlockSize mode, just wait until the write poitner reaches the
      * end of the buffer and then reset it to the beginning (no copying).
@@ -662,7 +663,7 @@ static Int32 gst_ticircbuffer_shift_data(GstTICircBuffer *circBuf)
             circBuf->writePtr       = Buffer_getUserPtr(circBuf->hBuf);
             circBuf->contiguousData = FALSE;
         }
-        return 0;
+        return TRUE;
     }
 
     /* Otherwise copy unconsumed data from the last window to the first one
@@ -688,6 +689,7 @@ static Int32 gst_ticircbuffer_shift_data(GstTICircBuffer *circBuf)
                      firstWindow));
         circBuf->writePtr       -= (lastWindow - firstWindow);
         circBuf->contiguousData  = FALSE;
+        writePtrReset            = TRUE;
 
         /* The queue function will not unblock the consumer until there is
          * at least windowSize + readAhead available, but if the read pointer
@@ -699,7 +701,7 @@ static Int32 gst_ticircbuffer_shift_data(GstTICircBuffer *circBuf)
          */
         gst_ticircbuffer_broadcast_producer(circBuf);
     }
-    return bytesToCopy;
+    return writePtrReset;
 }
 
 

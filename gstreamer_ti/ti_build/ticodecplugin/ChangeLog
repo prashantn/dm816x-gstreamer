@@ -1,4 +1,9 @@
 2009-10-26 Don Darling, Texas Instruments, Inc.
+	* src/gstticircbuffer.c:
+	Change return value of gst_ticircbuffer_shift_data() to show success or
+	failure.
+
+2009-10-26 Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec.c, gsttiauddec1.c}:
 	Fix memory leak while handling AAC packetized streams.
 
