@@ -261,8 +261,11 @@ gboolean gst_ticircbuffer_copy_config (GstTICircBuffer *circBuf,
  ******************************************************************************/
 gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
 {
+    gboolean result = TRUE;
+
+    /* If the circular buffer doesn't exist, do nothing */
     if (circBuf == NULL) {
-        return FALSE;
+        goto exit_fail;
     }
 
     /* Reset our mutex condition so a call to wait_on_consumer will block */
@@ -272,42 +275,8 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
      * queue buffers that no one will read.
      */
     if (circBuf->consumerAborted) {
-        return FALSE;
+        goto exit_fail;
     }
-
-    /* When in fixedBlockSize mode, we cannot block if the input buffer is
-     * too big to fit in the remaining space, as that may keep us from
-     * populating a window for consumption (and we may have only one window).
-     * In this case, make two recursive calls to this function -- one
-     * to place the first half of the buffer so the circular buffer is filled
-     * as much as possible, and one to place the second half.  The second call
-     * may block until the consumer catches up.
-     */
-     if (circBuf->fixedBlockSize                   && 
-         gst_ticircbuffer_write_space(circBuf) > 0 &&
-         gst_ticircbuffer_write_space(circBuf) < GST_BUFFER_SIZE(buf)) {
-
-         gboolean   result     = TRUE;
-         Int32      bytesAvail = gst_ticircbuffer_write_space(circBuf);
-         GstBuffer* subBuf;
-
-         GST_LOG("splitting input buffer of size %u into two pieces of sizes "
-                 "%lu and %lu\n",  GST_BUFFER_SIZE(buf), bytesAvail,
-                 GST_BUFFER_SIZE(buf) - bytesAvail);
-         subBuf = gst_buffer_create_sub(buf, 0, bytesAvail);
-         if (!gst_ticircbuffer_queue_data(circBuf, subBuf)) {
-             result = FALSE;
-         }
-
-         subBuf = gst_buffer_create_sub(buf, bytesAvail,
-                                        GST_BUFFER_SIZE(buf) - bytesAvail);
-         if (!gst_ticircbuffer_queue_data(circBuf, subBuf)) {
-             result = FALSE;
-         }
-
-         gst_buffer_unref(buf);
-         return result;
-     }
 
     /* If we run out of space, we need to move the data from the last buffer
      * window to the first window and continue queuing new data in the second
@@ -317,13 +286,50 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
     while (gst_ticircbuffer_write_space(circBuf) < GST_BUFFER_SIZE(buf)) {
 
         /* If the write pointer is ahead of the read pointer, check to see if
-         * the first window is free.  If it is, we can shift the data without
-         * blocking.
+         * the first window is free.  If it is, we may be able to shift the
+         * data without blocking.
          */
         if (circBuf->contiguousData &&
             gst_ticircbuffer_first_window_free(circBuf)) {
-            gst_ticircbuffer_shift_data(circBuf);
-            continue;
+
+            if (gst_ticircbuffer_shift_data(circBuf)) {
+                continue;
+            }
+        }
+
+        /* If there is some space available in the circular buffer, process as
+         * much of the input buffer as we can before we block.  The ability to
+         * do this is critical for both encode and decode operations.  For
+         * encode, this guarantees that we will always provide a full window
+         * to encode and never starve the codec.  For decode, this guarantees
+         * the write pointer will always reach the last window of the circular
+         * buffer before blocking, which is critical for the write pointer to
+         * be reset properly.
+         */
+        if (gst_ticircbuffer_write_space(circBuf) > 0) {
+
+            Int32      bytesAvail = gst_ticircbuffer_write_space(circBuf);
+            GstBuffer* subBuf;
+            gboolean   tmpResult;
+
+            GST_LOG("splitting input buffer of size %u into two pieces of "
+                "sizes %lu and %lu\n",  GST_BUFFER_SIZE(buf), bytesAvail,
+                GST_BUFFER_SIZE(buf) - bytesAvail);
+
+            subBuf = gst_buffer_create_sub(buf, 0, bytesAvail);
+            tmpResult = gst_ticircbuffer_queue_data(circBuf, subBuf);
+            gst_buffer_unref(subBuf);
+
+            if (!tmpResult) { goto exit_fail; }
+
+            subBuf = gst_buffer_create_sub(buf, bytesAvail,
+                         GST_BUFFER_SIZE(buf) - bytesAvail);
+            tmpResult = gst_ticircbuffer_queue_data(circBuf, subBuf);
+            gst_buffer_unref(subBuf);
+
+            if (!tmpResult) { goto exit_fail; }
+
+            goto exit;
         }
 
         /* Block until either the first window is free, or there is enough
@@ -340,7 +346,7 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
          * queue buffers that no one will read.
          */
         if (circBuf->consumerAborted) {
-            return FALSE;
+            goto exit_fail;
         }
 
         gst_ticircbuffer_shift_data(circBuf);
@@ -361,7 +367,7 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
         if (circBuf->userCopy(circBuf->writePtr, buf, 
               circBuf->userCopyData) < 0) {
             GST_ERROR("failed to copy input buffer.\n");
-            return FALSE; 
+            goto exit_fail;
         }
     }
     else {        
@@ -397,7 +403,12 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
         gst_ticircbuffer_broadcast_producer(circBuf);
     }
 
-    return TRUE;
+    goto exit;
+
+exit_fail:
+    result = FALSE;
+exit:
+    return result;
 }
 
 
