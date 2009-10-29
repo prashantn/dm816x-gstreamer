@@ -598,6 +598,12 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
     GST_INFO("requested sink caps:  %s", string);
     g_free(string);
 
+    /* Shut-down any running video encoder */
+    if (!gst_tividenc1_exit_video(videnc1)) {
+        gst_object_unref(videnc1);
+        return FALSE;
+    }
+
     /* Determine target board type */
     videnc1->hCpu = Cpu_create(&cpuAttrs);
     
@@ -665,12 +671,6 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
     else {
         GST_ELEMENT_ERROR(videnc1, STREAM, NOT_IMPLEMENTED,
         ("stream type not supported"), (NULL));
-        gst_object_unref(videnc1);
-        return FALSE;
-    }
-
-    /* Shut-down any running video encoder */
-    if (!gst_tividenc1_exit_video(videnc1)) {
         gst_object_unref(videnc1);
         return FALSE;
     }
