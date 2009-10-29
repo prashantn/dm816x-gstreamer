@@ -61,6 +61,7 @@ GST_DEBUG_CATEGORY_STATIC (gst_tividenc1_debug);
 #define GST_CAT_DEFAULT gst_tividenc1_debug
 
 #define DEFAULT_BIT_RATE 2000000
+#define INVALID_DEVICE   Cpu_Device_COUNT
 
 /* Element property identifiers */
 enum
@@ -396,6 +397,7 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->hVe1                   = NULL;
     videnc1->drainingEOS            = FALSE;
     videnc1->threadStatus           = 0UL;
+    videnc1->device                 = INVALID_DEVICE;
 
     videnc1->waitOnEncodeThread     = NULL;
     videnc1->waitOnEncodeDrain      = NULL;
@@ -1316,6 +1318,7 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
         GST_LOG("freeing cpu device buffer\n");
         Cpu_delete(videnc1->hCpu);
         videnc1->hCpu = NULL;
+        videnc1->device = INVALID_DEVICE;
     }
 
     if (videnc1->hFc) {
