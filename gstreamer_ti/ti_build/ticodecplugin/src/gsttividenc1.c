@@ -387,6 +387,13 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     gst_element_add_pad(GST_ELEMENT(videnc1), videnc1->sinkpad);
     gst_element_add_pad(GST_ELEMENT(videnc1), videnc1->srcpad);
 
+    /* Determine target board type */
+    if (Cpu_getDevice(NULL, &videnc1->device) < 0) {
+        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
+        ("Failed to determine target board\n"), (NULL));
+        videnc1->device = INVALID_DEVICE;
+    }
+
     /* Initialize TIVidenc1 state */
     videnc1->engineName             = NULL;
     videnc1->codecName              = NULL;
@@ -397,7 +404,6 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->hVe1                   = NULL;
     videnc1->drainingEOS            = FALSE;
     videnc1->threadStatus           = 0UL;
-    videnc1->device                 = INVALID_DEVICE;
 
     videnc1->waitOnEncodeThread     = NULL;
     videnc1->waitOnEncodeDrain      = NULL;
@@ -602,13 +608,6 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
     /* Shut-down any running video encoder */
     if (!gst_tividenc1_exit_video(videnc1)) {
         gst_object_unref(videnc1);
-        return FALSE;
-    }
-
-    /* Determine target board type */
-    if (Cpu_getDevice(NULL, &videnc1->device) < 0) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
-        ("Failed to determine target board\n"), (NULL));
         return FALSE;
     }
 
@@ -1316,8 +1315,6 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
         Ccv_delete(videnc1->hCcv);
         videnc1->hCcv = NULL;
     }
-
-    videnc1->device = INVALID_DEVICE;
 
     GST_LOG("end exit_video\n");
     return TRUE;
