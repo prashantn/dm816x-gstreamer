@@ -590,7 +590,6 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
     GstStructure *capStruct;
     const gchar  *mime;
     char         *string;
-    Cpu_Attrs    cpuAttrs   = Cpu_Attrs_DEFAULT;
 
     videnc1    = GST_TIVIDENC1(gst_pad_get_parent(pad));
     capStruct = gst_caps_get_structure(caps, 0);
@@ -607,14 +606,6 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
     }
 
     /* Determine target board type */
-    videnc1->hCpu = Cpu_create(&cpuAttrs);
-    
-    if (videnc1->hCpu == NULL) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
-        ("Failed to create cpu module\n"), (NULL));
-        return FALSE;
-    }
-
     if (Cpu_getDevice(NULL, &videnc1->device) < 0) {
         GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
         ("Failed to determine target board\n"), (NULL));
@@ -1314,13 +1305,6 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
         videnc1->waitOnBufTab = NULL;
     }
 
-    if (videnc1->hCpu) {
-        GST_LOG("freeing cpu device buffer\n");
-        Cpu_delete(videnc1->hCpu);
-        videnc1->hCpu = NULL;
-        videnc1->device = INVALID_DEVICE;
-    }
-
     if (videnc1->hFc) {
         GST_LOG("freeing framecopy handle\n");
         Framecopy_delete(videnc1->hFc);
@@ -1332,6 +1316,8 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
         Ccv_delete(videnc1->hCcv);
         videnc1->hCcv = NULL;
     }
+
+    videnc1->device = INVALID_DEVICE;
 
     GST_LOG("end exit_video\n");
     return TRUE;

@@ -85,7 +85,6 @@ struct _GstTIVidenc1
   pthread_mutex_t  threadStatusMutex;
   UInt32           threadStatus;
   Cpu_Device       device;
-  Cpu_Handle       hCpu;
   gint             upstreamBufSize;
 
   /* Encode thread */
