@@ -83,50 +83,26 @@ lame-398-2
  
 TI Plugin Elements
 ------------------
+Video Elements:
+* TIViddec2:  xDM 1.2 Video Decoder
+* TIViddec:   xDM 0.9 Video Decoder
+* TIVidenc1:  xDM 1.x Video Encoder
+* TIVidenc:   xDM 0.9 Video Encoder
 
-== VIDEO ==
-TIViddec2
-    xDM 1.2 Video Decoder
+Audio Elements:
+* TIAuddec1:  xDM 1.0 Audio Decoder
+* TIAuddec:   xDM 0.9 Audio Decoder
+* TIAudenc1:  xDM 1.x Audio Encoder
 
-TIViddec
-    xDM 0.9 Video Decoder
+Imaging Elements:
+* TIImgenc1:  xDM 1.0 Image Encoder
+* TIImgenc:   xDM 0.9 Image Encoder
+* TIImgdec1:  xDM 1.0 Image Decoder
+* TIImgdec:   xDM 0.9 Image Decoder
 
-TIVidenc1
-    xDM 1.x Video Encoder
-
-TIVidenc
-    xDM 0.9 Video Encoder
-
-== AUDIO ==
-TIAuddec1
-    xDM 1.0 Audio Decoder
-
-TIAuddec
-    xDM 0.9 Audio Decoder
-
-TIAudenc1
-    xDM 1.x Audio Encoder
-
-== IMAGING ==
-TIImgenc1
-    xDM 1.0 Image Encoder
-
-TIImgenc
-    xDM 0.9 Image Encoder
-
-TIImgdec1
-    xDM 1.0 Image Decoder
-
-TIImgdec
-    xDM 0.9 Image Decoder
-
-== MISCELLANEOUS ==
-TIDmaiVideoSink
-    Video sink supporting both framebuffer and V4L2 displays
-
-== TRANSFORM ==
-TIVidresize 
-	This element resizes video frames.
+Other Elements:
+* TIDmaiVideoSink:  Video sink supporting both framebuffer and V4L2 displays
+* TIVidResize:      This element resizes video frames.
 
 Supported Platforms
 ===================
