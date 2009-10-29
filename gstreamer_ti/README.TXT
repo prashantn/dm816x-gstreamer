@@ -215,22 +215,19 @@ These additional set-up steps are required when using an OMAP35xx EVM.
   Other platforms should use the bootargs settings in the DVSDK Getting
   Started Guide.
 
-Playing Clips
-=============
-Once the board is set up, you can use the provided example scripts to play
-multimedia files:
+Example GStreamer Usage
+=======================
+Many example GStreamer pipelines that use the TI GStreamer Plugin are available
+at:
 
-./decode_avi.sh:         Play an AVI file
-./decode_ts.sh:          Play a trasport stream
-./decode_qt.sh:          Play a quicktime file (i.e *.mp4)
-./decode_elementary.sh:  Play an audio or video elementary stream
-./encode_image.sh:       Encode an image file
-./test_sink.sh           Test audio or video sink
-./encode_elementry.sh:   Encode elementry stream using live source or file
+    http://wiki.davincidsp.com/index.php/Example_GStreamer_Pipelines
 
-Note that you may need to specify command line arguments to some scripts for
-them to work properly.  Run a script with -h to see what options are available.
+These examples cover how to play clips of various types, perform capture and
+encode, as well as network streaming.  Additional example contributions are
+welcome!
 
+Known Issues
+============
 Known issues are listed in the RELEASE_NOTES.TXT file.  For a list of all 
 issues please the the tracker items on the GStreamer project site at:
 https://gstreamer.ti.com/gf/project/gstreamer_ti/tracker/

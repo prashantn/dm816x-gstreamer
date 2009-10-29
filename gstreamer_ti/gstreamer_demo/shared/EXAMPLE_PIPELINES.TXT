@@ -1,0 +1,9 @@
+Many example GStreamer pipelines that use the TI GStreamer Plugin are available
+at:
+
+    http://wiki.davincidsp.com/index.php/Example_GStreamer_Pipelines
+
+These examples cover how to play clips of various types, perform capture and
+encode, as well as network streaming.  Additional example contributions are
+welcome!
+

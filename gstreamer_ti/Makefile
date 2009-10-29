@@ -44,10 +44,9 @@ $(SUBDIRS):
 gstreamer_demo:
 	@echo copying gstreamer_demo directory to target
 	$(CMD_PREFIX) install -d ./gstreamer_demo $(TARGET_DEMO_DIR)
-	$(CMD_PREFIX) install -d ./gstreamer_demo/shared $(TARGET_DEMO_DIR)/shared
-	$(CMD_PREFIX) install ./gstreamer_demo/shared/* $(TARGET_DEMO_DIR)/shared
 	$(CMD_PREFIX) install -d ./gstreamer_demo/$(PLATFORM) $(TARGET_DEMO_DIR)/$(PLATFORM)
 	$(CMD_PREFIX) install ./gstreamer_demo/$(PLATFORM)/* $(TARGET_DEMO_DIR)/$(PLATFORM)
+	$(CMD_PREFIX) install ./gstreamer_demo/shared/* $(TARGET_DEMO_DIR)/$(PLATFORM)
 	
 	@echo copying relevant kernel modules
 	$(CMD_PREFIX) if [ -d $(DVSDK_INSTALL_DIR)/kernel_binaries/$(PLATFORM) ]; then \
