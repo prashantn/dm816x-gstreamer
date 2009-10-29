@@ -80,10 +80,10 @@ $(BUILD_PACKAGES): %.build : %.patch_postconfig
 	    echo "***** building $(basename $@)"; \
 	    $(MAKE) $(MAKE_VERBOSE) -C $(PACKAGE_$(basename $@)_ARCHIVE_BASENAME) $(BUILD_INSTALL); \
 	else \
-	    for dir in $(PACKAGE_$(basename $@)_BUILD_DIRS); do \
+	    ( for dir in $(PACKAGE_$(basename $@)_BUILD_DIRS); do \
 		echo "***** building $(basename $@) ($${dir})"; \
-		$(MAKE) $(MAKE_VERBOSE) -C $(PACKAGE_$(basename $@)_ARCHIVE_BASENAME)/$${dir} $(BUILD_INSTALL); \
-	    done; \
+		$(MAKE) $(MAKE_VERBOSE) -C $(PACKAGE_$(basename $@)_ARCHIVE_BASENAME)/$${dir} $(BUILD_INSTALL) || exit -1; \
+	    done; ) ;\
 	fi
 
 #------------------------------------------------------------------------------
