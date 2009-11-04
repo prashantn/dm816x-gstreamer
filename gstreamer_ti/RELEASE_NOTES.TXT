@@ -1,54 +1,248 @@
+Release 1.01
+============
+
+
 New Features
 ------------
+  DM365 Support:
+  - Tracker 678 - Preliminary decode support.
+  - Tracker 918 - Capture support via v4l2src.
+  - Tracker 921 - Set TIDmaiVideoSink colorspace based on input buffer.
+  - Tracker 925 - Video encode support.
+  - Tracker 933 - Enhance video encoder to use hardware-accelerated frame
+                  copy into circular buffer.
+  - Tracker 947 - General refinements to loadmodules.sh.
+  - Tracker 948 - Only adjust display buffer color space for non-DMAI input
+                  buffers (refine tracker 921).
+  - Tracker 954 - Add new method for displaying frames multiple times without
+                  additional frame copies.
+  - Tracker 955 - Adjustments to loadmodules.sh for H.264.
 
-Release 1.00:
-	- Added support for video encoding elements TIVidenc and TIVidenc1.
-	  These elements support the DM355, DM6446, DM357, DM367 and
-	  OMAP35x devices.
-        - Patches for v4l2src element in the GST good plugin collection
-        - Patch 503 Support decodebin and playbin
+  DVSDK Support:
+  - Tracker 760 - Add support for DVSDK 2.00.00.22 on DM6446, DM355, and
+                  DM6467.
+  - Tracker 824 - Add support for DVSDK 3.00.02.44 on OMAP35x.
+
+  General:
+  - Tracker 700 - Plugin can be built with either libtool 1.5.x or 2.2.x.
+  - Tracker 714 - Make the configure --host argument configurable from the
+                  "make".
+  - Tracker 773 - Upgrade open source software components to the latest
+                  versions available on June 12th, 2009.
+  - Tracker 848 - Plugin can be configured to always load codec server from a
+                  fixed location.
+  - Tracker 926 - Add support for xDM 1.x audio encoders.
+  - Tracker 941 - Add the "TIVidResize" element for resizing video.
+  - Tracker 953 - Add the "dmaiperf" DMAI-based performance data gathering
+                  element.
+  - Tracker 956 - Only build open source packages that don't change once.
+  - Tracker 969 - Remove demo scripts from gstreamer_demo directory.  Example
+                  pipelines are now available at
+                  http://wiki.davincidsp.com/index.php/Example_GStreamer_Pipelines
+
 
 Fixed Issues
 ------------
+  - Tracker 198 - GStremer 0.10.15 introduces a major performance degradation.
+  - Tracker 272 - Assertion while playing h264 elementry stream (fixed in
+                  tracker 807).
+  - Tracker 309 - Decodebin and playbin not working.
+  - Tracker 496 - TIAuddec1 and TIViddec2 leaking memory during state
+                  transition from PLAYING to NULL (fixed in tracker 745).
+  - Tracker 519 - TIAuddec1 and TIViddec2 leaking memory at EOS (fixed in
+                  tracker 745).
+  - Tracker 716 - Destroy custom thread attribute object after we're done
+                  using it.
+  - Tracker 717 - Fix TIAuddec memory leak.
+  - Tracker 744 - Fix free memory read during error check.
+  - Tracker 745 - Fix memory leak during the destruction of
+                  TIDmaiBufferTransport.
+  - Tracker 770 - Assertions when playing back H.264 video (fixed in tracker
+                  807).
+  - Tracker 787 - Correct cmem output ownership waiting until fully released
+                  before de-allocating them.
+  - Tracker 797 - Handle problematic downstream elements, like playbin that
+                  don't unref sink buffers at EOS.
+  - Tracker 807 - If no NAL prefix code for h264 decode, then parse
+                  codec_data to construct NAL header.
+  - Tracker 845 - TIViddec2 crashes when it on EOS after decode_thread stops
+                  the codec.
+  - Tracker 912 - Remove the queue thread from all elements.  This resolves
+                  some potential issues on EOS.
+  - Tracker 913 - Guarantee that the input buffer is always unref'd by
+                  creating single exit point in *_chain functions.
+  - Tracker 914 - Guarantee that the circular buffer will not be accessed
+                  during shut-down.
+  - Tracker 915 - Since other threads may be checking the circular buffer
+                  pointer, set the circular buffer pointer to NULL before
+                  unref'ing it.
+  - Tracker 916 - When calling drain_pipeline, set drainingEOS to TRUE AFTER
+                  the check for codec exists.
+  - Tracker 919 - Add error checking to circular buffer API's.
+  - Tracker 924 - Circular buffer allocation fix for TIAuddec and TIAuddec1.
+  - Tracker 929 - Replace GST_ERROR function with GST_ELEMENT_ERROR in all
+                  elements.
+  - Tracker 934 - Work around DMAI 1.20.00.06 defect in non-accelerated frame
+                  copy for YUV420PSEMI data.
+  - Tracker 940 - Enable hardware-accelerated frame copy when encoder is
+                  receiving dmai transport buffer.
+  - Tracker 945 - Set parent_class in gst_tidmaivideosink_class_init().
+  - Tracker 967 - Codec fails to initialize when encoding from a file with no
+                  caps negotiation.
+  - Tracker 964 - Changes to remove queue thread caused memory leak with
+                  packetized h.264 streams (refine tracker 912).
+  - Tracker 959 - AAC decoding crashes while running gst-launch pipeline.
+  - Tracker 957 - Fix printf formatting warnings that were causing build
+                  failures. 
+  - Tracker 958 - Improved clean target so it doesn't fail if the
+                  configuration step hasn't been performed.
+  - Tracker 874 - Update codec table to add video encoder strings.
+  - Tracker 871 - v4l2src: Fix frame rate numerator and denominator values.
+  - Tracker 858 - Delete temporary buffer created in circular buffer during
+                  video encode process.
 
-Release 1.00:
-        - Patch 499 Fix memory leak during Fifo flush
-        - Patch 506 Fix data type mismatch int / bool for resizer and 
-          autoselect properties in TIDmaiVideoSink
-        - Bug 303 Playback of audio and video increments VmallocUsed
-        - Bug 389 Memory leak in gsttividdec.c and gsttiauddec.c 
-          (and probably others)
-        - Bug 707 Decode of mp4 file plays back with skips
 
 Known Issues
 ------------
 
-    - Tighter memory constraints in OMAP35x may cause OOM killers in some
-      cases.  See the README.TXT for information on modifying bootarg settings
-      to make more memory available to the system.
+Release 1.01:
+  - Tighter memory constraints in OMAP35x may cause OOM killers in
+    some cases.  See the README.TXT for information on modifying
+    bootarg settings to make more memory available to the system.
+  - If you don't have "gperf" installed on your system, it may manifest
+    as a mysterious run issue with libid3tag involving unresolved
+    symbols (something like "undefined symbol: id3_frametype_unknown").
+    The gperf package that comes with RHEL 4.6 is sufficient, but you need
+    to make sure it is installed.
+  - The JPEG image elements support multiple color spaces.  However,
+    not every codec supports every color space.  If you specify a
+    color space that is not supported you will get an error message
+    indicating that the plugin failed to create the codec.  Check
+    the codec user's guide to determine if your codec supports the
+    color spaces used for the input and output.
+  - If clip size is smaller and TIDmaiVideoSink element reports
+    "assertion" then try disabling hardware-accelerated frame-copies. This
+    can be disabled by specifying accelFrameCopy=FALSE for TIDmaiVideoSink.
+    Note: disabling hardware-accelerated frame-copies will affect 
+    performance.
+  - Tracker 972 - AVI video playback crash in VGA video standard. 
+    When playing an AVI file with VGA video standard, it plays ok 
+    the first time it runs, the second time it crashes.
+  - The plugin will not build on DM357 unless you upgrade the version of
+    DMAI in DVSDK 2.05 to DMAI 1.20.00.06.  More information is available
+    in the README.TXT.
 
-Release 1.00:
-	- Video encode is not supported on DM6467.  DM6467 requires DMAI
-	  version at least 1.20.00.06 which is meant to be used with 
-	  DVSDK 2.00.  Official support for video encoding on DM6467
-	  will be added when DVSDK 2.00 is released.  For customer that
-	  already have DVSDK 2.00 you can upgrade the DMAI version in
-	  order to use the video encoder.
-	- If you don't have "gperf" installed on your system, it may manifest 
-	  as a mysterious run issue with libid3tag involving unresolved 
-	  symbols.  The gperf package that comes with RHEL 4.6 is sufficient, 
-	  but you need to make sure it is installed.
-	- The JPEG image elements support multiple color spaces.  However, 
-	  not every codec supports every color space.  If you specify a 
-	  color space that is not supported you will get an error message 
-	  indicating that the plugin failed to create the codec.  Check 
-	  the codec user's guide to determine if your codec supports the 
-	  color spaces used for the input and output.
-	- If clip size is smaller and dmaivideosink element reports 
-	  "assertion" then try disabling hw accelerated framecopy. This can 
-	  be disabled with -c option in scripts. Note: disabling hw accel 
-	  framecopy will affect performance.
-        - H264 encoded video from TIVidenc works with VLC if it has a 
-          file extension of .264.  In the 1.00.00 release, it was 
-          incorrectly stated there was a problem playing H264 files 
-          with VLC.
+
+Trackers unresolved for release 1.01 scheduled for next release
+
+  - Tracker 970 - dmai-perf inaccuracy in fps and bps calculation.
+  - Tracker 966 - Update open-source base components.
+  - Tracker 903 - DMAI video encoder support refactor.
+  - Tracker 867 - Improve video encoders timestamp handling.
+  - Tracker 532 - Buffers used during for decoding uses fixed sizes buffers.
+  - Tracker 881 - Changing the video Output to use from LCD to DVI crashes
+                  the system.
+
+
+Trackers for defects in other non-plugin software components
+
+  - Tracker 965 - Building gst-plugins-good-0.10.15 with X11 development
+                  headers installed on host machine fails.
+  - Tracker 968 - 1: command not found when building DM357 DVSDK.
+  - Tracker 930 - gstticodecplugin should fail to initialize if
+                  CERuntime_init() fails.
+
+
+Trackers unresolved for release 1.01
+
+  - Tracker 974 - Video playback freezes with H264 and MPEG2 (1080i test)
+  - Tracker 971 - Video playback freezes 
+  - Tracker 963 - MPEG4 decoding crashes
+  - Tracker 962 - Blockiness on encoded image
+  - Tracker 960 - MP4 decoding crashes when using accelerated frame copy 
+  - Tracker 893 - TIViddec2 buffer processing thread takes about one minute
+                  before invoking the decoder thread
+  - Tracker 883 - If GStreamer is killed forcibly, the process becomes a
+                  zombie in DVSDK 3.00.00.40
+  - Tracker 870 - BUG: TIViddec2 crashes on transition from PLAYING to NULL
+                  during playback
+  - Tracker 194 - Figure out why open source AVI demuxer crashes on really
+                  large clips
+  - Tracker 200 - GLib 2.14.1 introduces code that crashes DM6446
+  - Tracker 250 - about playback stalls problem during playing
+  - Tracker 274 - H.264 Quality with TIViddec2 is poor on DM6467
+  - Tracker 342 - Lip Sync missing in Audio and Video
+  - Tracker 498 - TIDmaiVideoSink fails if DISPLAY_WIDTH - VIDEO_WIDTH is not
+                  a multiple of 32
+  - Tracker 521 - TIViddec2 / TIAuddec1 audio / video get out of sync after
+                  long MP4 playback
+  - Tracker 523 - Can not play back captured H264 stored in MP4 with common
+                  players
+  - Tracker 525 - H264 encoded AVI file doesn't play on common players
+  - Tracker 677 - Multiple Pipelines
+  - Tracker 484 - Patches to support MP4/H.264/AAC encode on OMAP3 platform
+                  { PSP 1.0.2/DVSDK 3.00.00.29}
+  - Tracker 808 - [PATCH] Fix bug#798
+  - Tracker 196 - Remove #if defined(Platform_omap3530) preprocessor macros
+                  from display sink
+  - Tracker 267 - Analyze memory usage on all platforms and define reasonable
+                  default CMEM pools.
+  - Tracker 412 - Provide benchmarking numbers with the GStreamer release
+  - Tracker 457 - Add support for contiguous input buffers to image encoders
+  - Tracker 505 - Create one codec combo for encode and decode
+  - Tracker 840 - MPEG4(AAC) audio stream not played by aachedec. Is played
+                  properly with libfaad
+
+
+
+
+Release 1.00
+============
+
+
+New Features
+------------
+  - Added support for video encoding elements TIVidenc and TIVidenc1.
+    These elements support the DM355, DM6446, DM357, DM367 and
+    OMAP35x devices.
+  - Patches for v4l2src element in the GST good plugin collection
+  - Patch 503 Support decodebin and playbin
+
+
+Fixed Issues
+------------
+  - Patch 499 Fix memory leak during Fifo flush
+  - Patch 506 Fix data type mismatch int / bool for resizer and 
+    autoselect properties in TIDmaiVideoSink
+  - Bug 303 Playback of audio and video increments VmallocUsed
+  - Bug 389 Memory leak in gsttividdec.c and gsttiauddec.c 
+    (and probably others)
+  - Bug 707 Decode of mp4 file plays back with skips
+
+
+Known Issues
+------------
+  - Video encode is not supported on DM6467.  DM6467 requires DMAI
+    version at least 1.20.00.06 which is meant to be used with 
+    DVSDK 2.00.  Official support for video encoding on DM6467
+    will be added when DVSDK 2.00 is released.  For customer that
+    already have DVSDK 2.00 you can upgrade the DMAI version in
+    order to use the video encoder.
+  - If you don't have "gperf" installed on your system, it may manifest 
+    as a mysterious run issue with libid3tag involving unresolved 
+    symbols.  The gperf package that comes with RHEL 4.6 is sufficient, 
+    but you need to make sure it is installed.
+  - The JPEG image elements support multiple color spaces.  However, 
+    not every codec supports every color space.  If you specify a 
+    color space that is not supported you will get an error message 
+    indicating that the plugin failed to create the codec.  Check 
+    the codec user's guide to determine if your codec supports the 
+    color spaces used for the input and output.
+  - If clip size is smaller and dmaivideosink element reports 
+    "assertion" then try disabling hw accelerated framecopy. This can 
+    be disabled with -c option in scripts. Note: disabling hw accel 
+    framecopy will affect performance.
+  - H264 encoded video from TIVidenc works with VLC if it has a 
+    file extension of .264.  In the 1.00.00 release, it was 
+    incorrectly stated there was a problem playing H264 files 
+    with VLC.
