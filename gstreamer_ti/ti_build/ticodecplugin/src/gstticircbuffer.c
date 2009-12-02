@@ -682,7 +682,7 @@ static gboolean gst_ticircbuffer_shift_data(GstTICircBuffer *circBuf)
      */
     if (gst_ticircbuffer_first_window_free(circBuf) &&
         circBuf->writePtr >= circBuf->readPtr       &&
-        circBuf->writePtr >= lastWindow)
+        circBuf->writePtr >= lastWindow + circBuf->windowSize)
     {
 
         bytesToCopy = circBuf->writePtr - lastWindow;

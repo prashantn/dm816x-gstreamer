@@ -1,3 +1,7 @@
+2009-12-01 Don Darling, Texas Instruments, Inc.
+	* src/gstticircbuffer.c:
+	Fix issue where codecs could be fed garbage data.
+
 2009-10-29 Don Darling, Texas Instruments, Inc.
 	* src/{gsttividenc1.{c,h}}:
 	Fix issue where encode codec was not properly initialized when caps
