@@ -76,6 +76,7 @@ struct _GstTIVidenc
   glong             bitRate;
   gboolean          contiguousInputFrame;
   gint              rateControlPreset;
+  gint              encodingPreset;
             
   /* Element state */
   Engine_Handle     hEngine;

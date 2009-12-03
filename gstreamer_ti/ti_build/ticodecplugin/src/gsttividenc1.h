@@ -77,6 +77,7 @@ struct _GstTIVidenc1
   gint           numOutputBufs;
   gint32         bitRate;
   gint           rateControlPreset;
+  gint           encodingPreset;
 
   /* Element state */
   Engine_Handle    hEngine;

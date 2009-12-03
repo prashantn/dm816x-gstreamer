@@ -74,7 +74,8 @@ enum
   PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
   PROP_CONTIG_INPUT_BUF,/* contiguousInputFrame  (boolean) */
   PROP_GEN_TIMESTAMPS,  /* genTimeStamps  (boolean) */
-  PROP_RATE_CTRL_PRESET /* rateControlPreset  (gint) */
+  PROP_RATE_CTRL_PRESET,/* rateControlPreset  (gint) */
+  PROP_ENCODING_PRESET  /* encodingPreset  (gint) */
 };
 
 /* Define source (output) pad capabilities.  Currently, MPEG and H264 are 
@@ -311,6 +312,15 @@ static void gst_tividenc_class_init(GstTIVidencClass *klass)
             "\n\t\t\t2 - Constant bit rate (CBR)"
             "\n\t\t\t3 - Variable bit rate (VBR)",
             1, G_MAXINT32, 1, G_PARAM_WRITABLE));
+
+    g_object_class_install_property(gobject_class, PROP_ENCODING_PRESET,
+        g_param_spec_int("encodingPreset",
+            "Encoding preset",
+            "Algorithm specific creation time parameters"
+            "\n\t\t\t1 - Use codec default"
+            "\n\t\t\t2 - High quality"
+            "\n\t\t\t3 - High speed",
+            1, G_MAXINT32, 1, G_PARAM_WRITABLE));
 }
 
 /******************************************************************************
@@ -381,6 +391,7 @@ static void gst_tividenc_init(GstTIVidenc *videnc, GstTIVidencClass *gclass)
     videnc->hFc                     = NULL;
     videnc->contiguousInputFrame    = FALSE;
     videnc->rateControlPreset       = 1;
+    videnc->encodingPreset         = 1;
 }
 /******************************************************************************
  * gst_tividenc_find_colorSpace 
@@ -481,6 +492,11 @@ static void gst_tividenc_set_property(GObject *object, guint prop_id,
             videnc->rateControlPreset = g_value_get_int(value);
             GST_LOG("setting \"rateControlPreset\" to \"%d\" \n",
                      videnc->rateControlPreset);
+            break;
+        case PROP_ENCODING_PRESET:
+            videnc->encodingPreset = g_value_get_int(value);
+            GST_LOG("setting \"encodingPreset\" to \"%d\" \n",
+                     videnc->encodingPreset);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1220,6 +1236,20 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
             break;
         default:
             params.rateControlPreset = IVIDEO_NONE;
+            break;
+    }
+
+    /* Set the encoding preset */
+    switch(videnc->encodingPreset) {
+        case 1:
+            break;
+        case 2:
+            params.encodingPreset    = XDM_HIGH_QUALITY;
+            break;
+        case 3: 
+            params.encodingPreset    = XDM_HIGH_SPEED;
+            break;
+        default:
             break;
     }
 

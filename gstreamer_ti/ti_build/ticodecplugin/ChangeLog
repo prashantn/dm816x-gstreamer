@@ -1,3 +1,7 @@
+2009-12-03 Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttividenc1.{c,h},gsttividenc.{c,h}}:
+	Add encodingPreset property in video encoder elements.
+
 2009-12-01 Don Darling, Texas Instruments, Inc.
 	* src/gstticircbuffer.c:
 	Fix issue where codecs could be fed garbage data.

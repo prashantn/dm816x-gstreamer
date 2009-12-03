@@ -78,7 +78,9 @@ enum
   PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
   PROP_CONTIG_INPUT_BUF,/* contiguousInputFrame  (boolean) */
   PROP_GEN_TIMESTAMPS,  /* genTimeStamps  (boolean) */
-  PROP_RATE_CTRL_PRESET /* rateControlPreset  (gint) */
+  PROP_RATE_CTRL_PRESET,/* rateControlPreset  (gint) */
+  PROP_ENCODING_PRESET  /* encodingPreset  (gint) */
+
 };
 
 /* Define source (output) pad capabilities.  Currently, MPEG2/4 and H264 are 
@@ -324,6 +326,15 @@ static void gst_tividenc1_class_init(GstTIVidenc1Class *klass)
             "\n\t\t\t3 - Variable bit rate (VBR)",
             1, G_MAXINT32, 1, G_PARAM_WRITABLE));
 
+    g_object_class_install_property(gobject_class, PROP_ENCODING_PRESET,
+        g_param_spec_int("encodingPreset",
+            "Encoding preset",
+            "Algorithm specific creation time parameters"
+            "\n\t\t\t1 - Use codec default"
+            "\n\t\t\t2 - High quality"
+            "\n\t\t\t3 - High speed",
+            1, G_MAXINT32, 1, G_PARAM_WRITABLE));
+
     g_object_class_install_property(gobject_class, PROP_FRAMERATE,
         g_param_spec_int("frameRate",
             "Frame rate to play output",
@@ -426,6 +437,7 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->hFc                    = NULL;
     videnc1->rateControlPreset      = 1;
     videnc1->contiguousInputFrame   = FALSE;
+    videnc1->encodingPreset         = 1;
 }
 
 /******************************************************************************
@@ -509,6 +521,11 @@ static void gst_tividenc1_set_property(GObject *object, guint prop_id,
             videnc1->rateControlPreset = g_value_get_int(value);
             GST_LOG("setting \"rateControlPreset\" to \"%d\" \n",
                      videnc1->rateControlPreset);
+            break;
+        case PROP_ENCODING_PRESET:
+            videnc1->encodingPreset = g_value_get_int(value);
+            GST_LOG("setting \"encodingPreset\" to \"%d\" \n",
+                     videnc1->encodingPreset);
             break;
         case PROP_NUM_INPUT_BUFS:
             videnc1->numInputBufs = g_value_get_int(value);
@@ -1483,6 +1500,20 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
             break;
         default:
             params.rateControlPreset = IVIDEO_NONE;
+            break;
+    }
+    
+    /* Set the encoding preset */
+    switch(videnc1->encodingPreset) {
+        case 1:
+            break;
+        case 2:
+            params.encodingPreset    = XDM_HIGH_QUALITY;
+            break;
+        case 3: 
+            params.encodingPreset    = XDM_HIGH_SPEED;
+            break;
+        default:
             break;
     }
 
