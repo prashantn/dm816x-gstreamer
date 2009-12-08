@@ -31,7 +31,7 @@ BASE_PACKAGES += $(PACKAGE_glib_BUILD_TARGET)
 # Package check
 #------------------------------------------------------------------------------
 PACKAGE_check_BUILD_TARGET       = check
-PACKAGE_check_ARCHIVE_BASENAME   = check-0.9.6
+PACKAGE_check_ARCHIVE_BASENAME   = check-0.9.8
 PACKAGE_check_PRECONFIG_PATCHES  =
 PACKAGE_check_CONFIGURE_OPTS     = 
 PACKAGE_check_POSTCONFIG_PATCHES =
