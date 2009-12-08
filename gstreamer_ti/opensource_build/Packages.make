@@ -135,10 +135,10 @@ PLUGIN_PACKAGES += $(PACKAGE_plugins_bad_BUILD_TARGET)
 # Package plugins_ugly
 #-------------------------------------------------------------------------------
 PACKAGE_plugins_ugly_BUILD_TARGET       = plugins_ugly
-PACKAGE_plugins_ugly_ARCHIVE_BASENAME   = gst-plugins-ugly-0.10.11
+PACKAGE_plugins_ugly_ARCHIVE_BASENAME   = gst-plugins-ugly-0.10.13
 PACKAGE_plugins_ugly_PRECONFIG_PATCHES  = 
 ifeq ($(ALSA_SUPPORT), --disable-alsa)
-    PACKAGE_plugins_ugly_PRECONFIG_PATCHES += plugins_ugly1_0_10_11
+    PACKAGE_plugins_ugly_PRECONFIG_PATCHES += plugins_ugly1_0_10_13
 endif
 PACKAGE_plugins_ugly_CONFIGURE_OPTS     =    \
     --enable-lame                            \

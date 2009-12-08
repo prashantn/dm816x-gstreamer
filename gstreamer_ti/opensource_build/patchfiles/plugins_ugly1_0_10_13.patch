@@ -1,9 +1,9 @@
-diff -c -r orig/gst-plugins-ugly-0.10.11/ext/mad/gstmad.c gst-plugins-ugly-0.10.11/ext/mad/gstmad.c
-*** orig/gst-plugins-ugly-0.10.11/ext/mad/gstmad.c	2009-03-06 11:45:20.000000000 -0600
---- gst-plugins-ugly-0.10.11/ext/mad/gstmad.c	2009-06-11 12:39:45.000000000 -0500
+diff -c -r orig/gst-plugins-ugly-0.10.13/ext/mad/gstmad.c gst-plugins-ugly-0.10.13/ext/mad/gstmad.c
+*** orig/gst-plugins-ugly-0.10.13/ext/mad/gstmad.c	2009-10-12 05:25:41.000000000 -0500
+--- gst-plugins-ugly-0.10.13/ext/mad/gstmad.c	2009-10-27 15:57:24.000000000 -0500
 ***************
-*** 39,44 ****
---- 39,46 ----
+*** 40,45 ****
+--- 40,47 ----
   #include "gstmad.h"
   #include <gst/audio/audio.h>
   
@@ -13,8 +13,8 @@ diff -c -r orig/gst-plugins-ugly-0.10.11/ext/mad/gstmad.c gst-plugins-ugly-0.10.
   /* elementfactory information */
   static const GstElementDetails gst_mad_details =
 ***************
-*** 65,72 ****
---- 67,79 ----
+*** 66,73 ****
+--- 68,80 ----
       GST_STATIC_CAPS ("audio/x-raw-int, "
           "endianness = (int) " G_STRINGIFY (G_BYTE_ORDER) ", "
           "signed = (boolean) true, "
@@ -29,7 +29,7 @@ diff -c -r orig/gst-plugins-ugly-0.10.11/ext/mad/gstmad.c gst-plugins-ugly-0.10.
           "channels = (int) [ 1, 2 ]")
       );
 ***************
-*** 406,414 ****
+*** 403,411 ****
     }
   
     mad = GST_MAD (GST_PAD_PARENT (pad));
@@ -39,7 +39,7 @@ diff -c -r orig/gst-plugins-ugly-0.10.11/ext/mad/gstmad.c gst-plugins-ugly-0.10.
     switch (src_format) {
       case GST_FORMAT_BYTES:
         switch (*dest_format) {
---- 413,423 ----
+--- 410,420 ----
     }
   
     mad = GST_MAD (GST_PAD_PARENT (pad));
@@ -52,8 +52,8 @@ diff -c -r orig/gst-plugins-ugly-0.10.11/ext/mad/gstmad.c gst-plugins-ugly-0.10.
       case GST_FORMAT_BYTES:
         switch (*dest_format) {
 ***************
-*** 835,840 ****
---- 844,862 ----
+*** 829,834 ****
+--- 838,856 ----
   static inline gint32
   scale (mad_fixed_t sample)
   {
@@ -74,8 +74,8 @@ diff -c -r orig/gst-plugins-ugly-0.10.11/ext/mad/gstmad.c gst-plugins-ugly-0.10.
     /* round */
     sample += (1L << (28 - MAD_F_FRACBITS - 1));
 ***************
-*** 853,858 ****
---- 875,881 ----
+*** 847,852 ****
+--- 869,875 ----
   
     /* convert from 29 bits to 32 bits */
     return (gint32) (sample << 3);
@@ -84,8 +84,8 @@ diff -c -r orig/gst-plugins-ugly-0.10.11/ext/mad/gstmad.c gst-plugins-ugly-0.10.
   
   /* do we need this function? */
 ***************
-*** 1263,1270 ****
---- 1286,1298 ----
+*** 1253,1260 ****
+--- 1276,1288 ----
       caps = gst_caps_new_simple ("audio/x-raw-int",
           "endianness", G_TYPE_INT, G_BYTE_ORDER,
           "signed", G_TYPE_BOOLEAN, TRUE,
@@ -100,8 +100,8 @@ diff -c -r orig/gst-plugins-ugly-0.10.11/ext/mad/gstmad.c gst-plugins-ugly-0.10.
   
       gst_pad_set_caps (mad->srcpad, caps);
 ***************
-*** 1584,1590 ****
---- 1612,1622 ----
+*** 1575,1581 ****
+--- 1603,1613 ----
              to skip and send the remaining pcm samples */
   
           GstBuffer *outbuffer = NULL;
@@ -114,8 +114,8 @@ diff -c -r orig/gst-plugins-ugly-0.10.11/ext/mad/gstmad.c gst-plugins-ugly-0.10.
   
           if (mad->need_newsegment) {
 ***************
-*** 1613,1622 ****
---- 1645,1661 ----
+*** 1604,1613 ****
+--- 1636,1652 ----
           }
   
           /* will attach the caps to the buffer */
@@ -134,16 +134,16 @@ diff -c -r orig/gst-plugins-ugly-0.10.11/ext/mad/gstmad.c gst-plugins-ugly-0.10.
             /* Head for the exit, dropping samples as we go */
             GST_LOG ("Skipping frame synthesis due to pad_alloc return value");
 ***************
-*** 1627,1634 ****
+*** 1618,1625 ****
           mad_synth_frame (&mad->synth, &mad->frame);
           left_ch = mad->synth.pcm.samples[0];
           right_ch = mad->synth.pcm.samples[1];
 ! 
           outdata = (gint32 *) GST_BUFFER_DATA (outbuffer);
   
-          GST_DEBUG ("mad out timestamp %" GST_TIME_FORMAT,
-              GST_TIME_ARGS (time_offset));
---- 1666,1676 ----
+          GST_DEBUG ("mad out timestamp %" GST_TIME_FORMAT " dur: %"
+              GST_TIME_FORMAT, GST_TIME_ARGS (time_offset),
+--- 1657,1667 ----
           mad_synth_frame (&mad->synth, &mad->frame);
           left_ch = mad->synth.pcm.samples[0];
           right_ch = mad->synth.pcm.samples[1];
@@ -153,11 +153,11 @@ diff -c -r orig/gst-plugins-ugly-0.10.11/ext/mad/gstmad.c gst-plugins-ugly-0.10.
           outdata = (gint32 *) GST_BUFFER_DATA (outbuffer);
 + #endif
   
-          GST_DEBUG ("mad out timestamp %" GST_TIME_FORMAT,
-              GST_TIME_ARGS (time_offset));
+          GST_DEBUG ("mad out timestamp %" GST_TIME_FORMAT " dur: %"
+              GST_TIME_FORMAT, GST_TIME_ARGS (time_offset),
 ***************
-*** 1643,1656 ****
---- 1685,1707 ----
+*** 1635,1648 ****
+--- 1677,1699 ----
             gint count = nsamples;
   
             while (count--) {
