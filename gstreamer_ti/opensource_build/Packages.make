@@ -43,7 +43,7 @@ BASE_PACKAGES += $(PACKAGE_check_BUILD_TARGET)
 # Package gstreamer
 #------------------------------------------------------------------------------
 PACKAGE_gstreamer_BUILD_TARGET       = gstreamer
-PACKAGE_gstreamer_ARCHIVE_BASENAME   = gstreamer-0.10.23
+PACKAGE_gstreamer_ARCHIVE_BASENAME   = gstreamer-0.10.25
 PACKAGE_gstreamer_PRECONFIG_PATCHES  = 
 PACKAGE_gstreamer_CONFIGURE_OPTS     = --disable-loadsave --disable-tests --disable-examples
 PACKAGE_gstreamer_POSTCONFIG_PATCHES =
@@ -90,9 +90,9 @@ BASE_PACKAGES += $(PACKAGE_mad_BUILD_TARGET)
 # Package plugins_base
 #------------------------------------------------------------------------------
 PACKAGE_plugins_base_BUILD_TARGET       = plugins_base
-PACKAGE_plugins_base_ARCHIVE_BASENAME   = gst-plugins-base-0.10.23
+PACKAGE_plugins_base_ARCHIVE_BASENAME   = gst-plugins-base-0.10.25
 PACKAGE_plugins_base_PRECONFIG_PATCHES  = 
-PACKAGE_plugins_base_CONFIGURE_OPTS     = --disable-tests --disable-examples --disable-x --disable-ogg --disable-vorbis $(ALSA_SUPPORT)
+PACKAGE_plugins_base_CONFIGURE_OPTS     = --disable-tests --disable-examples --disable-x --disable-ogg --disable-vorbis --disable-pango $(ALSA_SUPPORT)
 PACKAGE_plugins_base_POSTCONFIG_PATCHES =
 PACKAGE_plugins_base_BUILD_DIRS         =
 PACKAGE_plugins_base_DESCRIPTION        = GStreamer plugins base library

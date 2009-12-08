@@ -19,12 +19,12 @@ The following components are provided in the opensource_build/distfiles
 directory, and are automatically built during the build process
 (see the Build Instructions section below).
 
-gstreamer-0.10.23
+gstreamer-0.10.25
     Description:   GStreamer library
     Project Page:  http://gstreamer.freedesktop.org/
     Download URL:  http://gstreamer.freedesktop.org/src/gstreamer/
 
-gst-plugins-base-0.10.23
+gst-plugins-base-0.10.25
     Description:   GStreamer plugins base library
     Project Page:  http://gstreamer.freedesktop.org/
     Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-base/
