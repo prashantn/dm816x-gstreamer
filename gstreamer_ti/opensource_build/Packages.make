@@ -122,11 +122,11 @@ PLUGIN_PACKAGES += $(PACKAGE_plugins_good_BUILD_TARGET)
 # Package plugins_bad
 #------------------------------------------------------------------------------
 PACKAGE_plugins_bad_BUILD_TARGET        = plugins_bad
-PACKAGE_plugins_bad_ARCHIVE_BASENAME    = gst-plugins-bad-0.10.12
+PACKAGE_plugins_bad_ARCHIVE_BASENAME    = gst-plugins-bad-0.10.16
 PACKAGE_plugins_bad_PRECONFIG_PATCHES   = 
 PACKAGE_plugins_bad_POSTCONFIG_PATCHES  =
 PACKAGE_plugins_bad_BUILD_DIRS          = gst/mpegdemux
-PACKAGE_plugins_bad_BUILD_DIRS          += gst/rtpmanager
+PACKAGE_plugins_bad_BUILD_DIRS          += gst/rtpmux
 PACKAGE_plugins_bad_DESCRIPTION         = \
     Select plugins from GStreamer bad-plugins
 PLUGIN_PACKAGES += $(PACKAGE_plugins_bad_BUILD_TARGET)
