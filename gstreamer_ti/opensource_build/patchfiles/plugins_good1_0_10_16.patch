@@ -1,6 +1,6 @@
-diff -c -r orig/gst-plugins-good-0.10.15/sys/oss/gstosshelper.c gst-plugins-good-0.10.15/sys/oss/gstosshelper.c
-*** orig/gst-plugins-good-0.10.15/sys/oss/gstosshelper.c	2009-01-21 17:58:40.000000000 -0600
---- gst-plugins-good-0.10.15/sys/oss/gstosshelper.c	2009-06-11 11:31:36.000000000 -0500
+diff -c -r orig/gst-plugins-good-0.10.16/sys/oss/gstosshelper.c gst-plugins-good-0.10.16/sys/oss/gstosshelper.c
+*** orig/gst-plugins-good-0.10.16/sys/oss/gstosshelper.c	2009-01-21 17:58:40.000000000 -0600
+--- gst-plugins-good-0.10.16/sys/oss/gstosshelper.c	2009-06-11 11:31:36.000000000 -0500
 ***************
 *** 236,241 ****
 --- 236,251 ----
