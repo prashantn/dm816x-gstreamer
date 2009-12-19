@@ -1252,19 +1252,6 @@ static void* gst_tiauddec1_decode_thread(void *arg)
             GST_LOG("Adec1_process returned success code %d\n", ret); 
         }
 
-        /* DMAI currently doesn't provide a way to retrieve the number of
-         * samples decoded or the duration of the decoded audio data.  For
-         * now, derive the duration from the number of bytes decoded by the
-         * codec.
-         */
-        sampleDataSize = Buffer_getNumBytesUsed(hDstBuf);
-        sampleRate     = Adec1_getSampleRate(auddec1->hAd);
-        numSamples     = sampleDataSize / (2 * auddec1->channels) ;
-        sampleDuration = GST_FRAMES_TO_CLOCK_TIME(numSamples, sampleRate);
-        encDataTime    = auddec1->totalDuration;
-        offset         = GST_CLOCK_TIME_TO_FRAMES(auddec1->totalDuration,
-                                                    sampleRate);
-
         /* Release the reference buffer, and tell the circular buffer how much
          * data was consumed.
          */
@@ -1276,45 +1263,60 @@ static void* gst_tiauddec1_decode_thread(void *arg)
             goto thread_failure;
         }
 
-        /* Set the source pad capabilities based on the decoded frame
-         * properties.
-         */
-        gst_tiauddec1_set_source_caps(auddec1);
+        sampleDataSize = Buffer_getNumBytesUsed(hDstBuf);
+        if (sampleDataSize) {
+            /* DMAI currently doesn't provide a way to retrieve the number of
+             * samples decoded or the duration of the decoded audio data.  For
+             * now, derive the duration from the number of bytes decoded by the
+             * codec.
+             */
+            sampleRate     = Adec1_getSampleRate(auddec1->hAd);
+            numSamples     = sampleDataSize / (2 * auddec1->channels) ;
+            sampleDuration = GST_FRAMES_TO_CLOCK_TIME(numSamples, sampleRate);
+            encDataTime    = auddec1->totalDuration;
+            offset         = GST_CLOCK_TIME_TO_FRAMES(auddec1->totalDuration,
+                                                    sampleRate);
 
-        /* Create a DMAI transport buffer object to carry a DMAI buffer to
-         * the source pad.  The transport buffer knows how to release the
-         * buffer for re-use in this element when the source pad calls
-         * gst_buffer_unref().
-         */
-        outBuf = gst_tidmaibuffertransport_new(hDstBuf, 
+            /* Set the source pad capabilities based on the decoded frame
+             * properties.
+             */
+            gst_tiauddec1_set_source_caps(auddec1);
+
+            /* Create a DMAI transport buffer object to carry a DMAI buffer to
+             * the source pad.  The transport buffer knows how to release the
+             * buffer for re-use in this element when the source pad calls
+             * gst_buffer_unref().
+             */
+            outBuf = gst_tidmaibuffertransport_new(hDstBuf, 
                                                 auddec1->waitOnBufTab);
-        gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
-            Buffer_getNumBytesUsed(hDstBuf));
-        gst_buffer_set_caps(outBuf, GST_PAD_CAPS(auddec1->srcpad));
+            gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
+                Buffer_getNumBytesUsed(hDstBuf));
+            gst_buffer_set_caps(outBuf, GST_PAD_CAPS(auddec1->srcpad));
 
-        /* Set timestamp on output buffer */
-        if (auddec1->genTimeStamps) {
-            GST_BUFFER_OFFSET(outBuf)       = offset;
-            GST_BUFFER_DURATION(outBuf)     = sampleDuration;
-            GST_BUFFER_TIMESTAMP(outBuf)    = encDataTime;
-            auddec1->totalDuration  += GST_BUFFER_DURATION (outBuf);
-        }
-        else {
-            GST_BUFFER_TIMESTAMP(outBuf)    = GST_CLOCK_TIME_NONE;
-        }
+            /* Set timestamp on output buffer */
+            if (auddec1->genTimeStamps) {
+                GST_BUFFER_OFFSET(outBuf)       = offset;
+                GST_BUFFER_DURATION(outBuf)     = sampleDuration;
+                GST_BUFFER_TIMESTAMP(outBuf)    = encDataTime;
+                auddec1->totalDuration  += GST_BUFFER_DURATION (outBuf);
+            }
+            else {
+                GST_BUFFER_TIMESTAMP(outBuf)    = GST_CLOCK_TIME_NONE;
+            }
 
-        /* Tell circular buffer how much time we consumed */
-        gst_ticircbuffer_time_consumed(auddec1->circBuf, sampleDuration);
+            /* Tell circular buffer how much time we consumed */
+            gst_ticircbuffer_time_consumed(auddec1->circBuf, sampleDuration);
 
-        /* Push the transport buffer to the source pad */
-        GST_LOG("pushing buffer to source pad with timestamp : %"
+            /* Push the transport buffer to the source pad */
+            GST_LOG("pushing buffer to source pad with timestamp : %"
                 GST_TIME_FORMAT ", duration: %" GST_TIME_FORMAT,
                 GST_TIME_ARGS (GST_BUFFER_TIMESTAMP(outBuf)),
                 GST_TIME_ARGS (GST_BUFFER_DURATION(outBuf)));
 
-        if (gst_pad_push(auddec1->srcpad, outBuf) != GST_FLOW_OK) {
-            GST_DEBUG("push to source pad failed\n");
-            goto thread_failure;
+            if (gst_pad_push(auddec1->srcpad, outBuf) != GST_FLOW_OK) {
+                GST_DEBUG("push to source pad failed\n");
+                goto thread_failure;
+            }
         }
 
         /* Release buffers no longer in use by the codec */

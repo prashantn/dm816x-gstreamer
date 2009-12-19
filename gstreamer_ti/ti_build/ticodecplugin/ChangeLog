@@ -1,3 +1,7 @@
+2009-12-16: Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttiauddec1.c, gsttiauddec.c}:
+	Handle the case when audio decoder outputs zero bytes.
+
 2009-12-03 Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividenc1.{c,h},gsttividenc.{c,h}}:
 	Add encodingPreset property in video encoder elements.
