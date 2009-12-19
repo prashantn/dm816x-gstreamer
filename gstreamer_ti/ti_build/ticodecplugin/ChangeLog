@@ -1,5 +1,9 @@
 2009-12-16: Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttiauddec1.c, gsttiauddec.c}:
+	Handle the case when audio decoder does not return the correct sample rate.
+
+2009-12-16: Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttiauddec1.c, gsttiauddec.c}:
 	Handle the case when audio decoder outputs zero bytes.
 
 2009-12-03 Brijesh Singh, Texas Instruments, Inc.

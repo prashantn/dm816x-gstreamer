@@ -76,6 +76,7 @@ struct _GstTIAuddec
   gboolean         drainingEOS;
   pthread_mutex_t  threadStatusMutex;
   UInt32           threadStatus;
+  gint             sampleRate;
 
   /* Decode thread */
   pthread_t          decodeThread;

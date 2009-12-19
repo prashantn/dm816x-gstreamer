@@ -67,6 +67,7 @@ struct _GstTIAuddec1
   const gchar*   codecName;
   gboolean       displayBuffer;
   gboolean       genTimeStamps;
+  gint           sampleRate;
 
   /* Element state */
   Engine_Handle    hEngine;

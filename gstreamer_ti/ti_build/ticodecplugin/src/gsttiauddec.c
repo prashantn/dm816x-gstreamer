@@ -393,6 +393,7 @@ static void gst_tiauddec_init(GstTIAuddec *auddec, GstTIAuddecClass *gclass)
     auddec->segment             = gst_segment_new();
     auddec->totalDuration       = 0;
     auddec->totalBytes          = 0;
+    auddec->sampleRate          = 0;
 
     gst_tiauddec_init_env(auddec);
 }
@@ -512,7 +513,6 @@ static gboolean gst_tiauddec_set_sink_caps(GstPad *pad, GstCaps *caps)
     const gchar  *mime;
     char         *string;
     GstTICodec   *codec = NULL;
-    gint rate;
 
     auddec    = GST_TIAUDDEC(gst_pad_get_parent(pad));
     capStruct = gst_caps_get_structure(caps, 0);
@@ -531,8 +531,8 @@ static gboolean gst_tiauddec_set_sink_caps(GstPad *pad, GstCaps *caps)
     /* Generic Audio Properties */
     if (!strncmp(mime, "audio/", 6)) {
 
-        if (!gst_structure_get_int(capStruct, "rate", &rate)) {
-            rate = 0;
+        if (!gst_structure_get_int(capStruct, "rate", &auddec->sampleRate)) {
+            auddec->sampleRate = 0;
         }
 
         if (!gst_structure_get_int(capStruct, "channels", &auddec->channels)) {
@@ -572,8 +572,8 @@ static gboolean gst_tiauddec_set_sink_caps(GstPad *pad, GstCaps *caps)
         /* Use AAC Decoder for MPEG4 */
         else if (mpegversion == 4) {
             codec = gst_ticodec_get_codec("AAC Audio Decoder");
-            auddec->aac_header_data = gst_aac_header_create(rate, 
-                            auddec->channels);
+            auddec->aac_header_data = gst_aac_header_create( 
+                        auddec->sampleRate, auddec->channels);
         }
 
         /* MPEG version not supported */
@@ -634,7 +634,7 @@ static gboolean gst_tiauddec_set_source_caps(GstTIAuddec *auddec)
             "signed",     G_TYPE_BOOLEAN, TRUE,
             "width",      G_TYPE_INT,     16,
             "depth",      G_TYPE_INT,     16,
-            "rate",       G_TYPE_INT,     Adec_getSampleRate(auddec->hAd),
+            "rate",       G_TYPE_INT,     auddec->sampleRate,
             "channels",   G_TYPE_INT,     auddec->channels,
             NULL);
 
@@ -1267,6 +1267,17 @@ static void* gst_tiauddec_decode_thread(void *arg)
              * codec.
              */
             sampleRate     = Adec_getSampleRate(auddec->hAd);
+
+            /* Some codecs does not set the sample rate. In those case use the 
+             * sample rate from the cap negotitation.
+             */
+            if (sampleRate == 0) {
+                sampleRate = auddec->sampleRate;
+            }
+            else {
+                auddec->sampleRate = sampleRate;
+            }
+
             numSamples     = sampleDataSize / (2 * auddec->channels) ;
             sampleDuration = GST_FRAMES_TO_CLOCK_TIME(numSamples, sampleRate);
             encDataTime    = auddec->totalDuration;
