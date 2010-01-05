@@ -102,6 +102,9 @@ struct _GstTIViddec
   /* Buffer timestamp */
   gint64          totalDuration;
   guint64         totalBytes;
+
+  /* Quicktime MPEG4 header */
+  GstBuffer       *mpeg4_quicktime_header;
 };
 
 /* _GstTIViddecClass object */

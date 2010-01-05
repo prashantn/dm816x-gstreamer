@@ -56,6 +56,7 @@
 #include "gsttithreadprops.h"
 #include "gsttiquicktime_h264.h"
 #include "gstticommonutils.h"
+#include "gsttiquicktime_mpeg4.h"
 
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC (gst_tividdec_debug);
@@ -418,6 +419,8 @@ static void gst_tividdec_init(GstTIViddec *viddec, GstTIViddecClass *gclass)
     viddec->totalDuration       = 0;
     viddec->totalBytes          = 0;
 
+    viddec->mpeg4_quicktime_header = NULL;
+
     gst_tividdec_init_env(viddec);
 }
 
@@ -769,6 +772,12 @@ static gboolean gst_tividdec_populate_codec_header (GstTIViddec *viddec,
         viddec->nal_code_prefix = gst_h264_get_nal_prefix_code();
     }
 
+    if (gst_is_mpeg4_decoder(viddec->codecName) && 
+            gst_mpeg4_valid_quicktime_header(buf)) {
+        GST_LOG("found MPEG4 quicktime header \n");
+        viddec->mpeg4_quicktime_header = gst_mpeg4_get_header(buf);
+    }
+
     return TRUE;
 }
 
@@ -788,6 +797,17 @@ static gboolean gst_tividdec_parse_and_queue_buffer(GstTIViddec *viddec,
         if (gst_h264_parse_and_queue(viddec->circBuf, buf, 
                 viddec->sps_pps_data, viddec->nal_code_prefix,
                 viddec->nal_length) < 0) {
+            GST_ELEMENT_ERROR(viddec, RESOURCE, WRITE,
+            ("Failed to queue input buffer into circular buffer\n"), (NULL));
+            return FALSE;
+        }
+    }
+    else if (viddec->mpeg4_quicktime_header) {
+        /* If demuxer has passed codec_data field then we need to prefix this
+         * codec data in input stream.
+         */
+        if (gst_mpeg4_parse_and_queue(viddec->circBuf, buf, 
+                viddec->mpeg4_quicktime_header) < 0) {
             GST_ELEMENT_ERROR(viddec, RESOURCE, WRITE,
             ("Failed to queue input buffer into circular buffer\n"), (NULL));
             return FALSE;
@@ -1041,6 +1061,11 @@ static gboolean gst_tividdec_exit_video(GstTIViddec *viddec)
     if (viddec->nal_length) {
         GST_LOG("reseting nal length to zero\n");
         viddec->nal_length = 0;
+    }
+
+    if (viddec->mpeg4_quicktime_header) {
+        GST_LOG("reseting quicktime mpeg4 header to NULL\n");
+        viddec->mpeg4_quicktime_header = NULL;
     }
 
     GST_LOG("end exit_video\n");

@@ -1,3 +1,8 @@
+2009-12-28: Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttiquicktime_mpeg4.{c,h}, gsttividdec2.{c,h}, gsttividdec.{c,h},
+	Makefile.am}:
+	Add support for MPEG-4 video in quicktime container.
+
 2009-12-16: Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttiauddec1.c, gsttiauddec.c}:
 	Handle the case when audio decoder does not return the correct sample rate.
