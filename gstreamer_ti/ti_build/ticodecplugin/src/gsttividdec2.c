@@ -768,6 +768,64 @@ static gboolean gst_tividdec2_sink_event(GstPad *pad, GstEvent *event)
 
 }
 
+/******************************************************************************
+ * gst_tividdec2_populate_codec_header
+ *  This function parses codec_data field to get addition H.264/MPEG-4 header 
+ *  information.
+ *****************************************************************************/
+static gboolean gst_tividdec2_populate_codec_header (GstTIViddec2 *viddec2, 
+    GstBuffer *buf)
+{
+    GstCaps      *caps = GST_BUFFER_CAPS(buf);
+
+    if (!caps) {
+        return FALSE;
+    }
+
+    /* If it's H.264 codec then get the sps, pps and nal headers */
+    if (gst_is_h264_decoder(viddec2->codecName) && 
+            gst_h264_valid_quicktime_header(buf)) {
+        GST_LOG("Parsing codec data to get SPS, PPS and NAL headers");
+        viddec2->nal_length = gst_h264_get_nal_length(buf);
+        viddec2->sps_pps_data = gst_h264_get_sps_pps_data(buf);
+        viddec2->nal_code_prefix = gst_h264_get_nal_prefix_code();
+    }
+
+    return TRUE;
+}
+
+/******************************************************************************
+ * gst_tividdec2_parse_and_queue_buffer
+ *  If needed then this function will parse the input buffer before putting
+ *  in circular buffer.
+ *****************************************************************************/
+static gboolean gst_tividdec2_parse_and_queue_buffer(GstTIViddec2 *viddec2,
+    GstBuffer *buf)
+{
+    if (viddec2->sps_pps_data) {
+        /* If demuxer has passed SPS and PPS NAL unit dump in codec_data field,
+         * then we have a packetized h264 stream. We need to transform this 
+         * stream into byte-stream.
+         */
+        if (gst_h264_parse_and_queue(viddec2->circBuf, buf, 
+                viddec2->sps_pps_data, viddec2->nal_code_prefix,
+                viddec2->nal_length) < 0) {
+            GST_ELEMENT_ERROR(viddec2, RESOURCE, WRITE,
+            ("Failed to queue input buffer into circular buffer\n"), (NULL));
+            return FALSE;
+        }
+    }
+    else {
+        /* Queue up the encoded data stream into a circular buffer */
+        if (!gst_ticircbuffer_queue_data(viddec2->circBuf, buf)) {
+            GST_ELEMENT_ERROR(viddec2, RESOURCE, WRITE,
+            ("Failed to queue input buffer into circular buffer\n"), (NULL));
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
 
 /******************************************************************************
  * gst_tividdec2_chain
@@ -804,14 +862,9 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
             goto exit;
         }
 
-        /* check if we have recieved buffer from qtdemuxer. To do this,
-         * we will verify if codec_data field has a valid avcC header.
-         */
-        if (gst_is_h264_decoder(viddec2->codecName) && 
-                gst_h264_valid_quicktime_header(buf)) {
-            viddec2->nal_length = gst_h264_get_nal_length(buf);
-            viddec2->sps_pps_data = gst_h264_get_sps_pps_data(buf);
-            viddec2->nal_code_prefix = gst_h264_get_nal_prefix_code();
+        /* Populate extra codec headers */
+        if (gst_tividdec2_populate_codec_header(viddec2, buf)) {
+            GST_LOG("Found extra header information for %s",viddec2->codecName);
         }
 
         GST_TICIRCBUFFER_TIMESTAMP(viddec2->circBuf) =
@@ -819,28 +872,12 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
             GST_BUFFER_TIMESTAMP(buf) : 0ULL;
     }
 
-    /* If demuxer has passed SPS and PPS NAL unit dump in codec_data field,
-     * then we have a packetized h264 stream. We need to transform this stream
-     * into byte-stream.
-     */
-    if (viddec2->sps_pps_data) {
-        if (gst_h264_parse_and_queue(viddec2->circBuf, buf, 
-                viddec2->sps_pps_data, viddec2->nal_code_prefix,
-                viddec2->nal_length) < 0) {
-            GST_ELEMENT_ERROR(viddec2, RESOURCE, WRITE,
-            ("Failed to queue input buffer into circular buffer\n"), (NULL));
-            flow = GST_FLOW_UNEXPECTED;
-            goto exit;
-        }
-    }
-    else {
-        /* Queue up the encoded data stream into a circular buffer */
-        if (!gst_ticircbuffer_queue_data(viddec2->circBuf, buf)) {
-            GST_ELEMENT_ERROR(viddec2, RESOURCE, WRITE,
-            ("Failed to queue input buffer into circular buffer\n"), (NULL));
-            flow = GST_FLOW_UNEXPECTED;
-            goto exit;
-        }
+    /* Parse and queue the encoded data stream into a circular buffer */
+    if (!gst_tividdec2_parse_and_queue_buffer(viddec2, buf)) {
+        GST_ELEMENT_ERROR(viddec2, RESOURCE, WRITE,
+        ("Failed to queue input buffer into circular buffer\n"), (NULL));
+        flow = GST_FLOW_UNEXPECTED;
+        goto exit;
     }
 
 exit:
