@@ -1486,15 +1486,6 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
 
         if (sink->resizer) {
 
-            /* TODO: Update DMAI CCv module to support resizing and 
-             *  color conversion. 
-             */
-            if (sink->cpu_dev == Cpu_Device_DM6467) {
-                GST_LOG("This plugin does not support resizer on"
-                        " DM6467.\n");
-                goto cleanup;
-            }
-
             /* resize video image while maintaining the aspect ratio */
             BufferGfx_getDimensions(hDispBuf, &dim);
             if (sink->dGfxAttrs.dim.width > sink->dGfxAttrs.dim.height) {
