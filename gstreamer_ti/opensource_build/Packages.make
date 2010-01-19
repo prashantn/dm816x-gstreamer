@@ -91,7 +91,7 @@ BASE_PACKAGES += $(PACKAGE_mad_BUILD_TARGET)
 #------------------------------------------------------------------------------
 PACKAGE_plugins_base_BUILD_TARGET       = plugins_base
 PACKAGE_plugins_base_ARCHIVE_BASENAME   = gst-plugins-base-0.10.25
-PACKAGE_plugins_base_PRECONFIG_PATCHES  = 
+PACKAGE_plugins_base_PRECONFIG_PATCHES  = plugins_base1_0_10_25
 PACKAGE_plugins_base_CONFIGURE_OPTS     = --disable-tests --disable-examples --disable-x --disable-ogg --disable-vorbis --disable-pango $(ALSA_SUPPORT)
 PACKAGE_plugins_base_POSTCONFIG_PATCHES =
 PACKAGE_plugins_base_BUILD_DIRS         =
