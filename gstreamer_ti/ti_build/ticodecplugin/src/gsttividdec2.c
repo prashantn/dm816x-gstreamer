@@ -1338,7 +1338,7 @@ static void* gst_tividdec2_decode_thread(void *arg)
     Buffer_Handle  hEncDataWindow;
     GstBuffer     *outBuf;
     Int            bufIdx;
-    Int            ret;
+    Int            ret, codecRet;
 
     GST_LOG("init video decode_thread \n");
 
@@ -1424,23 +1424,26 @@ static void* gst_tividdec2_decode_thread(void *arg)
 
         /* Invoke the video decoder */
         GST_LOG("invoking the video decoder\n");
-        ret             = Vdec2_process(viddec2->hVd, hEncDataWindow, hDstBuf);
+        codecRet        = Vdec2_process(viddec2->hVd, hEncDataWindow, hDstBuf);
         encDataConsumed = (codecFlushed) ? 0 :
                           Buffer_getNumBytesUsed(hEncDataWindow);
 
-        if (ret < 0) {
-            GST_ELEMENT_ERROR(viddec2, STREAM, DECODE,
-            ("failed to decode video buffer\n"), (NULL));
-            goto thread_failure;
+        if (codecRet < 0) {
+            if (encDataConsumed <= 0) {
+                encDataConsumed = 1;
+            }
+
+            BufTab_freeBuf(hDstBuf);
+            GST_ERROR("failed to decode video buffer\n");
         }
 
-        if (ret > 0) {
-            GST_LOG("Vdec2_process returned success code %d\n", ret); 
+        if (codecRet > 0) {
+            GST_LOG("Vdec2_process returned success code %d\n", codecRet); 
 
             /* In the case of bit errors, the codec may not return the buffer
              * via the Vdec2_getFreeBuf API, so mark it as unused now.
              */
-            if (ret == Dmai_EBITERROR) {
+            if (codecRet == Dmai_EBITERROR) {
                 BufTab_freeBuf(hDstBuf);
 
                 /* If no encoded data was used we cannot find the next frame */
@@ -1464,6 +1467,13 @@ static void* gst_tividdec2_decode_thread(void *arg)
 
         if (!ret) {
             goto thread_failure;
+        }
+
+        /* In case of codec failure or bit error, continue to wait for more 
+         * data 
+         */
+        if ((codecRet < 0) || (codecRet == Dmai_EBITERROR)) {
+            continue;
         }
 
         /* Resize the BufTab after the first frame has been processed.  The

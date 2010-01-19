@@ -1278,7 +1278,7 @@ static void* gst_tividdec_decode_thread(void *arg)
     Buffer_Handle  hEncDataWindow;
     GstBuffer     *outBuf;
     Int            bufIdx;
-    Int            ret;
+    Int            ret, codecRet;
 
     GST_LOG("init video decode_thread \n");
 
@@ -1365,25 +1365,28 @@ static void* gst_tividdec_decode_thread(void *arg)
 
         /* Invoke the video decoder */
         GST_LOG("invoking the video decoder\n");
-        ret             = Vdec_process(viddec->hVd, hEncDataWindow, hDstBuf);
+        codecRet        = Vdec_process(viddec->hVd, hEncDataWindow, hDstBuf);
         encDataConsumed = (codecFlushed) ? 0 :
                           Buffer_getNumBytesUsed(hEncDataWindow);
 
-        if (ret < 0) {
-            GST_ELEMENT_ERROR(viddec, STREAM, DECODE,
-            ("failed to decode video buffer\n"), (NULL));
-            goto thread_failure;
+        if (codecRet < 0) {
+            if (encDataConsumed <= 0) {
+                encDataConsumed = 1;
+            }
+
+            GST_ERROR("failed to decode video buffer\n");
         }
 
         /* If no encoded data was used we cannot find the next frame */
-        if (ret == Dmai_EBITERROR && encDataConsumed == 0 && !codecFlushed) {
+        if (codecRet == Dmai_EBITERROR && 
+            encDataConsumed == 0 && !codecFlushed) {
             GST_ELEMENT_ERROR(viddec, STREAM, DECODE, 
             ("fatal bit error\n"), (NULL));
             goto thread_failure;
         }
 
-        if (ret > 0) {
-            GST_LOG("Vdec_process returned success code %d\n", ret); 
+        if (codecRet > 0) {
+            GST_LOG("Vdec_process returned success code %d\n", codecRet); 
         }
 
         /* Release the reference buffer, and tell the circular buffer how much
@@ -1395,6 +1398,14 @@ static void* gst_tividdec_decode_thread(void *arg)
 
         if (!ret) {
             goto thread_failure;
+        }
+
+        /* In case of codec failure or bit error, continue to wait for more 
+         * data 
+         */
+        if ((codecRet < 0) || (codecRet == Dmai_EBITERROR)) {
+            BufTab_freeBuf(hDstBuf);
+            continue;
         }
 
         /* Obtain the display buffer returned by the codec (it may be a
