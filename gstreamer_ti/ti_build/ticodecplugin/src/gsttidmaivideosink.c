@@ -1387,7 +1387,8 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
                 buf->size, BufferGfx_getBufferAttrs(&sink->dGfxAttrs));
 
             if (sink->tempDmaiBuf == NULL) {
-                GST_ERROR("Failed to allocate memory for input buffer\n");
+                GST_ELEMENT_ERROR(sink, RESOURCE, FAILED, 
+                ("Failed to allocate memory for input buffer\n"), (NULL));
                 goto cleanup;
             }
         }
@@ -1443,7 +1444,8 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         GST_DEBUG("Display Handle does not exist.  Creating a display\n");
 
         if (!gst_tidmaivideosink_init_display(sink)) {
-            GST_ERROR("Unable to initialize display\n");
+            GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+             ("Unable to initialize display\n"), (NULL));
             goto cleanup;
         }
 
@@ -1464,7 +1466,8 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
 
         /* Get a buffer from the display driver */
         if (Display_get(sink->hDisplay, &hDispBuf) < 0) {
-            GST_ERROR("Failed to get display buffer\n");
+            GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+            ("Failed to get display buffer\n"), (NULL));
             goto cleanup;
         }
 
@@ -1514,12 +1517,14 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
 
             /* Configure resizer */
             if (Resize_config(sink->hResize, inBuf, hDispBuf) < 0) {
-                GST_LOG("Failed to configure resizer\n");
+                GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+                ("Failed to configure resizer\n"), (NULL));
                 goto cleanup;
             }
 
             if (Resize_execute(sink->hResize, inBuf, hDispBuf) < 0) {
-                GST_LOG("Failed to execute resizer\n");
+                GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+                ("Failed to execute resizer\n"), (NULL));
                 goto cleanup;
             }
 
@@ -1564,22 +1569,26 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
 
                 /* Configure the 420->422 color conversion job */
                 if (Ccv_config(sink->hCcv, inBuf, hDispBuf) < 0) {
-                    GST_ERROR("Failed to configure CCV job\n");
+                    GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+                    ("Failed to configure CCV job\n"), (NULL));
                     goto cleanup;
                 }
 
                 if (Ccv_execute(sink->hCcv, inBuf, hDispBuf) < 0) {
-                    GST_ERROR("Failed to execute CCV job\n");
+                    GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+                    ("Failed to execute CCV job\n"), (NULL));
                     goto cleanup;
                 }
             } else {
                 if (Framecopy_config(sink->hFc, inBuf, hDispBuf) < 0) {
-                    GST_ERROR("Failed to configure framecopy\n");
+                    GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+                    ("Failed to configure framecopy\n"), (NULL));
                     goto cleanup;
                 }
 
                 if (Framecopy_execute(sink->hFc, inBuf, hDispBuf) < 0) {
-                    GST_ERROR("Failed to execute resizer\n");
+                    GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+                    ("Failed to execute resizer\n"), (NULL));
                     goto cleanup;
                 }
             }
@@ -1589,7 +1598,8 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
 
         /* Send filled buffer to display device driver to be displayed */
         if (Display_put(sink->hDisplay, hDispBuf) < 0) {
-            GST_ERROR("Failed to put display buffer\n");
+            GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+            ("Failed to put display buffer\n"), (NULL));
             goto cleanup;
         }
     }
