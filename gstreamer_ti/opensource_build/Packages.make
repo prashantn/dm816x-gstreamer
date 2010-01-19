@@ -128,6 +128,7 @@ PACKAGE_plugins_bad_PRECONFIG_PATCHES   =
 PACKAGE_plugins_bad_POSTCONFIG_PATCHES  =
 PACKAGE_plugins_bad_BUILD_DIRS          = gst/mpegdemux
 PACKAGE_plugins_bad_BUILD_DIRS          += gst/rtpmux
+PACKAGE_plugins_bad_BUILD_DIRS          += gst/qtmux
 PACKAGE_plugins_bad_DESCRIPTION         = \
     Select plugins from GStreamer bad-plugins
 PLUGIN_PACKAGES += $(PACKAGE_plugins_bad_BUILD_TARGET)

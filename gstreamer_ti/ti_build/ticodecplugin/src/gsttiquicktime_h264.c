@@ -1,8 +1,10 @@
 /*
  * gsttiquicktime_h264.c
  *
- * This file defines functions used for creating temporary headers needed for
- * decoding H.264 streams demuxed via qtdemuxer.
+ * This file defines functions for :
+ *  - converting quicktime packetized stream in NAL byte-stream format.
+ *  - extracting SPS, PPS from H.264 stream needed to construct codec_data 
+ *    field for encoder.
  * 
  * Original Author:
  *     Brijesh Singh, Texas Instruments, Inc.
@@ -51,6 +53,22 @@ gboolean gst_is_h264_decoder (const gchar *name)
     GstTICodec *h264Codec;
 
     h264Codec  =  gst_ticodec_get_codec("H.264 Video Decoder");
+
+    if (h264Codec && !strcmp(h264Codec->CE_CodecName, name)) {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/******************************************************************************
+ * gst_is_h264_encoder
+ *****************************************************************************/
+gboolean gst_is_h264_encoder (const gchar *name)
+{
+    GstTICodec *h264Codec;
+
+    h264Codec  =  gst_ticodec_get_codec("H.264 Video Encoder");
 
     if (h264Codec && !strcmp(h264Codec->CE_CodecName, name)) {
         return TRUE;
@@ -254,6 +272,11 @@ static GstBuffer * gst_h264_get_avcc_header (GstBuffer *buf)
 
     capStruct = gst_caps_get_structure(caps,0);
 
+    /* Check if codec_data field exist */
+    if (!gst_structure_has_field(capStruct, "codec_data")) {
+        return NULL;
+    }
+
     /* Read extra data passed via demuxer. */
     value = gst_structure_get_value(capStruct, "codec_data");
     if (value < 0) {
@@ -282,7 +305,8 @@ static GstBuffer * gst_h264_get_avcc_header (GstBuffer *buf)
  *  6 bits  - reserved set to 63
  *  2 bits  - NAL length 
  *            ( 0 - 1 byte; 1 - 2 bytes; 3 - 4 bytes)
- *  1 byte  - number of SPS
+ *  3 bit   - reserved
+ *  5 bits  - number of SPS 
  *  for (i=0; i < number of SPS; i++) {
  *      2 bytes - SPS length
  *      SPS length bytes - SPS NAL unit
@@ -384,6 +408,172 @@ static int gst_h264_sps_pps_calBufSize (GstBuffer *codec_data)
     }
     
     return sps_pps_size;
+}
+
+/******************************************************************************
+ * gst_h264_find_next_nal_code
+ *  Use Boyer-Moore string matching algorithm to find NAL start code.
+ *****************************************************************************/
+static guint gst_h264_find_next_nal_code (Int8 *data, gint size)
+{
+    guint offset = 3;
+    unsigned int shift;
+    
+    while (offset < size) {
+        if (1 == data[offset]) {
+            shift = offset;
+            if (0 == data[--shift]) {
+                if (0 == data[--shift]) {
+                    if (0 == data[--shift]) {
+                        return shift;
+                    }
+                }
+            } 
+        offset += 4;
+    } 
+    else if (0 == data[offset]) {
+        /* maybe next byte is 1? */
+        offset++;
+    } 
+    else {
+        /* can jump 4 bytes forward */
+        offset += 4;
+    }
+  }
+
+  GST_LOG ("Cannot find next NAL start code. returning %u\n", size);
+
+  return size;
+}
+
+/******************************************************************************
+ * gst_h264_create_sps_pps
+ *  This function parses H.264 stream and returns sps and pps data.
+ *
+ *  Note: function does not prefix NAL code on SPS and PPS unit.
+ *****************************************************************************/
+static gboolean gst_h264_create_sps_pps (Buffer_Handle hBuf, GstBuffer **sps, 
+    GstBuffer **pps)
+{
+    guint         next, nal_len, size;
+    Int8          *data;
+    guint8        type, header;
+
+    data = Buffer_getUserPtr(hBuf);
+    size = Buffer_getNumBytesUsed(hBuf);
+
+    next = gst_h264_find_next_nal_code(data, size);
+    
+    data += next;
+    size -= next;
+
+    GST_LOG("Found first start at %u\n", next);
+
+    while (size > 4) {
+        data += 4;
+        size -= 4;
+
+        next = gst_h264_find_next_nal_code(data, size);
+        nal_len = next;
+
+        GST_LOG("Found next start at %u\n", next);
+
+        header = data[0];
+        type = header & 0x1f;
+
+        if (type == 0x7) {
+            *sps =  gst_buffer_new_and_alloc(nal_len);
+
+            if (*sps == NULL) {
+                GST_ERROR("Failed to allocate memory for sps buffer\n");
+                return FALSE;
+            }
+
+            memcpy(GST_BUFFER_DATA(*sps), data, nal_len);
+        }
+        else if (type == 0x8) {
+            *pps =  gst_buffer_new_and_alloc(nal_len);
+
+            if (*pps == NULL) {
+                GST_ERROR("Failed to allocate memory for pps buffer\n");
+                return FALSE;
+            }
+            memcpy(GST_BUFFER_DATA(*pps), data, nal_len);
+        }
+
+        data += nal_len;
+        size -= nal_len;
+    }
+
+    return TRUE;
+}
+
+/******************************************************************************
+ * gst_h264_create_codec_data
+ *****************************************************************************/
+GstBuffer* gst_h264_create_codec_data (Buffer_Handle hBuf)
+{
+    GstBuffer *sps_data, *pps_data, *codec_data;
+    guint8     *sps, *pps, *buf;
+    guint      sps_len, pps_len, numSps, numPps, offset, size;
+
+    sps_data = pps_data = codec_data = NULL;
+    offset = 0;
+
+    if (!gst_h264_create_sps_pps(hBuf, &sps_data, &pps_data)) {
+        goto exit;
+    }
+
+    sps = GST_BUFFER_DATA(sps_data);
+    pps = GST_BUFFER_DATA(pps_data);
+    sps_len = GST_BUFFER_SIZE(sps_data);
+    pps_len = GST_BUFFER_SIZE(pps_data);
+
+    /* we have only one sps, pps */
+    numSps = numPps = 1;
+
+    /* Calculate the size for avcC atom */
+    size = 5 + 1 + ((2 + sps_len) * numSps) + 1 + ((2 + pps_len) * numPps);
+    
+    /* allocate codec data buffer */
+    codec_data = gst_buffer_new_and_alloc(size);
+
+    if (codec_data == NULL)  {
+        GST_ERROR("failed to allocate buffer size %d for codec_data", size);
+        goto exit;
+    }
+
+    buf = GST_BUFFER_DATA(codec_data);
+
+    /* Fill the avcC header */
+    buf[offset++] = 0x01;
+    buf[offset++] = sps[1];
+    buf[offset++] = sps[2];
+    buf[offset++] = sps[3];
+    buf[offset++] = 0xff;
+    buf[offset++] = 0xe1;
+    buf[offset++] = (sps_len >> 8) & 0xff;
+    buf[offset++] = (sps_len) & 0xff;
+
+    memcpy(buf + offset, sps, sps_len);
+    offset += sps_len;
+
+    buf[offset++] = 0x1;
+    buf[offset++] = (pps_len >> 8) & 0xff;
+    buf[offset++] = (pps_len) & 0xff;
+
+    memcpy(buf + offset, pps, pps_len);
+
+exit:
+    if (sps_data) {
+        gst_buffer_unref(sps_data);
+    }
+
+    if (pps_data) {
+        gst_buffer_unref(pps_data);
+    }
+
+    return codec_data;
 }
 
 /******************************************************************************

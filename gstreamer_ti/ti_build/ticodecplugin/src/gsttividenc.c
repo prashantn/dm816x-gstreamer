@@ -53,6 +53,7 @@
 #include "gstticodecs.h"
 #include "gsttithreadprops.h"
 #include "gstticommonutils.h"
+#include "gsttiquicktime_h264.h"
 
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC (gst_tividenc_debug);
@@ -75,7 +76,8 @@ enum
   PROP_CONTIG_INPUT_BUF,/* contiguousInputFrame  (boolean) */
   PROP_GEN_TIMESTAMPS,  /* genTimeStamps  (boolean) */
   PROP_RATE_CTRL_PRESET,/* rateControlPreset  (gint) */
-  PROP_ENCODING_PRESET  /* encodingPreset  (gint) */
+  PROP_ENCODING_PRESET, /* encodingPreset  (gint) */
+  PROP_BYTE_STREAM      /* byteStream      (gboolean) */
 };
 
 /* Define source (output) pad capabilities.  Currently, MPEG and H264 are 
@@ -299,6 +301,11 @@ static void gst_tividenc_class_init(GstTIVidencClass *klass)
             "Display circular buffer status while processing",
             FALSE, G_PARAM_WRITABLE));
 
+    g_object_class_install_property(gobject_class, PROP_BYTE_STREAM,
+        g_param_spec_boolean("byteStream", "byte stream",
+            "Generate byte stream format of NALU",
+            TRUE, G_PARAM_WRITABLE));
+
     g_object_class_install_property(gobject_class, PROP_GEN_TIMESTAMPS,
         g_param_spec_boolean("genTimeStamps", "Generate Time Stamps",
             "Set timestamps on output buffers",
@@ -391,7 +398,9 @@ static void gst_tividenc_init(GstTIVidenc *videnc, GstTIVidencClass *gclass)
     videnc->hFc                     = NULL;
     videnc->contiguousInputFrame    = FALSE;
     videnc->rateControlPreset       = 1;
-    videnc->encodingPreset         = 1;
+    videnc->encodingPreset          = 1;
+    videnc->byteStream              = TRUE;
+    videnc->codec_data              = NULL;
 }
 /******************************************************************************
  * gst_tividenc_find_colorSpace 
@@ -482,6 +491,11 @@ static void gst_tividenc_set_property(GObject *object, guint prop_id,
             videnc->displayBuffer = g_value_get_boolean(value);
             GST_LOG("setting \"displayBuffer\" to \"%s\"\n",
                 videnc->displayBuffer ? "TRUE" : "FALSE");
+            break;
+        case PROP_BYTE_STREAM:
+            videnc->byteStream = g_value_get_boolean(value);
+            GST_LOG("setting \"byteStream\" to \"%s\"\n",
+                videnc->byteStream ? "TRUE" : "FALSE");
             break;
         case PROP_GEN_TIMESTAMPS:
             videnc->genTimeStamps = g_value_get_boolean(value);
@@ -648,6 +662,11 @@ static gboolean gst_tividenc_set_source_caps(
                 "width",        G_TYPE_INT,         videnc->width,
                 "height",       G_TYPE_INT,         videnc->height,
                 NULL);
+
+        if (!videnc->byteStream) {
+            gst_caps_set_simple(caps, "codec_data", GST_TYPE_BUFFER, 
+                videnc->codec_data, (char*)NULL);
+        }
 
         string = gst_caps_to_string(caps);
         GST_LOG("setting source caps to x-h264: %s", string);
@@ -1101,6 +1120,12 @@ static gboolean gst_tividenc_exit_video(GstTIVidenc *videnc)
         videnc->hFc = NULL;
     }
 
+    if (videnc->codec_data) {
+        GST_LOG("freeing codec_data buffer\n");
+        gst_buffer_unref(videnc->codec_data);
+        videnc->codec_data = NULL;
+    }
+
     GST_LOG("end exit_video\n");
     return TRUE;
 }
@@ -1325,6 +1350,53 @@ static gboolean gst_tividenc_codec_start (GstTIVidenc *videnc)
 }
 
 /******************************************************************************
+ * gst_tividenc_populate_codec_header
+ *  This function populates codec_data field for H.264.
+ *****************************************************************************/
+void gst_tividenc_populate_codec_header (GstTIVidenc *videnc, 
+    Buffer_Handle hDstBuf)
+{
+    if (gst_is_h264_encoder(videnc->codecName)) {
+        if (!videnc->byteStream) {
+            /* Generate codec_data field for packetized stream */
+            if (!videnc->codec_data) {
+                videnc->codec_data = gst_h264_create_codec_data(hDstBuf);
+            }
+        }
+    }
+}
+
+/******************************************************************************
+ * gst_tividenc_parse_and_queue 
+ *  Function parses and push the output buffer .
+ *****************************************************************************/
+GstFlowReturn  gst_tividenc_parse_and_push (GstTIVidenc *videnc, 
+    GstBuffer *outBuf)
+{
+    guint8 *data;
+    guint   len;
+
+    /* perform H.264 specific parsing before pushing the data */
+    if (gst_is_h264_encoder(videnc->codecName)) {
+
+        /* convert byte-stream to packetized */
+        if ((!videnc->byteStream) && (videnc->codec_data)) {
+
+            /* Prefix the NALU with length field */
+            data = GST_BUFFER_DATA(outBuf);
+            len = GST_BUFFER_SIZE(outBuf)-4;
+           
+            data[3] = len & 0xff;
+            data[2] = (len >> 8) & 0xff;
+            data[1] = (len >> 16) & 0xff;
+            data[0] = (len >> 24) & 0xff;
+        }
+    }
+
+    return gst_pad_push(videnc->srcpad, outBuf);
+}
+
+/******************************************************************************
  * gst_tividenc_encode_thread
  *     Call the video codec to process a full input buffer
  ******************************************************************************/
@@ -1459,6 +1531,9 @@ static void* gst_tividenc_encode_thread(void *arg)
             goto thread_failure;
         }
 
+        /* Populate codec header */
+        gst_tividenc_populate_codec_header(videnc, hDstBuf);
+
         /* Set the source pad capabilities based on the encoded frame
          * properties.
          */
@@ -1488,10 +1563,10 @@ static void* gst_tividenc_encode_thread(void *arg)
         /* Tell circular buffer how much time we consumed */
         gst_ticircbuffer_time_consumed(videnc->circBuf, frameDuration);
 
-        /* Push the transport buffer to the source pad */
+        /* Parse and Push the transport buffer to the source pad */
         GST_LOG("pushing display buffer to source pad\n");
 
-        if (gst_pad_push(videnc->srcpad, outBuf) != GST_FLOW_OK) {
+        if (gst_tividenc_parse_and_push(videnc, outBuf) != GST_FLOW_OK) {
             GST_DEBUG("push to source pad failed\n");
             goto thread_failure;
         }

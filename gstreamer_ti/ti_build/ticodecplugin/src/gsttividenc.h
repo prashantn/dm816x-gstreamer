@@ -107,6 +107,9 @@ struct _GstTIVidenc
   BufTab_Handle     hOutBufTab;
   GstTICircBuffer   *circBuf;
 
+  /* H.264 header */
+  GstBuffer  *codec_data;
+  gboolean   byteStream;
 };
 
 /* _GstTIVidencClass object */

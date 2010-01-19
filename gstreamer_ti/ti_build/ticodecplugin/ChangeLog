@@ -1,3 +1,11 @@
+2010-01-18: Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttiquicktime_h264.{c,h}, gsttividenc.{c,h}, gsttividenc1.{c,h}}:
+	Add support for generating H.264 packetized stream.
+
+2010-01-18: Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttividdec2.c, gsttividdec.c}:
+	Do not abort the decode thread on generic codec or bit errors.
+
 2009-12-28: Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttiquicktime_mpeg4.{c,h}, gsttividdec2.{c,h}, gsttividdec.{c,h},
 	Makefile.am}:

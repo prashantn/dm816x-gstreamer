@@ -2,7 +2,8 @@
  * gsttiquicktime_h264.h
  *
  * This file declares structure and macro used for creating byte-stream syntax
- * needed for decoding H.264 stream demuxed via qtdemuxer.
+ * needed for decoding H.264 stream demuxed via qtdemuxer and creating
+ * codec_data field for the H.264 encoder.
  *
  * Original Author:
  *     Brijesh Singh, Texas Instruments, Inc.
@@ -75,13 +76,18 @@ guint8 gst_h264_get_nal_length (GstBuffer *buf);
 /* Function to get predefind NAL prefix code */
 GstBuffer* gst_h264_get_nal_prefix_code (void);
 
-/* Function to parse input stream and put circular buffer */
+/* Function to parse input stream and put in circular buffer */
 int gst_h264_parse_and_queue (GstTICircBuffer *circBuf, GstBuffer *buf, 
     GstBuffer *sps_pps_data, GstBuffer *nal_code_prefix, guint8 nal_length );
 
 /* Function to check if we are using h264 decoder */
 gboolean gst_is_h264_decoder (const gchar *name);
 
+/* Function to check if we are using h264 encoder */
+gboolean gst_is_h264_encoder (const gchar *name);
+
+/* Function to create codec_data (avcC atom) from h264 stream */
+GstBuffer* gst_h264_create_codec_data(Buffer_Handle hBuf);
 
 #endif /* __GST_TIQUICKTIME_H264_H__ */
 
