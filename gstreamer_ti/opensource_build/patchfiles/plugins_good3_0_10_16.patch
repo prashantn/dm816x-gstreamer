@@ -1,0 +1,34 @@
+rtph264pay element may cause alignment trap when working with non 32-bit aligned
+SPS/PPS header. See this for more information.
+https://bugzilla.gnome.org/show_bug.cgi?id=606198
+
+The patch is very simple workaround until we figure out the optimized method for
+string comparision.
+
+diff -uNr orig/gst-plugins-good-0.10.16/gst/rtp/gstrtph264pay.c gst-plugins-good-0.10.16/gst/rtp/gstrtph264pay.c
+--- orig/gst-plugins-good-0.10.16/gst/rtp/gstrtph264pay.c	2009-08-10 17:15:55.000000000 -0500
++++ gst-plugins-good-0.10.16/gst/rtp/gstrtph264pay.c	2010-01-06 08:15:13.000000000 -0600
+@@ -401,6 +401,14 @@
+   return size;
+ }
+ 
++/* for now use the regular memcmp API until we figure out optimized method */
++static gboolean
++is_nal_equal (const guint8 * nal1, const guint8 * nal2, guint len)
++{
++    return !memcmp(nal1, nal2, len);
++}
++
++#if 0
+ /* we don't use memcpy but this faster version (around 20%) because we need to
+  * perform it on all data. */
+ static gboolean
+@@ -439,6 +447,7 @@
+         &&(nal1[len - 2] == nal2[len - 2]));    /* -2 */
+   }
+ }
++#endif
+ 
+ static gboolean
+ gst_rtp_h264_pay_decode_nal (GstRtpH264Pay * payloader,
+
