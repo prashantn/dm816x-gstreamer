@@ -90,6 +90,11 @@ export EDMA3_LLD_INSTALL_DIR
 export USER_XDC_PATH
 
 #------------------------------------------------------------------------------
+# Location of gstreamer installation on target
+#------------------------------------------------------------------------------
+TARGET_GSTREAMER_DIR = $(TARGET_ROOT_DIR)/$(GSTREAMER_DIR)
+
+#------------------------------------------------------------------------------
 # Set a default cross compiler if one has not been specified
 #------------------------------------------------------------------------------
 ifndef CROSS_COMPILER
@@ -172,11 +177,30 @@ ifeq ($(PLATFORM), omap3530)
 endif
 
 #------------------------------------------------------------------------------
-# Set v4l2src workaround enviroment variable
+# CPPFLAGS/CFLAGS/LDFLAGS that should be used when building packages.
+#
+#     CPPFLAGS_all        - Prerocessor flags used with all platforms
+#     CPPFLAGS_<platform> - Additional preprocessor flags for <platform>
+#
+#     CFLAGS_all          - Compiler flags used with all platforms
+#     CFLAGS_<platform>   - Additional compiler flags for <platform>
+#
+#     LDFLAGS_all         - Linker flags used with all platforms
+#     LDFLAGS_<platform>  - Additional linker flags for <platform>
+#
 #------------------------------------------------------------------------------
-ifneq ($(PLATFORM), omap3530)
-	export USE_V4L2SRC_WORKAROUND = "CFLAGS=-I$(LINUXKERNEL_INSTALL_DIR)/include -DDAVINCI_LSP_WORKAROUND -DPlatform_$(PLATFORM)"
-endif
+CPPFLAGS_all       = -DPlatform_$(PLATFORM)
+CPPFLAGS_all      += -I$(TARGET_GSTREAMER_DIR)/include
+CPPFLAGS_all      += -I$(LINUXKERNEL_INSTALL_DIR)/include
+CPPFLAGS_dm355     = -DDAVINCI_LSP_WORKAROUND 
+CPPFLAGS_dm6446    = -DDAVINCI_LSP_WORKAROUND 
+CPPFLAGS_dm357     = -DDAVINCI_LSP_WORKAROUND 
+CPPFLAGS_dm365     = -DDAVINCI_LSP_WORKAROUND 
+CPPFLAGS_dm6467    = -DDAVINCI_LSP_WORKAROUND 
+CPPFLAGS_omap3530  = -I$(LINUXLIBS_INSTALL_DIR)/include
+
+LDFLAGS_all        = -L$(TARGET_GSTREAMER_DIR)/lib
+LDFLAGS_omap3530   = -L$(LINUXLIBS_INSTALL_DIR)/lib
 
 #------------------------------------------------------------------------------
 # Enable ALSA support based on PLATFORM and CROSS_COMPILER variable
@@ -192,7 +216,6 @@ else
         export	ALSA_SUPPORT = --disable-alsa
     endif  
 endif
-
 
 #------------------------------------------------------------------------------
 # Configure amount of output we will generate based on the VERBOSE variable
@@ -223,18 +246,17 @@ else
 endif
 
 #------------------------------------------------------------------------------
-# Location of gstreamer installation on target
-#------------------------------------------------------------------------------
-TARGET_GSTREAMER_DIR = $(TARGET_ROOT_DIR)/$(GSTREAMER_DIR)
-
-#------------------------------------------------------------------------------
 # Configure command set up to do a cross-compile and install into the target
 # filesystem.
 #------------------------------------------------------------------------------
-CC_CONFIGURE_OPTS        = --build=i686-linux --host=arm-linux \
-                           --prefix=$(TARGET_GSTREAMER_DIR)    \
-                           NM=$(MVTOOL_PREFIX)nm               \
-                           RANLIB=$(MVTOOL_PREFIX)ranlib
+CC_CONFIGURE_OPTS  = --build=i686-linux --host=arm-linux
+CC_CONFIGURE_OPTS += --prefix=$(TARGET_GSTREAMER_DIR)
+CC_CONFIGURE_OPTS += NM=$(MVTOOL_PREFIX)nm
+CC_CONFIGURE_OPTS += RANLIB=$(MVTOOL_PREFIX)ranlib
+CC_CONFIGURE_OPTS += CPPFLAGS="$(CPPFLAGS_all) $(CPPFLAGS_$(PLATFORM))"
+CC_CONFIGURE_OPTS += CFLAGS="$(CFLAGS_all) $(CFLAGS_$(PLATFORM))"
+CC_CONFIGURE_OPTS += LDFLAGS="$(LDFLAGS_all) $(LDFLAGS_$(PLATFORM))"
+        
 export CC                = $(MVTOOL_PREFIX)gcc
 export CXX               = $(MVTOOL_PREFIX)g++
 export PKG_CONFIG_PATH   = $(TARGET_GSTREAMER_DIR)/lib/pkgconfig

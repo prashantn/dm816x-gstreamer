@@ -69,9 +69,7 @@ BASE_PACKAGES += $(PACKAGE_liboil_BUILD_TARGET)
 PACKAGE_id3tag_BUILD_TARGET        = id3tag
 PACKAGE_id3tag_ARCHIVE_BASENAME    = libid3tag-0.15.1b
 PACKAGE_id3tag_PRECONFIG_PATCHES   = libid3tag1_0_15_1b
-ifeq ($(PLATFORM), omap3530)
-PACKAGE_id3tag_CONFIGURE_OPTS      = CPPFLAGS="-I$(LINUXLIBS_INSTALL_DIR)/include" LDFLAGS="-L$(LINUXLIBS_INSTALL_DIR)/lib"
-endif
+PACKAGE_id3tag_CONFIGURE_OPTS      = 
 PACKAGE_id3tag_POSTCONFIG_PATCHES  =
 PACKAGE_id3tag_DESCRIPTION         = id3 tag library
 BASE_PACKAGES += $(PACKAGE_id3tag_BUILD_TARGET)
@@ -104,7 +102,7 @@ BASE_PACKAGES += $(PACKAGE_plugins_base_BUILD_TARGET)
 PACKAGE_plugins_good_BUILD_TARGET        = plugins_good
 PACKAGE_plugins_good_ARCHIVE_BASENAME    = gst-plugins-good-0.10.16
 PACKAGE_plugins_good_PRECONFIG_PATCHES   = plugins_good1_0_10_16 plugins_good2_0_10_16 plugins_good3_0_10_16
-PACKAGE_plugins_good_CONFIGURE_OPTS      = $(USE_V4L2SRC_WORKAROUND)
+PACKAGE_plugins_good_CONFIGURE_OPTS      = 
 PACKAGE_plugins_good_POSTCONFIG_PATCHES  =
 PACKAGE_plugins_good_BUILD_DIRS          = gst/avi
 PACKAGE_plugins_good_BUILD_DIRS         += gst/qtdemux
@@ -142,10 +140,7 @@ PACKAGE_plugins_ugly_PRECONFIG_PATCHES  =
 ifeq ($(ALSA_SUPPORT), --disable-alsa)
     PACKAGE_plugins_ugly_PRECONFIG_PATCHES += plugins_ugly1_0_10_13
 endif
-PACKAGE_plugins_ugly_CONFIGURE_OPTS     =    \
-    --enable-lame                            \
-    CFLAGS=-I${TARGET_GSTREAMER_DIR}/include \
-    LDFLAGS=-L$(TARGET_GSTREAMER_DIR)/lib
+PACKAGE_plugins_ugly_CONFIGURE_OPTS     = --enable-lame
 PACKAGE_plugins_ugly_POSTCONFIG_PATCHES =
 PACKAGE_plugins_ugly_BUILD_DIRS         = ext/mad
 PACKAGE_plugins_ugly_BUILD_DIRS        += ext/lame
@@ -159,7 +154,7 @@ PLUGIN_PACKAGES += $(PACKAGE_plugins_ugly_BUILD_TARGET)
 PACKAGE_lame_BUILD_TARGET       = lame
 PACKAGE_lame_ARCHIVE_BASENAME   = lame-398-2
 PACKAGE_lame_PRECONFIG_PATCHES  =
-PACKAGE_lame_CONFIGURE_OPTS     = LDFLAGS=-L$(TARGET_ROOT_DIR)/lib
+PACKAGE_lame_CONFIGURE_OPTS     = 
 PACKAGE_lame_DESCRIPTION        = \
         lame lib for encoding mp3
 PLUGIN_PACKAGES += $(PACKAGE_lame_BUILD_TARGET)
