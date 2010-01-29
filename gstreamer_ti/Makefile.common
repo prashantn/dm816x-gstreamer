@@ -199,6 +199,14 @@ CPPFLAGS_dm365     = -DDAVINCI_LSP_WORKAROUND
 CPPFLAGS_dm6467    = -DDAVINCI_LSP_WORKAROUND 
 CPPFLAGS_omap3530  = -I$(LINUXLIBS_INSTALL_DIR)/include
 
+CFLAGS_dm355       = -march=armv5te -mtune=arm926ej-s
+CFLAGS_dm6446      = -march=armv5te -mtune=arm926ej-s
+CFLAGS_dm357       = -march=armv5te -mtune=arm926ej-s
+CFLAGS_dm365       = -march=armv5te -mtune=arm926ej-s
+CFLAGS_dm6467      = -march=armv5te -mtune=arm926ej-s
+CFLAGS_omap3530    = -march=armv7-a -mtune=cortex-a8
+CFLAGS_omap3530   += -mfpu=neon -mfloat-abi=softfp
+
 LDFLAGS_all        = -L$(TARGET_GSTREAMER_DIR)/lib
 LDFLAGS_omap3530   = -L$(LINUXLIBS_INSTALL_DIR)/lib
 
