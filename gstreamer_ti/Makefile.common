@@ -233,7 +233,8 @@ TARGET_GSTREAMER_DIR = $(TARGET_ROOT_DIR)/$(GSTREAMER_DIR)
 #------------------------------------------------------------------------------
 CC_CONFIGURE_OPTS        = --build=i686-linux --host=arm-linux \
                            --prefix=$(TARGET_GSTREAMER_DIR)    \
-                           NM=$(MVTOOL_PREFIX)nm
+                           NM=$(MVTOOL_PREFIX)nm               \
+                           RANLIB=$(MVTOOL_PREFIX)ranlib
 export CC                = $(MVTOOL_PREFIX)gcc
 export CXX               = $(MVTOOL_PREFIX)g++
 export PKG_CONFIG_PATH   = $(TARGET_GSTREAMER_DIR)/lib/pkgconfig
