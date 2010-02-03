@@ -33,7 +33,7 @@ all: $(TI_PLUGINS)
 $(TI_PLUGINS): 
 	@echo Building $@
 	$(CMD_PREFIX) cd $@; ./autogen.sh --noconfigure
-	$(CMD_PREFIX) cd $@; ./configure $(CONFIGURE_VERBOSE) $(CC_CONFIGURE_OPTS) CPPFLAGS="-DPlatform_$(PLATFORM)"
+	$(CMD_PREFIX) cd $@; ./configure $(CONFIGURE_VERBOSE) $(CC_CONFIGURE_OPTS)
 	$(CMD_PREFIX) $(MAKE) $(MAKE_VERBOSE) -C $@ clean
 	$(CMD_PREFIX) $(MAKE) $(MAKE_VERBOSE) -C $@ $(BUILD_INSTALL)
 
