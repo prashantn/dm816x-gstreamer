@@ -188,15 +188,29 @@ endif
 #     LDFLAGS_all         - Linker flags used with all platforms
 #     LDFLAGS_<platform>  - Additional linker flags for <platform>
 #
+# Note on platforms that have "-I$(LINUXKERNEL_INSTALL_DIR)/include":
+#
+#    On MVL-based LSPs we need to include the LSP headers directly
+#    in order to gain access to custom V4L2 ioctls.  This is ok on MVL-based
+#    platforms, as we know the kernel headers in the PSP are in sync with
+#    the kernel headers in the gcc toolset.  However, it is not safe to do
+#    this on platforms that use non-MVL PSPs.  Fortunately, the new PSPs based
+#    on the later GIT kernels do not have custom ioctls, so including the PSP
+#    headers directly is not needed, and the headers that come with gcc should
+#    be sufficient.
 #------------------------------------------------------------------------------
 CPPFLAGS_all       = -DPlatform_$(PLATFORM)
 CPPFLAGS_all      += -I$(TARGET_GSTREAMER_DIR)/include
-CPPFLAGS_all      += -I$(LINUXKERNEL_INSTALL_DIR)/include
 CPPFLAGS_dm355     = -DDAVINCI_LSP_WORKAROUND 
+CPPFLAGS_dm355    += -I$(LINUXKERNEL_INSTALL_DIR)/include
 CPPFLAGS_dm6446    = -DDAVINCI_LSP_WORKAROUND 
+CPPFLAGS_dm6446   += -I$(LINUXKERNEL_INSTALL_DIR)/include
 CPPFLAGS_dm357     = -DDAVINCI_LSP_WORKAROUND 
+CPPFLAGS_dm357    += -I$(LINUXKERNEL_INSTALL_DIR)/include
 CPPFLAGS_dm365     = -DDAVINCI_LSP_WORKAROUND 
+CPPFLAGS_dm365    += -I$(LINUXKERNEL_INSTALL_DIR)/include
 CPPFLAGS_dm6467    = -DDAVINCI_LSP_WORKAROUND 
+CPPFLAGS_dm6467   += -I$(LINUXKERNEL_INSTALL_DIR)/include
 CPPFLAGS_omap3530  = -I$(LINUXLIBS_INSTALL_DIR)/include
 
 CFLAGS_dm355       = -march=armv5te -mtune=arm926ej-s
