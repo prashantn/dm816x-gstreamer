@@ -95,7 +95,7 @@ $(PATCH_PACKAGES): %.patch_postconfig : %.configure
 	$(CMD_PREFIX) if [ "$(PACKAGE_$(basename $@)_POSTCONFIG_PATCHES)" != "" ]; then \
 	    echo "***** Patching $(basename $@)"; \
 	    for patch in $(PACKAGE_$(basename $@)_POSTCONFIG_PATCHES); do \
-		patch $(PATCH_VERBOSE) -p0 < $(PATCHFILES_DIR)/$${patch}.patch; \
+		patch $(PATCH_VERBOSE) -p0 < $(PATCHFILES_DIR)/$(PACKAGE_$(basename $@)_ARCHIVE_BASENAME)/$${patch}.patch; \
 	    done; \
 	fi
 
@@ -117,7 +117,7 @@ $(PATCH_PACKAGES): %.patch_preconfig : %.extract
 	$(CMD_PREFIX) if [ "$(PACKAGE_$(basename $@)_PRECONFIG_PATCHES)" != "" ]; then \
 	    echo "***** Patching $(basename $@)"; \
 	    for patch in $(PACKAGE_$(basename $@)_PRECONFIG_PATCHES); do \
-		patch $(PATCH_VERBOSE) -p0 < $(PATCHFILES_DIR)/$${patch}.patch; \
+		patch $(PATCH_VERBOSE) -p0 < $(PATCHFILES_DIR)/$(PACKAGE_$(basename $@)_ARCHIVE_BASENAME)/$${patch}.patch; \
 	    done; \
 	fi
 
