@@ -22,7 +22,8 @@ PACKAGE_glib_BUILD_TARGET       = glib
 PACKAGE_glib_ARCHIVE_BASENAME   = glib-2.22.2
 PACKAGE_glib_PRECONFIG_PATCHES  =
 PACKAGE_glib_CONFIGURE_OPTS     = glib_cv_stack_grows=no glib_cv_uscore=no ac_cv_func_posix_getpwuid_r=yes ac_cv_func_posix_getgrgid_r=yes
-PACKAGE_glib_POSTCONFIG_PATCHES = glib1_2_22_2
+PACKAGE_glib_POSTCONFIG_PATCHES = \
+    0001-Disable-support-for-atomic-spinlocks.patch
 PACKAGE_glib_BUILD_DIRS         =
 PACKAGE_glib_DESCRIPTION        = GLib library
 BASE_PACKAGES += $(PACKAGE_glib_BUILD_TARGET)
@@ -56,7 +57,8 @@ BASE_PACKAGES += $(PACKAGE_gstreamer_BUILD_TARGET)
 #------------------------------------------------------------------------------
 PACKAGE_liboil_BUILD_TARGET       = liboil
 PACKAGE_liboil_ARCHIVE_BASENAME   = liboil-0.3.16
-PACKAGE_liboil_PRECONFIG_PATCHES  = liboil1_0_3_16
+PACKAGE_liboil_PRECONFIG_PATCHES  = \
+    0001-Fix-liboil-preprocessor-checks.patch
 PACKAGE_liboil_CONFIGURE_OPTS     =
 PACKAGE_liboil_POSTCONFIG_PATCHES =
 PACKAGE_liboil_BUILD_DIRS         =
@@ -68,7 +70,8 @@ BASE_PACKAGES += $(PACKAGE_liboil_BUILD_TARGET)
 #------------------------------------------------------------------------------
 PACKAGE_id3tag_BUILD_TARGET        = id3tag
 PACKAGE_id3tag_ARCHIVE_BASENAME    = libid3tag-0.15.1b
-PACKAGE_id3tag_PRECONFIG_PATCHES   = libid3tag1_0_15_1b
+PACKAGE_id3tag_PRECONFIG_PATCHES   = \
+    0001-Converted-from-libid3tag1_0_15_1b.patch.patch
 PACKAGE_id3tag_CONFIGURE_OPTS      = 
 PACKAGE_id3tag_POSTCONFIG_PATCHES  =
 PACKAGE_id3tag_DESCRIPTION         = id3 tag library
@@ -79,7 +82,8 @@ BASE_PACKAGES += $(PACKAGE_id3tag_BUILD_TARGET)
 #------------------------------------------------------------------------------
 PACKAGE_mad_BUILD_TARGET           = mad
 PACKAGE_mad_ARCHIVE_BASENAME       = libmad-0.15.1b
-PACKAGE_mad_PRECONFIG_PATCHES      = libmad1_0_15_1b
+PACKAGE_mad_PRECONFIG_PATCHES      = \
+    0001-Converted-from-libmad1_0_15_1b.patch.patch
 PACKAGE_mad_POSTCONFIG_PATCHES     =
 PACKAGE_mad_DESCRIPTION            = mpeg audio decoder library
 BASE_PACKAGES += $(PACKAGE_mad_BUILD_TARGET)
@@ -89,7 +93,8 @@ BASE_PACKAGES += $(PACKAGE_mad_BUILD_TARGET)
 #------------------------------------------------------------------------------
 PACKAGE_plugins_base_BUILD_TARGET       = plugins_base
 PACKAGE_plugins_base_ARCHIVE_BASENAME   = gst-plugins-base-0.10.25
-PACKAGE_plugins_base_PRECONFIG_PATCHES  = plugins_base1_0_10_25
+PACKAGE_plugins_base_PRECONFIG_PATCHES  = \
+    0001-Fix-for-playbin2.patch
 PACKAGE_plugins_base_CONFIGURE_OPTS     = --disable-tests --disable-examples --disable-x --disable-ogg --disable-vorbis --disable-pango $(ALSA_SUPPORT)
 PACKAGE_plugins_base_POSTCONFIG_PATCHES =
 PACKAGE_plugins_base_BUILD_DIRS         =
@@ -101,7 +106,10 @@ BASE_PACKAGES += $(PACKAGE_plugins_base_BUILD_TARGET)
 #------------------------------------------------------------------------------
 PACKAGE_plugins_good_BUILD_TARGET        = plugins_good
 PACKAGE_plugins_good_ARCHIVE_BASENAME    = gst-plugins-good-0.10.16
-PACKAGE_plugins_good_PRECONFIG_PATCHES   = plugins_good1_0_10_16 plugins_good2_0_10_16 plugins_good3_0_10_16
+PACKAGE_plugins_good_PRECONFIG_PATCHES   = \
+    0001-Fix-OSS-support-to-handle-all-supported-sample-rates.patch \
+    0002-Support-for-non-standard-colorspaces-and-custom-V4L2.patch \
+    0003-Fix-for-streaming-encode-with-rtph264pay.patch
 PACKAGE_plugins_good_CONFIGURE_OPTS      = 
 PACKAGE_plugins_good_POSTCONFIG_PATCHES  =
 PACKAGE_plugins_good_BUILD_DIRS          = gst/avi
@@ -138,7 +146,8 @@ PACKAGE_plugins_ugly_BUILD_TARGET       = plugins_ugly
 PACKAGE_plugins_ugly_ARCHIVE_BASENAME   = gst-plugins-ugly-0.10.13
 PACKAGE_plugins_ugly_PRECONFIG_PATCHES  = 
 ifeq ($(ALSA_SUPPORT), --disable-alsa)
-    PACKAGE_plugins_ugly_PRECONFIG_PATCHES += plugins_ugly1_0_10_13
+    PACKAGE_plugins_ugly_PRECONFIG_PATCHES += \
+        0001-Converted-from-plugins_ugly1_0_10_13.patch.patch
 endif
 PACKAGE_plugins_ugly_CONFIGURE_OPTS     = --enable-lame
 PACKAGE_plugins_ugly_POSTCONFIG_PATCHES =

@@ -1,7 +1,92 @@
-diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2bufferpool.c gst-plugins-good-0.10.16/sys/v4l2/gstv4l2bufferpool.c
---- orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2bufferpool.c	2009-08-10 17:15:55.000000000 -0500
-+++ gst-plugins-good-0.10.16/sys/v4l2/gstv4l2bufferpool.c	2009-11-23 12:31:23.000000000 -0600
-@@ -531,7 +531,11 @@
+From d2ed20785aff5f37d9b95097814bba55fb8e6b3e Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Thu, 11 Mar 2010 13:10:26 -0600
+Subject: [PATCH 2/3] Support for non-standard colorspaces and custom V4L2 ioctls on TI LSPs.
+
+Converted from plugins_good2_0_10_16.patch
+---
+ sys/v4l2/Makefile.am         |    4 +-
+ sys/v4l2/Makefile.in         |   10 +
+ sys/v4l2/gstv4l2bufferpool.c |    4 +
+ sys/v4l2/gstv4l2bufferpool.h |    3 +
+ sys/v4l2/gstv4l2object.c     |   72 ++++++-
+ sys/v4l2/gstv4l2object.h     |    9 +
+ sys/v4l2/gstv4l2src.c        |   37 +++-
+ sys/v4l2/gstv4l2src.h        |    1 +
+ sys/v4l2/v4l2_calls.c        |   18 ++
+ sys/v4l2/v4l2src_calls.c     |   10 +
+ sys/v4l2/v4l2src_davinci.c   |  494 ++++++++++++++++++++++++++++++++++++++++++
+ sys/v4l2/v4l2src_davinci.h   |   55 +++++
+ 12 files changed, 713 insertions(+), 4 deletions(-)
+ create mode 100644 sys/v4l2/v4l2src_davinci.c
+ create mode 100644 sys/v4l2/v4l2src_davinci.h
+
+diff --git a/sys/v4l2/Makefile.am b/sys/v4l2/Makefile.am
+index e655bcb..965883b 100644
+--- a/sys/v4l2/Makefile.am
++++ b/sys/v4l2/Makefile.am
+@@ -19,6 +19,7 @@ libgstvideo4linux2_la_SOURCES = gstv4l2.c \
+ 				gstv4l2vidorient.c \
+ 				v4l2_calls.c \
+ 				v4l2src_calls.c \
++                v4l2src_davinci.c \
+ 				$(xv_source)
+ 
+ libgstvideo4linux2_la_CFLAGS =   $(GST_PLUGINS_BASE_CFLAGS) \
+@@ -50,4 +51,5 @@ noinst_HEADERS = \
+ 	gstv4l2vidorient.h \
+ 	gstv4l2xoverlay.h \
+ 	v4l2_calls.h \
+-	v4l2src_calls.h
++	v4l2src_calls.h \
++    v4l2src_davinci.h \
+diff --git a/sys/v4l2/Makefile.in b/sys/v4l2/Makefile.in
+index 2663df8..90ae2a3 100644
+--- a/sys/v4l2/Makefile.in
++++ b/sys/v4l2/Makefile.in
+@@ -100,6 +100,7 @@ am_libgstvideo4linux2_la_OBJECTS = libgstvideo4linux2_la-gstv4l2.lo \
+ 	libgstvideo4linux2_la-gstv4l2tuner.lo \
+ 	libgstvideo4linux2_la-gstv4l2vidorient.lo \
+ 	libgstvideo4linux2_la-v4l2_calls.lo \
++	libgstvideo4linux2_la-v4l2src_davinci.lo \
+ 	libgstvideo4linux2_la-v4l2src_calls.lo
+ libgstvideo4linux2_la_OBJECTS = $(am_libgstvideo4linux2_la_OBJECTS)
+ libgstvideo4linux2_la_LINK = $(LIBTOOL) --tag=CC \
+@@ -457,6 +458,7 @@ libgstvideo4linux2_la_SOURCES = gstv4l2.c \
+ 				gstv4l2tuner.c \
+ 				gstv4l2vidorient.c \
+ 				v4l2_calls.c \
++				v4l2src_davinci.c \
+ 				v4l2src_calls.c \
+ 				$(xv_source)
+ 
+@@ -488,6 +490,7 @@ noinst_HEADERS = \
+ 	gstv4l2vidorient.h \
+ 	gstv4l2xoverlay.h \
+ 	v4l2_calls.h \
++	v4l2src_davinci.h \
+ 	v4l2src_calls.h
+ 
+ all: all-am
+@@ -654,6 +657,13 @@ libgstvideo4linux2_la-v4l2_calls.lo: v4l2_calls.c
+ @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+ @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -c -o libgstvideo4linux2_la-v4l2_calls.lo `test -f 'v4l2_calls.c' || echo '$(srcdir)/'`v4l2_calls.c
+ 
++libgstvideo4linux2_la-v4l2src_davinci.lo: v4l2src_davinci.c
++@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -MT libgstvideo4linux2_la-v4l2src_davinci.lo -MD -MP -MF $(DEPDIR)/libgstvideo4linux2_la-v4l2src_davinci.Tpo -c -o libgstvideo4linux2_la-v4l2src_davinci.lo `test -f 'v4l2src_davinci.c' || echo '$(srcdir)/'`v4l2src_davinci.c
++@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libgstvideo4linux2_la-v4l2src_davinci.Tpo $(DEPDIR)/libgstvideo4linux2_la-v4l2src_davinci.Plo
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='v4l2src_davinci.c' object='libgstvideo4linux2_la-v4l2src_davinci.lo' libtool=yes @AMDEPBACKSLASH@
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
++@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -c -o libgstvideo4linux2_la-v4l2src_davinci.lo `test -f 'v4l2src_davinci.c' || echo '$(srcdir)/'`v4l2src_davinci.c
++
+ libgstvideo4linux2_la-v4l2src_calls.lo: v4l2src_calls.c
+ @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -MT libgstvideo4linux2_la-v4l2src_calls.lo -MD -MP -MF $(DEPDIR)/libgstvideo4linux2_la-v4l2src_calls.Tpo -c -o libgstvideo4linux2_la-v4l2src_calls.lo `test -f 'v4l2src_calls.c' || echo '$(srcdir)/'`v4l2src_calls.c
+ @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libgstvideo4linux2_la-v4l2src_calls.Tpo $(DEPDIR)/libgstvideo4linux2_la-v4l2src_calls.Plo
+diff --git a/sys/v4l2/gstv4l2bufferpool.c b/sys/v4l2/gstv4l2bufferpool.c
+index 494f46d..b85d420 100644
+--- a/sys/v4l2/gstv4l2bufferpool.c
++++ b/sys/v4l2/gstv4l2bufferpool.c
+@@ -531,7 +531,11 @@ gst_v4l2_buffer_pool_dqbuf (GstV4l2BufferPool * pool)
      GST_V4L2_BUFFER_POOL_UNLOCK (pool);
  
      /* this can change at every frame, esp. with jpeg */
@@ -13,10 +98,11 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2bufferpool.c gst-plugins
  
      return pool_buffer;
    }
-diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2bufferpool.h gst-plugins-good-0.10.16/sys/v4l2/gstv4l2bufferpool.h
---- orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2bufferpool.h	2009-08-10 17:15:55.000000000 -0500
-+++ gst-plugins-good-0.10.16/sys/v4l2/gstv4l2bufferpool.h	2009-11-23 12:31:23.000000000 -0600
-@@ -64,6 +64,9 @@
+diff --git a/sys/v4l2/gstv4l2bufferpool.h b/sys/v4l2/gstv4l2bufferpool.h
+index 36a4220..789ccea 100644
+--- a/sys/v4l2/gstv4l2bufferpool.h
++++ b/sys/v4l2/gstv4l2bufferpool.h
+@@ -64,6 +64,9 @@ struct _GstV4l2BufferPool
    gint video_fd;             /* a dup(2) of the v4l2object's video_fd */
    guint buffer_count;
    GstV4l2Buffer **buffers;
@@ -26,10 +112,11 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2bufferpool.h gst-plugins
  };
  
  struct _GstV4l2Buffer {
-diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c
---- orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c	2009-08-14 06:25:59.000000000 -0500
-+++ gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c	2009-11-23 12:31:23.000000000 -0600
-@@ -41,12 +41,15 @@
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index f73ce21..3a0825e 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -41,6 +41,9 @@
  
  #include "gst/gst-i18n-plugin.h"
  
@@ -39,14 +126,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c gst-plugins-goo
  
  GST_DEBUG_CATEGORY_EXTERN (v4l2_debug);
  #define GST_CAT_DEFAULT v4l2_debug
- 
- 
--#define DEFAULT_PROP_DEVICE_NAME 	NULL
-+#define DEFAULT_PROP_DEVICE_NAME    NULL
- #define DEFAULT_PROP_DEVICE_FD          -1
- #define DEFAULT_PROP_FLAGS              0
- #define DEFAULT_PROP_NORM               NULL
-@@ -673,6 +676,9 @@
+@@ -673,6 +676,9 @@ static const guint32 gst_v4l2_formats[] = {
  #ifdef V4L2_PIX_FMT_YVYU
    V4L2_PIX_FMT_YVYU,
  #endif
@@ -56,7 +136,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c gst-plugins-goo
  };
  
  #define GST_V4L2_FORMAT_COUNT (G_N_ELEMENTS (gst_v4l2_formats))
-@@ -1046,6 +1052,11 @@
+@@ -1046,6 +1052,11 @@ gst_v4l2_object_v4l2fourcc_to_structure (guint32 fourcc)
            fcc = GST_MAKE_FOURCC ('Y', 'V', 'Y', 'U');
            break;
  #endif
@@ -68,7 +148,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c gst-plugins-goo
          default:
            g_assert_not_reached ();
            break;
-@@ -1084,6 +1095,14 @@
+@@ -1084,6 +1095,14 @@ gst_v4l2_object_v4l2fourcc_to_structure (guint32 fourcc)
        structure = gst_structure_new ("video/x-pwc2", NULL);
        break;
  #endif
@@ -83,7 +163,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c gst-plugins-goo
      default:
        GST_DEBUG ("Unknown fourcc 0x%08x %" GST_FOURCC_FORMAT,
            fourcc, GST_FOURCC_ARGS (fourcc));
-@@ -1200,8 +1219,14 @@
+@@ -1200,8 +1219,14 @@ gst_v4l2_object_get_caps_info (GstV4l2Object * v4l2object, GstCaps * caps,
          break;
        case GST_MAKE_FOURCC ('N', 'V', '1', '2'):
          fourcc = V4L2_PIX_FMT_NV12;
@@ -98,7 +178,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c gst-plugins-goo
          break;
        case GST_MAKE_FOURCC ('N', 'V', '2', '1'):
          fourcc = V4L2_PIX_FMT_NV21;
-@@ -1651,6 +1676,12 @@
+@@ -1651,6 +1676,12 @@ default_frame_sizes:
      gint min_w, max_w, min_h, max_h, fix_num = 0, fix_denom = 0;
  
      /* This code is for Linux < 2.6.19 */
@@ -111,7 +191,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c gst-plugins-goo
      min_w = min_h = 1;
      max_w = max_h = GST_V4L2_MAX_SIZE;
      if (!gst_v4l2_object_get_nearest_size (v4l2object, pixelformat, &min_w,
-@@ -1665,7 +1696,8 @@
+@@ -1665,7 +1696,8 @@ default_frame_sizes:
            "Could not probe maximum capture size for pixelformat %"
            GST_FOURCC_FORMAT, GST_FOURCC_ARGS (pixelformat));
      }
@@ -121,7 +201,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c gst-plugins-goo
      /* Since we can't get framerate directly, try to use the current norm */
      if (v4l2object->norm && v4l2object->norms) {
        GList *norms;
-@@ -1678,8 +1710,10 @@
+@@ -1678,8 +1710,10 @@ default_frame_sizes:
        }
        /* If it's possible, set framerate to that (discrete) value */
        if (norm) {
@@ -132,7 +212,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c gst-plugins-goo
        }
      }
  
-@@ -1729,6 +1763,13 @@
+@@ -1729,6 +1763,13 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
    /* get size delimiters */
    memset (&fmt, 0, sizeof (fmt));
    fmt.type = v4l2object->type;
@@ -146,7 +226,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c gst-plugins-goo
    fmt.fmt.pix.width = *width;
    fmt.fmt.pix.height = *height;
    fmt.fmt.pix.pixelformat = pixelformat;
-@@ -1798,6 +1839,13 @@
+@@ -1798,6 +1839,13 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
    GST_V4L2_CHECK_OPEN (v4l2object);
    GST_V4L2_CHECK_NOT_ACTIVE (v4l2object);
  
@@ -160,7 +240,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c gst-plugins-goo
    memset (&format, 0x00, sizeof (struct v4l2_format));
    format.type = v4l2object->type;
  
-@@ -1811,7 +1859,29 @@
+@@ -1811,7 +1859,29 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
    /* request whole frames; change when gstreamer supports interlaced video
     * (INTERLACED mode returns frames where the fields have already been
     *  combined, there are other modes for requesting fields individually) */
@@ -190,10 +270,11 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.c gst-plugins-goo
  
    if (v4l2_ioctl (fd, VIDIOC_S_FMT, &format) < 0) {
      if (errno != EINVAL)
-diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.h gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.h
---- orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.h	2009-08-10 17:15:55.000000000 -0500
-+++ gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.h	2009-11-23 12:31:23.000000000 -0600
-@@ -118,6 +118,15 @@
+diff --git a/sys/v4l2/gstv4l2object.h b/sys/v4l2/gstv4l2object.h
+index 4aac3a5..67aff0d 100644
+--- a/sys/v4l2/gstv4l2object.h
++++ b/sys/v4l2/gstv4l2object.h
+@@ -118,6 +118,15 @@ struct _GstV4l2Object {
    GstV4l2GetInOutFunction  get_in_out_func;
    GstV4l2SetInOutFunction  set_in_out_func;
    GstV4l2UpdateFpsFunction update_fps_func;
@@ -209,10 +290,12 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2object.h gst-plugins-goo
  };
  
  struct _GstV4l2ObjectClassHelper {
-diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.c gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.c
---- orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.c	2009-08-14 07:47:18.000000000 -0500
-+++ gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.c	2009-11-23 12:32:11.000000000 -0600
-@@ -80,6 +80,10 @@
+diff --git a/sys/v4l2/gstv4l2src.c b/sys/v4l2/gstv4l2src.c
+index 463bef3..3c2b9c2 100644
+--- a/sys/v4l2/gstv4l2src.c
++++ b/sys/v4l2/gstv4l2src.c
+@@ -79,7 +79,11 @@ enum
+   PROP_0,
    V4L2_STD_OBJECT_PROPS,
    PROP_QUEUE_SIZE,
 -  PROP_ALWAYS_COPY
@@ -224,7 +307,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.c gst-plugins-good-0
  };
  
  GST_IMPLEMENT_V4L2_PROBE_METHODS (GstV4l2SrcClass, gst_v4l2src);
-@@ -252,7 +256,16 @@
+@@ -252,7 +256,16 @@ gst_v4l2src_class_init (GstV4l2SrcClass * klass)
        g_param_spec_boolean ("always-copy", "Always Copy",
            "If the buffer will or not be used directly from mmap",
            PROP_DEF_ALWAYS_COPY, G_PARAM_READWRITE));
@@ -242,7 +325,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.c gst-plugins-good-0
    basesrc_class->get_caps = GST_DEBUG_FUNCPTR (gst_v4l2src_get_caps);
    basesrc_class->set_caps = GST_DEBUG_FUNCPTR (gst_v4l2src_set_caps);
    basesrc_class->start = GST_DEBUG_FUNCPTR (gst_v4l2src_start);
-@@ -280,6 +293,10 @@
+@@ -280,6 +293,10 @@ gst_v4l2src_init (GstV4l2Src * v4l2src, GstV4l2SrcClass * klass)
    v4l2src->always_copy = PROP_DEF_ALWAYS_COPY;
  
    v4l2src->is_capturing = FALSE;
@@ -253,7 +336,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.c gst-plugins-good-0
  
    gst_base_src_set_format (GST_BASE_SRC (v4l2src), GST_FORMAT_TIME);
    gst_base_src_set_live (GST_BASE_SRC (v4l2src), TRUE);
-@@ -326,6 +343,14 @@
+@@ -326,6 +343,14 @@ gst_v4l2src_set_property (GObject * object,
        case PROP_ALWAYS_COPY:
          v4l2src->always_copy = g_value_get_boolean (value);
          break;
@@ -268,7 +351,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.c gst-plugins-good-0
        default:
          G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
          break;
-@@ -349,6 +374,14 @@
+@@ -349,6 +374,14 @@ gst_v4l2src_get_property (GObject * object,
        case PROP_ALWAYS_COPY:
          g_value_set_boolean (value, v4l2src->always_copy);
          break;
@@ -283,10 +366,11 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.c gst-plugins-good-0
        default:
          G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
          break;
-diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.h gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.h
---- orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.h	2009-08-10 17:15:55.000000000 -0500
-+++ gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.h	2009-11-23 12:32:39.000000000 -0600
-@@ -80,6 +80,7 @@
+diff --git a/sys/v4l2/gstv4l2src.h b/sys/v4l2/gstv4l2src.h
+index fef3f10..5a4e9cd 100644
+--- a/sys/v4l2/gstv4l2src.h
++++ b/sys/v4l2/gstv4l2src.h
+@@ -80,6 +80,7 @@ struct _GstV4l2Src
    guint64 offset;
  
    gint     fps_d, fps_n;       /* framerate if device is open */
@@ -294,68 +378,10 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/gstv4l2src.h gst-plugins-good-0
  };
  
  struct _GstV4l2SrcClass
-diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/Makefile.am gst-plugins-good-0.10.16/sys/v4l2/Makefile.am
---- orig/gst-plugins-good-0.10.16/sys/v4l2/Makefile.am	2009-08-11 03:31:58.000000000 -0500
-+++ gst-plugins-good-0.10.16/sys/v4l2/Makefile.am	2009-11-23 12:25:04.000000000 -0600
-@@ -19,6 +19,7 @@
- 				gstv4l2vidorient.c \
- 				v4l2_calls.c \
- 				v4l2src_calls.c \
-+                v4l2src_davinci.c \
- 				$(xv_source)
- 
- libgstvideo4linux2_la_CFLAGS =   $(GST_PLUGINS_BASE_CFLAGS) \
-@@ -50,4 +51,5 @@
- 	gstv4l2vidorient.h \
- 	gstv4l2xoverlay.h \
- 	v4l2_calls.h \
--	v4l2src_calls.h
-+	v4l2src_calls.h \
-+    v4l2src_davinci.h \
-diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/Makefile.in gst-plugins-good-0.10.16/sys/v4l2/Makefile.in
---- orig/gst-plugins-good-0.10.16/sys/v4l2/Makefile.in	2009-08-28 15:06:06.000000000 -0500
-+++ gst-plugins-good-0.10.16/sys/v4l2/Makefile.in	2009-11-23 12:25:04.000000000 -0600
-@@ -100,6 +100,7 @@
- 	libgstvideo4linux2_la-gstv4l2tuner.lo \
- 	libgstvideo4linux2_la-gstv4l2vidorient.lo \
- 	libgstvideo4linux2_la-v4l2_calls.lo \
-+	libgstvideo4linux2_la-v4l2src_davinci.lo \
- 	libgstvideo4linux2_la-v4l2src_calls.lo
- libgstvideo4linux2_la_OBJECTS = $(am_libgstvideo4linux2_la_OBJECTS)
- libgstvideo4linux2_la_LINK = $(LIBTOOL) --tag=CC \
-@@ -457,6 +458,7 @@
- 				gstv4l2tuner.c \
- 				gstv4l2vidorient.c \
- 				v4l2_calls.c \
-+				v4l2src_davinci.c \
- 				v4l2src_calls.c \
- 				$(xv_source)
- 
-@@ -488,6 +490,7 @@
- 	gstv4l2vidorient.h \
- 	gstv4l2xoverlay.h \
- 	v4l2_calls.h \
-+	v4l2src_davinci.h \
- 	v4l2src_calls.h
- 
- all: all-am
-@@ -654,6 +657,13 @@
- @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
- @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -c -o libgstvideo4linux2_la-v4l2_calls.lo `test -f 'v4l2_calls.c' || echo '$(srcdir)/'`v4l2_calls.c
- 
-+libgstvideo4linux2_la-v4l2src_davinci.lo: v4l2src_davinci.c
-+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -MT libgstvideo4linux2_la-v4l2src_davinci.lo -MD -MP -MF $(DEPDIR)/libgstvideo4linux2_la-v4l2src_davinci.Tpo -c -o libgstvideo4linux2_la-v4l2src_davinci.lo `test -f 'v4l2src_davinci.c' || echo '$(srcdir)/'`v4l2src_davinci.c
-+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libgstvideo4linux2_la-v4l2src_davinci.Tpo $(DEPDIR)/libgstvideo4linux2_la-v4l2src_davinci.Plo
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='v4l2src_davinci.c' object='libgstvideo4linux2_la-v4l2src_davinci.lo' libtool=yes @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -c -o libgstvideo4linux2_la-v4l2src_davinci.lo `test -f 'v4l2src_davinci.c' || echo '$(srcdir)/'`v4l2src_davinci.c
-+
- libgstvideo4linux2_la-v4l2src_calls.lo: v4l2src_calls.c
- @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -MT libgstvideo4linux2_la-v4l2src_calls.lo -MD -MP -MF $(DEPDIR)/libgstvideo4linux2_la-v4l2src_calls.Tpo -c -o libgstvideo4linux2_la-v4l2src_calls.lo `test -f 'v4l2src_calls.c' || echo '$(srcdir)/'`v4l2src_calls.c
- @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libgstvideo4linux2_la-v4l2src_calls.Tpo $(DEPDIR)/libgstvideo4linux2_la-v4l2src_calls.Plo
-diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2_calls.c gst-plugins-good-0.10.16/sys/v4l2/v4l2_calls.c
---- orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2_calls.c	2009-08-10 17:15:55.000000000 -0500
-+++ gst-plugins-good-0.10.16/sys/v4l2/v4l2_calls.c	2009-11-23 12:25:04.000000000 -0600
+diff --git a/sys/v4l2/v4l2_calls.c b/sys/v4l2/v4l2_calls.c
+index 5f6261e..1d0447a 100644
+--- a/sys/v4l2/v4l2_calls.c
++++ b/sys/v4l2/v4l2_calls.c
 @@ -50,6 +50,10 @@
  
  #include "gst/gst-i18n-plugin.h"
@@ -367,7 +393,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2_calls.c gst-plugins-good-0
  /* Those are ioctl calls */
  #ifndef V4L2_CID_HCENTER
  #define V4L2_CID_HCENTER V4L2_CID_HCENTER_DEPRECATED
-@@ -410,6 +414,14 @@
+@@ -410,6 +414,14 @@ gst_v4l2_open (GstV4l2Object * v4l2object)
    int libv4l2_fd;
    GstPollFD pollfd = GST_POLL_FD_INIT;
  
@@ -382,7 +408,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2_calls.c gst-plugins-good-0
    GST_DEBUG_OBJECT (v4l2object->element, "Trying to open device %s",
        v4l2object->videodev);
  
-@@ -548,6 +560,12 @@
+@@ -548,6 +560,12 @@ gst_v4l2_close (GstV4l2Object * v4l2object)
    gst_poll_remove_fd (v4l2object->poll, &pollfd);
    v4l2object->video_fd = -1;
  
@@ -395,10 +421,11 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2_calls.c gst-plugins-good-0
    /* empty lists */
    gst_v4l2_empty_lists (v4l2object);
  
-diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2src_calls.c gst-plugins-good-0.10.16/sys/v4l2/v4l2src_calls.c
---- orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2src_calls.c	2009-08-10 17:15:55.000000000 -0500
-+++ gst-plugins-good-0.10.16/sys/v4l2/v4l2src_calls.c	2009-11-23 12:33:21.000000000 -0600
-@@ -105,6 +105,10 @@
+diff --git a/sys/v4l2/v4l2src_calls.c b/sys/v4l2/v4l2src_calls.c
+index d8e365f..1b7385b 100644
+--- a/sys/v4l2/v4l2src_calls.c
++++ b/sys/v4l2/v4l2src_calls.c
+@@ -105,6 +105,10 @@ gst_v4l2src_grab_frame (GstV4l2Src * v4l2src, GstBuffer ** buf)
    v4l2object = v4l2src->v4l2object;
    pool = v4l2src->pool;
  
@@ -409,7 +436,7 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2src_calls.c gst-plugins-goo
    GST_DEBUG_OBJECT (v4l2src, "grab frame");
  
    for (;;) {
-@@ -342,6 +346,12 @@
+@@ -342,6 +346,12 @@ gst_v4l2src_capture_start (GstV4l2Src * v4l2src)
    v4l2src->quit = FALSE;
  
    if (v4l2src->use_mmap) {
@@ -422,9 +449,11 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2src_calls.c gst-plugins-goo
      if (!gst_v4l2src_buffer_pool_activate (v4l2src->pool, v4l2src)) {
        return FALSE;
      }
-diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2src_davinci.c gst-plugins-good-0.10.16/sys/v4l2/v4l2src_davinci.c
---- orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2src_davinci.c	1969-12-31 18:00:00.000000000 -0600
-+++ gst-plugins-good-0.10.16/sys/v4l2/v4l2src_davinci.c	2009-11-23 12:25:04.000000000 -0600
+diff --git a/sys/v4l2/v4l2src_davinci.c b/sys/v4l2/v4l2src_davinci.c
+new file mode 100644
+index 0000000..75e412d
+--- /dev/null
++++ b/sys/v4l2/v4l2src_davinci.c
 @@ -0,0 +1,494 @@
 +/*
 + * v4l2src_davinci.c
@@ -920,9 +949,11 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2src_davinci.c gst-plugins-g
 +}
 +#endif /* Platform_dm365 */
 +#endif /* DAVINCI_LSP_WORKAROUND */
-diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2src_davinci.h gst-plugins-good-0.10.16/sys/v4l2/v4l2src_davinci.h
---- orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2src_davinci.h	1969-12-31 18:00:00.000000000 -0600
-+++ gst-plugins-good-0.10.16/sys/v4l2/v4l2src_davinci.h	2009-11-23 12:25:04.000000000 -0600
+diff --git a/sys/v4l2/v4l2src_davinci.h b/sys/v4l2/v4l2src_davinci.h
+new file mode 100644
+index 0000000..eedc8bf
+--- /dev/null
++++ b/sys/v4l2/v4l2src_davinci.h
 @@ -0,0 +1,55 @@
 +/*
 + * v42lsrc_davinci.h
@@ -979,3 +1010,6 @@ diff -uNr orig/gst-plugins-good-0.10.16/sys/v4l2/v4l2src_davinci.h gst-plugins-g
 +
 +#endif /* __GST_DM365_RESIZER_H__ */
 +
+-- 
+1.6.3.3
+

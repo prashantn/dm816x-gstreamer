@@ -1,21 +1,20 @@
-diff -uNr libid3tag-0.15.1b/id3tag.pc.in libid3tag-0.15.1b_new/id3tag.pc.in
---- libid3tag-0.15.1b/id3tag.pc.in	1969-12-31 18:00:00.000000000 -0600
-+++ libid3tag-0.15.1b_new/id3tag.pc.in	2008-10-24 13:27:22.000000000 -0500
-@@ -0,0 +1,10 @@
-+prefix=@prefix@
-+exec_prefix=@exec_prefix@
-+libdir=@libdir@
-+includedir=@includedir@
-+
-+Name: ID3TAG
-+Description: libid3tag - ID3 tag manipulation library
-+Version: @VERSION@
-+Libs: -L${libdir} -lid3tag -lz
-+Cflags:
-diff -uNr libid3tag-0.15.1b/Makefile.am libid3tag-0.15.1b_new/Makefile.am
---- libid3tag-0.15.1b/Makefile.am	2004-02-16 20:11:28.000000000 -0600
-+++ libid3tag-0.15.1b_new/Makefile.am	2008-10-24 13:27:22.000000000 -0500
-@@ -69,9 +69,12 @@
+From e606005c8192059eb8a61650826e00a2633cb85d Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Thu, 11 Mar 2010 13:49:13 -0600
+Subject: [PATCH] Converted from libid3tag1_0_15_1b.patch
+
+---
+ Makefile.am  |    5 ++++-
+ Makefile.in  |   34 ++++++++++++++++++++++++++++++----
+ id3tag.pc.in |   10 ++++++++++
+ 3 files changed, 44 insertions(+), 5 deletions(-)
+ create mode 100644 id3tag.pc.in
+
+diff --git a/Makefile.am b/Makefile.am
+index 3ee9aa6..e884c9e 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -69,9 +69,12 @@ version_age =		3
  
  version_info =		$(version_current):$(version_revision):$(version_age)
  
@@ -29,10 +28,11 @@ diff -uNr libid3tag-0.15.1b/Makefile.am libid3tag-0.15.1b_new/Makefile.am
  if DEBUG
  debug = debug.c debug.h
  else
-diff -uNr libid3tag-0.15.1b/Makefile.in libid3tag-0.15.1b_new/Makefile.in
---- libid3tag-0.15.1b/Makefile.in	2004-02-16 20:34:38.000000000 -0600
-+++ libid3tag-0.15.1b_new/Makefile.in	2008-10-24 13:27:22.000000000 -0500
-@@ -42,7 +42,8 @@
+diff --git a/Makefile.in b/Makefile.in
+index aeec8f7..71b7c24 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -42,7 +42,8 @@ DIST_COMMON = README $(am__configure_deps) $(include_HEADERS) \
  	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
  	$(srcdir)/config.h.in $(srcdir)/libid3tag.list.in \
  	$(top_srcdir)/configure COPYING INSTALL TODO config.guess \
@@ -42,7 +42,7 @@ diff -uNr libid3tag-0.15.1b/Makefile.in libid3tag-0.15.1b_new/Makefile.in
  subdir = .
  ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
  am__aclocal_m4_deps = $(top_srcdir)/configure.ac
-@@ -218,9 +219,12 @@
+@@ -218,9 +219,12 @@ version_current = 3
  version_revision = 0
  version_age = 3
  version_info = $(version_current):$(version_revision):$(version_age)
@@ -56,7 +56,7 @@ diff -uNr libid3tag-0.15.1b/Makefile.in libid3tag-0.15.1b_new/Makefile.in
  @DEBUG_FALSE@debug = 
  @DEBUG_TRUE@debug = debug.c debug.h
  libid3tag_la_SOURCES = version.c ucs4.c latin1.c utf16.c utf8.c  \
-@@ -290,6 +294,28 @@
+@@ -290,6 +294,28 @@ $(srcdir)/config.h.in:  $(am__configure_deps)
  	rm -f stamp-h1
  	touch $@
  
@@ -85,7 +85,7 @@ diff -uNr libid3tag-0.15.1b/Makefile.in libid3tag-0.15.1b_new/Makefile.in
  distclean-hdr:
  	-rm -f config.h stamp-h1
  libid3tag.list: $(top_builddir)/config.status $(srcdir)/libid3tag.list.in
-@@ -710,7 +736,7 @@
+@@ -710,7 +736,7 @@ info: info-recursive
  
  info-am:
  
@@ -94,7 +94,7 @@ diff -uNr libid3tag-0.15.1b/Makefile.in libid3tag-0.15.1b_new/Makefile.in
  
  install-exec-am: install-libLTLIBRARIES
  
-@@ -741,7 +767,7 @@
+@@ -741,7 +767,7 @@ ps: ps-recursive
  ps-am:
  
  uninstall-am: uninstall-includeHEADERS uninstall-info-am \
@@ -103,3 +103,22 @@ diff -uNr libid3tag-0.15.1b/Makefile.in libid3tag-0.15.1b_new/Makefile.in
  
  uninstall-info: uninstall-info-recursive
  
+diff --git a/id3tag.pc.in b/id3tag.pc.in
+new file mode 100644
+index 0000000..e00536d
+--- /dev/null
++++ b/id3tag.pc.in
+@@ -0,0 +1,10 @@
++prefix=@prefix@
++exec_prefix=@exec_prefix@
++libdir=@libdir@
++includedir=@includedir@
++
++Name: ID3TAG
++Description: libid3tag - ID3 tag manipulation library
++Version: @VERSION@
++Libs: -L${libdir} -lid3tag -lz
++Cflags:
+-- 
+1.6.3.3
+

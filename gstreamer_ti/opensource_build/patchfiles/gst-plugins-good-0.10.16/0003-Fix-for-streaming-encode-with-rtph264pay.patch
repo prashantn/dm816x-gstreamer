@@ -1,0 +1,40 @@
+From f38722004b40f18f766df424dc090c0d4951c4dc Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Thu, 11 Mar 2010 13:12:07 -0600
+Subject: [PATCH 3/3] Fix for streaming encode with rtph264pay.
+
+Converted from plugins_good3_0_10_16.patch
+---
+ gst/rtp/gstrtph264pay.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
+
+diff --git a/gst/rtp/gstrtph264pay.c b/gst/rtp/gstrtph264pay.c
+index eda69f4..983d573 100644
+--- a/gst/rtp/gstrtph264pay.c
++++ b/gst/rtp/gstrtph264pay.c
+@@ -401,6 +401,14 @@ next_start_code (guint8 * data, guint size)
+   return size;
+ }
+ 
++/* for now use the regular memcmp API until we figure out optimized method */
++static gboolean
++is_nal_equal (const guint8 * nal1, const guint8 * nal2, guint len)
++{
++    return !memcmp(nal1, nal2, len);
++}
++
++#if 0
+ /* we don't use memcpy but this faster version (around 20%) because we need to
+  * perform it on all data. */
+ static gboolean
+@@ -439,6 +447,7 @@ is_nal_equal (const guint8 * nal1, const guint8 * nal2, guint len)
+         &&(nal1[len - 2] == nal2[len - 2]));    /* -2 */
+   }
+ }
++#endif
+ 
+ static gboolean
+ gst_rtp_h264_pay_decode_nal (GstRtpH264Pay * payloader,
+-- 
+1.6.3.3
+

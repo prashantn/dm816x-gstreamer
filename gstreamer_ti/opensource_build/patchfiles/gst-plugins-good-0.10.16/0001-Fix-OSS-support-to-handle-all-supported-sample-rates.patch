@@ -1,0 +1,34 @@
+From 08a99f1a477f9a7ede5444fd149485b53f32d6b4 Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Thu, 11 Mar 2010 13:07:19 -0600
+Subject: [PATCH 1/3] Fix OSS support to handle all supported sample rates.
+
+Converted from plugins_good1_0_10_16.patch
+---
+ sys/oss/gstosshelper.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
+
+diff --git a/sys/oss/gstosshelper.c b/sys/oss/gstosshelper.c
+index cc81ad8..9a15ae0 100644
+--- a/sys/oss/gstosshelper.c
++++ b/sys/oss/gstosshelper.c
+@@ -236,6 +236,16 @@ gst_oss_helper_rate_probe_check (GstOssProbe * probe)
+   probe->min = gst_oss_helper_rate_check_rate (probe, 1000);
+   n_checks++;
+   probe->max = gst_oss_helper_rate_check_rate (probe, 100000);
++
++  /* Probing is not proper -- check additional sample rates */
++  gst_oss_helper_rate_check_rate(probe, 22050);
++  gst_oss_helper_rate_check_rate(probe, 11025);
++  gst_oss_helper_rate_check_rate(probe, 24000);
++  gst_oss_helper_rate_check_rate(probe, 32000);
++  gst_oss_helper_rate_check_rate(probe, 44100);
++  gst_oss_helper_rate_check_rate(probe, 48000);
++  gst_oss_helper_rate_check_rate(probe, 8000);
++
+   /* a little bug workaround */
+   {
+     int max;
+-- 
+1.6.3.3
+

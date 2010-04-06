@@ -1,34 +1,20 @@
-diff -uNr libmad-0.15.1b/configure.ac libmad-0.15.1b_new/configure.ac
---- libmad-0.15.1b/configure.ac	2004-01-23 03:41:32.000000000 -0600
-+++ libmad-0.15.1b_new/configure.ac	2008-10-24 14:23:53.000000000 -0500
-@@ -429,5 +429,5 @@
- dnl AC_SUBST(LTLIBOBJS)
- 
- AC_CONFIG_FILES([Makefile msvc++/Makefile  \
--	libmad.list])
-+	libmad.list mad.pc])
- AC_OUTPUT
-diff -uNr libmad-0.15.1b/mad.pc.in libmad-0.15.1b_new/mad.pc.in
---- libmad-0.15.1b/mad.pc.in	1969-12-31 18:00:00.000000000 -0600
-+++ libmad-0.15.1b_new/mad.pc.in	2008-10-24 14:23:53.000000000 -0500
-@@ -0,0 +1,14 @@
-+# libmad pkg-config source file
-+
-+prefix=@prefix@
-+exec_prefix=@exec_prefix@
-+libdir=@libdir@
-+includedir=@includedir@
-+
-+Name: mad
-+Description: MPEG Audio Decoder
-+Version: @VERSION@
-+Requires:
-+Conflicts:
-+Libs: -L${libdir} -lmad -lm
-+Cflags: -I${includedir}
-diff -uNr libmad-0.15.1b/Makefile.am libmad-0.15.1b_new/Makefile.am
---- libmad-0.15.1b/Makefile.am	2004-02-16 20:02:03.000000000 -0600
-+++ libmad-0.15.1b_new/Makefile.am	2008-10-24 14:23:53.000000000 -0500
+From 62ead2ac1f883989e760b80dba557c7a4787d18d Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Thu, 11 Mar 2010 13:51:31 -0600
+Subject: [PATCH] Converted from libmad1_0_15_1b.patch
+
+---
+ Makefile.am  |    6 +++++-
+ Makefile.in  |   32 ++++++++++++++++++++++++++++----
+ configure.ac |    2 +-
+ mad.pc.in    |   14 ++++++++++++++
+ 4 files changed, 48 insertions(+), 6 deletions(-)
+ create mode 100644 mad.pc.in
+
+diff --git a/Makefile.am b/Makefile.am
+index ad5c596..4489c84 100644
+--- a/Makefile.am
++++ b/Makefile.am
 @@ -24,6 +24,9 @@
  SUBDIRS =		
  DIST_SUBDIRS =		msvc++
@@ -39,7 +25,7 @@ diff -uNr libmad-0.15.1b/Makefile.am libmad-0.15.1b_new/Makefile.am
  lib_LTLIBRARIES =	libmad.la
  include_HEADERS =	mad.h
  
-@@ -34,7 +37,8 @@
+@@ -34,7 +37,8 @@ minimad_INCLUDES =
  minimad_LDADD =		libmad.la
  
  EXTRA_DIST =		mad.h.sed  \
@@ -49,10 +35,11 @@ diff -uNr libmad-0.15.1b/Makefile.am libmad-0.15.1b_new/Makefile.am
  
  exported_headers =	version.h fixed.h bit.h timer.h stream.h frame.h  \
  			synth.h decoder.h
-diff -uNr libmad-0.15.1b/Makefile.in libmad-0.15.1b_new/Makefile.in
---- libmad-0.15.1b/Makefile.in	2004-02-16 20:33:23.000000000 -0600
-+++ libmad-0.15.1b_new/Makefile.in	2008-10-24 14:24:56.000000000 -0500
-@@ -43,7 +43,8 @@
+diff --git a/Makefile.in b/Makefile.in
+index 723070a..4276e74 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -43,7 +43,8 @@ DIST_COMMON = README $(am__configure_deps) $(include_HEADERS) \
  	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
  	$(srcdir)/config.h.in $(srcdir)/libmad.list.in \
  	$(top_srcdir)/configure COPYING INSTALL TODO config.guess \
@@ -62,7 +49,7 @@ diff -uNr libmad-0.15.1b/Makefile.in libmad-0.15.1b_new/Makefile.in
  subdir = .
  ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
  am__aclocal_m4_deps = $(top_srcdir)/configure.ac
-@@ -218,8 +219,10 @@
+@@ -218,8 +219,10 @@ include_HEADERS = mad.h
  minimad_SOURCES = minimad.c
  minimad_INCLUDES = 
  minimad_LDADD = libmad.la
@@ -74,7 +61,7 @@ diff -uNr libmad-0.15.1b/Makefile.in libmad-0.15.1b_new/Makefile.in
  
  exported_headers = version.h fixed.h bit.h timer.h stream.h frame.h  \
  			synth.h decoder.h
-@@ -297,6 +300,27 @@
+@@ -297,6 +300,27 @@ $(srcdir)/config.h.in:  $(am__configure_deps)
  	cd $(top_srcdir) && $(AUTOHEADER)
  	rm -f stamp-h1
  	touch $@
@@ -102,7 +89,7 @@ diff -uNr libmad-0.15.1b/Makefile.in libmad-0.15.1b_new/Makefile.in
  
  distclean-hdr:
  	-rm -f config.h stamp-h1
-@@ -726,7 +750,7 @@
+@@ -726,7 +750,7 @@ info: info-recursive
  
  info-am:
  
@@ -111,7 +98,7 @@ diff -uNr libmad-0.15.1b/Makefile.in libmad-0.15.1b_new/Makefile.in
  
  install-exec-am: install-libLTLIBRARIES
  
-@@ -757,7 +781,7 @@
+@@ -757,7 +781,7 @@ ps: ps-recursive
  ps-am:
  
  uninstall-am: uninstall-includeHEADERS uninstall-info-am \
@@ -120,3 +107,37 @@ diff -uNr libmad-0.15.1b/Makefile.in libmad-0.15.1b_new/Makefile.in
  
  uninstall-info: uninstall-info-recursive
  
+diff --git a/configure.ac b/configure.ac
+index 9b79399..bbb8502 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -429,5 +429,5 @@ dnl LTLIBOBJS=`echo "$LIBOBJS" | sed -e 's/\.o/.lo/g'`
+ dnl AC_SUBST(LTLIBOBJS)
+ 
+ AC_CONFIG_FILES([Makefile msvc++/Makefile  \
+-	libmad.list])
++	libmad.list mad.pc])
+ AC_OUTPUT
+diff --git a/mad.pc.in b/mad.pc.in
+new file mode 100644
+index 0000000..8c3b2d8
+--- /dev/null
++++ b/mad.pc.in
+@@ -0,0 +1,14 @@
++# libmad pkg-config source file
++
++prefix=@prefix@
++exec_prefix=@exec_prefix@
++libdir=@libdir@
++includedir=@includedir@
++
++Name: mad
++Description: MPEG Audio Decoder
++Version: @VERSION@
++Requires:
++Conflicts:
++Libs: -L${libdir} -lmad -lm
++Cflags: -I${includedir}
+-- 
+1.6.3.3
+

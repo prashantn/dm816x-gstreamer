@@ -1,0 +1,44 @@
+From 6c7002544c4e600d70b6872b68028e36682cb355 Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Thu, 11 Mar 2010 13:53:52 -0600
+Subject: [PATCH] Fix liboil preprocessor checks.
+
+Liboil was building hand-coded VFP assembly, but the check for VFP support
+was not correct.  This change fixes the check for VFP.
+
+Suggestion taken from:
+https://gstreamer.ti.com/gf/project/gstreamer_ti/forum/?_forum_action=MessageReply&message_id=6188&action=ForumBrowse
+---
+ liboil/arm/math_vfp.c     |    2 +-
+ liboil/arm/math_vfp_asm.S |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/liboil/arm/math_vfp.c b/liboil/arm/math_vfp.c
+index ffd3981..0bed96e 100644
+--- a/liboil/arm/math_vfp.c
++++ b/liboil/arm/math_vfp.c
+@@ -30,7 +30,7 @@
+ #include <liboil/liboilclasses.h>
+ #include <liboil/liboilfunction.h>
+ 
+-#if __VFP_FP__
++#if defined(__VFP_FP__) && !defined(__SOFTFP__)
+ 
+ extern void vfp_add_f32 (float *d, const float *s1, const float *s2, int n);
+ extern void vfp_add_f64 (double *d, const double *s1, const double *s2, int n);
+diff --git a/liboil/arm/math_vfp_asm.S b/liboil/arm/math_vfp_asm.S
+index ea68dba..ae5c803 100644
+--- a/liboil/arm/math_vfp_asm.S
++++ b/liboil/arm/math_vfp_asm.S
+@@ -24,7 +24,7 @@
+  * SUCH DAMAGE.
+  */
+ 
+-#if __VFP_FP__
++#if defined(__VFP_FP__) && !defined(__SOFTFP__)
+ /* 
+ ** compile with -mcpu=arm1136j-s -mfpu=vfp -mfloat-abi=softfp
+ **
+-- 
+1.6.3.3
+
