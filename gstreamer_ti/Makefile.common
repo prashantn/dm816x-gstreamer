@@ -225,18 +225,19 @@ LDFLAGS_all        = -L$(TARGET_GSTREAMER_DIR)/lib
 LDFLAGS_omap3530   = -L$(LINUXLIBS_INSTALL_DIR)/lib
 
 #------------------------------------------------------------------------------
-# Enable ALSA support based on PLATFORM and CROSS_COMPILER variable
+# Enable ALSA support based on the CROSS_COMPILER we're using
 #------------------------------------------------------------------------------
-ifeq ($(PLATFORM), omap3530)
+ifeq ($(CROSS_COMPILER), MVL_4_0_1)
+    export	ALSA_SUPPORT = --disable-alsa
+endif  
+ifeq ($(CROSS_COMPILER), MVL_5_0)
+    export	ALSA_SUPPORT = --enable-alsa
+endif 
+ifeq ($(CROSS_COMPILER), CS_2008Q1)
     export ALSA_SUPPORT = --enable-alsa --with-alsa-inc-prefix=$(LINUXLIBS_INSTALL_DIR)/include --with-alsa-prefix=$(LINUXLIBS_INSTALL_DIR)/lib 
-else
-    ifeq ($(CROSS_COMPILER), MVL_5_0)
-        export	ALSA_SUPPORT = --enable-alsa
-    endif 
-     
-    ifeq ($(CROSS_COMPILER), MVL_4_0_1)
-        export	ALSA_SUPPORT = --disable-alsa
-    endif  
+endif
+ifeq ($(CROSS_COMPILER), CS_2009Q1)
+    export ALSA_SUPPORT = --enable-alsa --with-alsa-inc-prefix=$(LINUXLIBS_INSTALL_DIR)/include --with-alsa-prefix=$(LINUXLIBS_INSTALL_DIR)/lib 
 endif
 
 #------------------------------------------------------------------------------
