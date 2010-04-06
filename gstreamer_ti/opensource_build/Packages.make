@@ -56,7 +56,7 @@ BASE_PACKAGES += $(PACKAGE_gstreamer_BUILD_TARGET)
 #------------------------------------------------------------------------------
 PACKAGE_liboil_BUILD_TARGET       = liboil
 PACKAGE_liboil_ARCHIVE_BASENAME   = liboil-0.3.16
-PACKAGE_liboil_PRECONFIG_PATCHES  =
+PACKAGE_liboil_PRECONFIG_PATCHES  = liboil1_0_3_16
 PACKAGE_liboil_CONFIGURE_OPTS     =
 PACKAGE_liboil_POSTCONFIG_PATCHES =
 PACKAGE_liboil_BUILD_DIRS         =
