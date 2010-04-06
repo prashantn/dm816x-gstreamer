@@ -1588,7 +1588,7 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
 
                 if (Framecopy_execute(sink->hFc, inBuf, hDispBuf) < 0) {
                     GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
-                    ("Failed to execute resizer\n"), (NULL));
+                    ("Failed to execute framecopy\n"), (NULL));
                     goto cleanup;
                 }
             }
