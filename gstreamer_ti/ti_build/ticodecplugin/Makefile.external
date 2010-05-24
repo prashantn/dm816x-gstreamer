@@ -3,8 +3,7 @@
 #
 # The only customization required below is defining the DVSDK_PATH
 # and, if your DVSDK doesn't include DMAI, the set DMAI_INSTALL_DIR variable
-# appropriately.  If your DVSDK does include DMAI, then delete the line
-# setting the DMAI_INSTALL_DIR variable below.
+# appropriately.
 #
 # Copyright (C) 2009 Ridgerun 
 #
@@ -17,6 +16,8 @@ DMAI_INSTALL_DIR=undefined
 ifeq ($(DVSDK_PATH),undefined)
 $(error You need to define the environment variable DVSDK_PATH)
 endif
+include $(DVSDK_PATH)/Rules.make
+
 ifeq ($(DMAI_INSTALL_DIR),undefined)
 $(error You need to define the environment variable DMAI_INSTALL_DIR)
 endif
@@ -24,7 +25,6 @@ endif
 default:
 	@echo "Please specify the target: dm6446, omap3530, dm355, dm6467, dm365"
 
-include $(DVSDK_PATH)/Rules.make
 export PLATFORM=$(MAKECMDGOALS)
 export BIOS_INSTALL_DIR
 export CE_INSTALL_DIR
