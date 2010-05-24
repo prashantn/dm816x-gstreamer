@@ -225,7 +225,7 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
             "Video Standard used\n"
             "\tAUTO (if supported), CIF, SIF_NTSC, SIF_PAL, VGA, D1_NTSC\n"
             "\tD1_PAL, 480P, 576P, 720P_60, 720P_50, 1080I_30, 1080I_25\n"
-            "\t1080P_30, 1080P_25, 1080P_24\n",
+            "\t1080P_30, 1080P_60, 1080P_25, 1080P_24\n",
             NULL, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_VIDEOOUTPUT,
@@ -667,6 +667,9 @@ static int gst_tidmaivideosink_videostd_get_attrs(VideoStd_Type videoStd,
             break;
         case VideoStd_480P:
         case VideoStd_720P_60:
+        #if defined(Platform_dm6467t)
+        case VideoStd_1080P_60:
+        #endif
             vattrs->framerate = 60;
             break;
 
@@ -721,6 +724,9 @@ static int gst_tidmaivideosink_videostd_get_refresh_latency(
 
         case VideoStd_480P:
         case VideoStd_720P_60:
+        #if defined(Platform_dm6467t)
+        case VideoStd_1080P_60:
+        #endif
             return 16667;
 
         #if defined(Platform_omap3530)
@@ -955,6 +961,10 @@ static int gst_tidmaivideosink_convert_attrs(int attr,
                 return VideoStd_1080P_25;
             else if (!strcmp(sink->videoStd, "1080P_24"))
                 return VideoStd_1080P_24;
+            #if defined(Platform_dm6467t)
+            else if (!strcmp(sink->videoStd, "1080P_60"))
+                return VideoStd_1080P_60;
+            #endif
             #if defined(Platform_omap3530)
             else if (!strcmp(sink->videoStd, "VGA"))
                 return VideoStd_VGA;
@@ -964,7 +974,7 @@ static int gst_tidmaivideosink_convert_attrs(int attr,
                 "Please choose from:\n"
                 "\tAUTO (if supported), CIF, SIF_NTSC, SIF_PAL, VGA, D1_NTSC\n"
                 "\tD1_PAL, 480P, 576P, 720P_60, 720P_50, 1080I_30, 1080I_25\n"
-                "\t1080P_30, 1080P_25, 1080P_24\n", sink->videoStd);
+                "\t1080P_30, 1080P_60, 1080P_25, 1080P_24\n", sink->videoStd);
                 return -1;
             }
             break;
