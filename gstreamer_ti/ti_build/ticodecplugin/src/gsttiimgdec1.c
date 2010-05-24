@@ -1388,11 +1388,11 @@ static void* gst_tiimgdec1_decode_thread(void *arg)
          * that the input buffer be a BufferGfx object.
          */
         BufferGfx_getBufferAttrs(&gfxAttrs)->reference = TRUE;
-        imgdec1->hInBuf = Buffer_create(Buffer_getSize(hEncDataWindow),
+        imgdec1->hInBuf = Buffer_create(Idec1_getInBufSize(imgdec1->hIe),
                                 BufferGfx_getBufferAttrs(&gfxAttrs));
         Buffer_setUserPtr(imgdec1->hInBuf, Buffer_getUserPtr(hEncDataWindow));
         Buffer_setNumBytesUsed(imgdec1->hInBuf, 
-                               Buffer_getSize(imgdec1->hInBuf));
+                               Buffer_getSize(hEncDataWindow));
 
         /* Set the dimensions of the buffer to the resolution */
         BufferGfx_getDimensions(hDstBuf, &dim);
