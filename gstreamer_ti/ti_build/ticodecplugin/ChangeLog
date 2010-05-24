@@ -1,3 +1,43 @@
+2010-05-24: Don Darling, Texas Instruments, Inc.
+	* src/gsttividdec2.c:
+	Add support for the DivX and XviD mime types in TIViddec2.
+
+2010-05-24: Don Darling, Texas Instruments, Inc.
+	* src/gsttividenc1.c:
+	Create source caps information for MPEG-2 streams in TIVidenc1.
+
+2010-05-24: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaivideosink.c:
+	Remove DM365 guard for NV12 fourcc check.
+
+2010-05-24: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaivideosink.c:
+	Add support for the 1080P_60 video standard in TIDmaiVideoSink.
+
+2010-05-24: Don Darling, Texas Instruments, Inc.
+	* src/gsttividresize.c:
+	Add support for the NV16 colorspace in TIVidResize.
+
+2010-05-24: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaivideosink.c:
+	Add support for the NV16 colorspace in TIDmaiVideoSink.
+
+2010-05-24: Don Darling, Texas Instruments, Inc.
+	* src/gsttividenc1.c:
+	Add support for the NV16 colorspace in TIVidenc1.
+
+2010-05-24: Don Darling, Texas Instruments, Inc.
+	* src/gsttiimgdec1.c:
+	Correct size metadata imgdec1->hInBuf prior to calling the codec.
+
+2010-05-24: Don Darling, Texas Instruments, Inc.
+	* src/gsttiimgenc1.c:
+	Fix assertion failure in TIImgenc1.
+
+2010-05-24: Don Darling, Texas Instruments, Inc.
+	* src/{gsttiimgdec.c, gsttiimgdec1.c, gsttiimgenc.c, gsttiimgenc1.c}:
+	Fix typos in error messages.
+
 2010-01-18: Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttiquicktime_h264.{c,h}, gsttividenc.{c,h}, gsttividenc1.{c,h}}:
 	Add support for generating H.264 packetized stream.
