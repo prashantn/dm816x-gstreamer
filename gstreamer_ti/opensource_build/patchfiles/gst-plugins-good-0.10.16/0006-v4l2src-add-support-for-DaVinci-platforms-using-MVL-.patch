@@ -1,35 +1,48 @@
-From d2ed20785aff5f37d9b95097814bba55fb8e6b3e Mon Sep 17 00:00:00 2001
+From 234926e586ddd9bee2415574e6bf58b16970d556 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
-Date: Thu, 11 Mar 2010 13:10:26 -0600
-Subject: [PATCH 2/3] Support for non-standard colorspaces and custom V4L2 ioctls on TI LSPs.
+Date: Mon, 12 Apr 2010 13:07:24 -0500
+Subject: [PATCH 06/14] v4l2src: add support for DaVinci platforms using MVL-based kernels
 
-Converted from plugins_good2_0_10_16.patch
+The following files add support for device-specific hand-shaking with the
+capture drivers for DaVinci platforms that use MontaVista-based Linux kernels:
+
+    v4l2src_mvl_lsp.h
+    v4l2src_mvl_lsp.c
+
+Since these capture drivers use some custom ioctls that would never be pushed
+to the upstream Linux kernel tree, it follows that changes to the v4l2src
+element to support these ioctls would never be pushed either.  That said,
+our goal here is to isolate these changes into their own file and change the
+upstream code base as little as possible.  Since we may need to carry these
+patches for several revisions of v4l2src, this will make re-basing easier.
+
+All changes to the upstream code are guarded by "#if defined(MVL_LSP)", which
+is defined by the TI GStreamer build system where appropriate.
 ---
  sys/v4l2/Makefile.am         |    4 +-
- sys/v4l2/Makefile.in         |   10 +
+ sys/v4l2/Makefile.in         |   10 ++
  sys/v4l2/gstv4l2bufferpool.c |    4 +
  sys/v4l2/gstv4l2bufferpool.h |    3 +
- sys/v4l2/gstv4l2object.c     |   72 ++++++-
- sys/v4l2/gstv4l2object.h     |    9 +
- sys/v4l2/gstv4l2src.c        |   37 +++-
- sys/v4l2/gstv4l2src.h        |    1 +
- sys/v4l2/v4l2_calls.c        |   18 ++
- sys/v4l2/v4l2src_calls.c     |   10 +
- sys/v4l2/v4l2src_davinci.c   |  494 ++++++++++++++++++++++++++++++++++++++++++
- sys/v4l2/v4l2src_davinci.h   |   55 +++++
- 12 files changed, 713 insertions(+), 4 deletions(-)
- create mode 100644 sys/v4l2/v4l2src_davinci.c
- create mode 100644 sys/v4l2/v4l2src_davinci.h
+ sys/v4l2/gstv4l2object.c     |   39 +++++++-
+ sys/v4l2/gstv4l2object.h     |    8 ++
+ sys/v4l2/gstv4l2src.c        |   26 +++++
+ sys/v4l2/v4l2_calls.c        |    4 +
+ sys/v4l2/v4l2src_calls.c     |   14 +++
+ sys/v4l2/v4l2src_mvl_lsp.c   |  234 ++++++++++++++++++++++++++++++++++++++++++
+ sys/v4l2/v4l2src_mvl_lsp.h   |   52 +++++++++
+ 11 files changed, 396 insertions(+), 2 deletions(-)
+ create mode 100644 sys/v4l2/v4l2src_mvl_lsp.c
+ create mode 100644 sys/v4l2/v4l2src_mvl_lsp.h
 
 diff --git a/sys/v4l2/Makefile.am b/sys/v4l2/Makefile.am
-index e655bcb..965883b 100644
+index e655bcb..0c0e086 100644
 --- a/sys/v4l2/Makefile.am
 +++ b/sys/v4l2/Makefile.am
 @@ -19,6 +19,7 @@ libgstvideo4linux2_la_SOURCES = gstv4l2.c \
  				gstv4l2vidorient.c \
  				v4l2_calls.c \
  				v4l2src_calls.c \
-+                v4l2src_davinci.c \
++				v4l2src_mvl_lsp.c \
  				$(xv_source)
  
  libgstvideo4linux2_la_CFLAGS =   $(GST_PLUGINS_BASE_CFLAGS) \
@@ -39,16 +52,16 @@ index e655bcb..965883b 100644
  	v4l2_calls.h \
 -	v4l2src_calls.h
 +	v4l2src_calls.h \
-+    v4l2src_davinci.h \
++	v4l2src_mvl_lsp.h
 diff --git a/sys/v4l2/Makefile.in b/sys/v4l2/Makefile.in
-index 2663df8..90ae2a3 100644
+index 2663df8..dea048f 100644
 --- a/sys/v4l2/Makefile.in
 +++ b/sys/v4l2/Makefile.in
 @@ -100,6 +100,7 @@ am_libgstvideo4linux2_la_OBJECTS = libgstvideo4linux2_la-gstv4l2.lo \
  	libgstvideo4linux2_la-gstv4l2tuner.lo \
  	libgstvideo4linux2_la-gstv4l2vidorient.lo \
  	libgstvideo4linux2_la-v4l2_calls.lo \
-+	libgstvideo4linux2_la-v4l2src_davinci.lo \
++	libgstvideo4linux2_la-v4l2src_mvl_lsp.lo \
  	libgstvideo4linux2_la-v4l2src_calls.lo
  libgstvideo4linux2_la_OBJECTS = $(am_libgstvideo4linux2_la_OBJECTS)
  libgstvideo4linux2_la_LINK = $(LIBTOOL) --tag=CC \
@@ -56,7 +69,7 @@ index 2663df8..90ae2a3 100644
  				gstv4l2tuner.c \
  				gstv4l2vidorient.c \
  				v4l2_calls.c \
-+				v4l2src_davinci.c \
++				v4l2src_mvl_lsp.c \
  				v4l2src_calls.c \
  				$(xv_source)
  
@@ -64,7 +77,7 @@ index 2663df8..90ae2a3 100644
  	gstv4l2vidorient.h \
  	gstv4l2xoverlay.h \
  	v4l2_calls.h \
-+	v4l2src_davinci.h \
++	v4l2src_mvl_lsp.h \
  	v4l2src_calls.h
  
  all: all-am
@@ -72,25 +85,25 @@ index 2663df8..90ae2a3 100644
  @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
  @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -c -o libgstvideo4linux2_la-v4l2_calls.lo `test -f 'v4l2_calls.c' || echo '$(srcdir)/'`v4l2_calls.c
  
-+libgstvideo4linux2_la-v4l2src_davinci.lo: v4l2src_davinci.c
-+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -MT libgstvideo4linux2_la-v4l2src_davinci.lo -MD -MP -MF $(DEPDIR)/libgstvideo4linux2_la-v4l2src_davinci.Tpo -c -o libgstvideo4linux2_la-v4l2src_davinci.lo `test -f 'v4l2src_davinci.c' || echo '$(srcdir)/'`v4l2src_davinci.c
-+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libgstvideo4linux2_la-v4l2src_davinci.Tpo $(DEPDIR)/libgstvideo4linux2_la-v4l2src_davinci.Plo
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='v4l2src_davinci.c' object='libgstvideo4linux2_la-v4l2src_davinci.lo' libtool=yes @AMDEPBACKSLASH@
++libgstvideo4linux2_la-v4l2src_mvl_lsp.lo: v4l2src_mvl_lsp.c
++@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -MT libgstvideo4linux2_la-v4l2src_mvl_lsp.lo -MD -MP -MF $(DEPDIR)/libgstvideo4linux2_la-v4l2src_mvl_lsp.Tpo -c -o libgstvideo4linux2_la-v4l2src_mvl_lsp.lo `test -f 'v4l2src_mvl_lsp.c' || echo '$(srcdir)/'`v4l2src_mvl_lsp.c
++@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libgstvideo4linux2_la-v4l2src_mvl_lsp.Tpo $(DEPDIR)/libgstvideo4linux2_la-v4l2src_mvl_lsp.Plo
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='v4l2src_mvl_lsp.c' object='libgstvideo4linux2_la-v4l2src_mvl_lsp.lo' libtool=yes @AMDEPBACKSLASH@
 +@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -c -o libgstvideo4linux2_la-v4l2src_davinci.lo `test -f 'v4l2src_davinci.c' || echo '$(srcdir)/'`v4l2src_davinci.c
++@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -c -o libgstvideo4linux2_la-v4l2src_mvl_lsp.lo `test -f 'v4l2src_mvl_lsp.c' || echo '$(srcdir)/'`v4l2src_mvl_lsp.c
 +
  libgstvideo4linux2_la-v4l2src_calls.lo: v4l2src_calls.c
  @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -MT libgstvideo4linux2_la-v4l2src_calls.lo -MD -MP -MF $(DEPDIR)/libgstvideo4linux2_la-v4l2src_calls.Tpo -c -o libgstvideo4linux2_la-v4l2src_calls.lo `test -f 'v4l2src_calls.c' || echo '$(srcdir)/'`v4l2src_calls.c
  @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libgstvideo4linux2_la-v4l2src_calls.Tpo $(DEPDIR)/libgstvideo4linux2_la-v4l2src_calls.Plo
 diff --git a/sys/v4l2/gstv4l2bufferpool.c b/sys/v4l2/gstv4l2bufferpool.c
-index 494f46d..b85d420 100644
+index 494f46d..7ce81d1 100644
 --- a/sys/v4l2/gstv4l2bufferpool.c
 +++ b/sys/v4l2/gstv4l2bufferpool.c
 @@ -531,7 +531,11 @@ gst_v4l2_buffer_pool_dqbuf (GstV4l2BufferPool * pool)
      GST_V4L2_BUFFER_POOL_UNLOCK (pool);
  
      /* this can change at every frame, esp. with jpeg */
-+#if defined(DAVINCI_LSP_WORKAROUND) && ( defined(Platform_dm6467) || defined(Platform_dm357))
++#if defined(MVL_LSP) && ( defined(Platform_dm6467) || defined(Platform_dm357))
 +    GST_BUFFER_SIZE (pool_buffer) = pool->bytesused;
 +#else    
      GST_BUFFER_SIZE (pool_buffer) = buffer.bytesused;
@@ -99,34 +112,34 @@ index 494f46d..b85d420 100644
      return pool_buffer;
    }
 diff --git a/sys/v4l2/gstv4l2bufferpool.h b/sys/v4l2/gstv4l2bufferpool.h
-index 36a4220..789ccea 100644
+index 36a4220..975c3df 100644
 --- a/sys/v4l2/gstv4l2bufferpool.h
 +++ b/sys/v4l2/gstv4l2bufferpool.h
 @@ -64,6 +64,9 @@ struct _GstV4l2BufferPool
    gint video_fd;             /* a dup(2) of the v4l2object's video_fd */
    guint buffer_count;
    GstV4l2Buffer **buffers;
-+  #if defined(DAVINCI_LSP_WORKAROUND)
++  #if defined(MVL_LSP)
 +  guint32 bytesused;
 +  #endif
  };
  
  struct _GstV4l2Buffer {
 diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
-index f73ce21..3a0825e 100644
+index 6e38fbc..da1ed41 100644
 --- a/sys/v4l2/gstv4l2object.c
 +++ b/sys/v4l2/gstv4l2object.c
 @@ -41,6 +41,9 @@
  
  #include "gst/gst-i18n-plugin.h"
  
-+#if defined(DAVINCI_LSP_WORKAROUND)
-+#include "v4l2src_davinci.h"
++#if defined(MVL_LSP)
++#include "v4l2src_mvl_lsp.h"
 +#endif
  
  GST_DEBUG_CATEGORY_EXTERN (v4l2_debug);
  #define GST_CAT_DEFAULT v4l2_debug
-@@ -673,6 +676,9 @@ static const guint32 gst_v4l2_formats[] = {
+@@ -677,6 +680,9 @@ static const guint32 gst_v4l2_formats[] = {
  #ifdef V4L2_PIX_FMT_YVYU
    V4L2_PIX_FMT_YVYU,
  #endif
@@ -136,38 +149,33 @@ index f73ce21..3a0825e 100644
  };
  
  #define GST_V4L2_FORMAT_COUNT (G_N_ELEMENTS (gst_v4l2_formats))
-@@ -1046,6 +1052,11 @@ gst_v4l2_object_v4l2fourcc_to_structure (guint32 fourcc)
+@@ -1008,6 +1014,9 @@ gst_v4l2_object_v4l2fourcc_to_structure (guint32 fourcc)
+ #ifdef V4L2_PIX_FMT_YVYU
+     case V4L2_PIX_FMT_YVYU:
+ #endif
++#ifdef V4L2_PIX_FMT_YUV422UVP
++    case V4L2_PIX_FMT_YUV422UVP:
++#endif
+     case V4L2_PIX_FMT_YUV411P:{
+       guint32 fcc = 0;
+ 
+@@ -1050,6 +1059,11 @@ gst_v4l2_object_v4l2fourcc_to_structure (guint32 fourcc)
            fcc = GST_MAKE_FOURCC ('Y', 'V', 'Y', 'U');
            break;
  #endif
 +#ifdef V4L2_PIX_FMT_YUV422UVP
-+       case GST_MAKE_FOURCC ('Y', '8', 'C', '8'):
-+         fourcc = V4L2_PIX_FMT_YUV422UVP;
++       case V4L2_PIX_FMT_YUV422UVP:
++         fcc = GST_MAKE_FOURCC ('Y', '8', 'C', '8');
 +         break;
 +#endif
          default:
            g_assert_not_reached ();
            break;
-@@ -1084,6 +1095,14 @@ gst_v4l2_object_v4l2fourcc_to_structure (guint32 fourcc)
-       structure = gst_structure_new ("video/x-pwc2", NULL);
-       break;
- #endif
-+#ifdef V4L2_PIX_FMT_YUV422UVP
-+    case V4L2_PIX_FMT_YUV422UVP: {
-+      guint32 fcc = GST_MAKE_FOURCC ('Y', '8', 'C', '8');
-+      structure = gst_structure_new ("video/x-raw-yuv",
-+        "format", GST_TYPE_FOURCC, fcc, NULL);
-+      break;
-+    }
-+#endif
-     default:
-       GST_DEBUG ("Unknown fourcc 0x%08x %" GST_FOURCC_FORMAT,
-           fourcc, GST_FOURCC_ARGS (fourcc));
-@@ -1200,8 +1219,14 @@ gst_v4l2_object_get_caps_info (GstV4l2Object * v4l2object, GstCaps * caps,
+@@ -1204,8 +1218,14 @@ gst_v4l2_object_get_caps_info (GstV4l2Object * v4l2object, GstCaps * caps,
          break;
        case GST_MAKE_FOURCC ('N', 'V', '1', '2'):
          fourcc = V4L2_PIX_FMT_NV12;
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++#if defined(MVL_LSP) && defined(Platform_dm365)
 +        /* NV12 buffer on dm365 is 32-byte aligned */
 +        outsize = GST_ROUND_UP_32 (*w) * GST_ROUND_UP_2 (*h);
 +        outsize += (GST_ROUND_UP_32 (*w) * *h) / 2;
@@ -178,11 +186,23 @@ index f73ce21..3a0825e 100644
          break;
        case GST_MAKE_FOURCC ('N', 'V', '2', '1'):
          fourcc = V4L2_PIX_FMT_NV21;
-@@ -1651,6 +1676,12 @@ default_frame_sizes:
+@@ -1497,9 +1517,11 @@ sort_by_frame_size (GstStructure * s1, GstStructure * s2)
+ }
+ #endif
+ 
++#if !defined(MVL_LSP)
+ static gboolean
+ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
+     guint32 pixelformat, gint * width, gint * height);
++#endif
+ 
+ GstCaps *
+ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
+@@ -1655,6 +1677,12 @@ default_frame_sizes:
      gint min_w, max_w, min_h, max_h, fix_num = 0, fix_denom = 0;
  
      /* This code is for Linux < 2.6.19 */
-+#if defined(DAVINCI_LSP_WORKAROUND)
++#if defined(MVL_LSP)
 +    gst_v4l2src_get_resolution(v4l2object, &min_w, &min_h, &fix_num, 
 +        &fix_denom); 
 +    gst_v4l2src_get_resolution(v4l2object, &max_w, &max_h, &fix_num, 
@@ -191,7 +211,7 @@ index f73ce21..3a0825e 100644
      min_w = min_h = 1;
      max_w = max_h = GST_V4L2_MAX_SIZE;
      if (!gst_v4l2_object_get_nearest_size (v4l2object, pixelformat, &min_w,
-@@ -1665,7 +1696,8 @@ default_frame_sizes:
+@@ -1669,7 +1697,8 @@ default_frame_sizes:
            "Could not probe maximum capture size for pixelformat %"
            GST_FOURCC_FORMAT, GST_FOURCC_ARGS (pixelformat));
      }
@@ -201,89 +221,57 @@ index f73ce21..3a0825e 100644
      /* Since we can't get framerate directly, try to use the current norm */
      if (v4l2object->norm && v4l2object->norms) {
        GList *norms;
-@@ -1678,8 +1710,10 @@ default_frame_sizes:
+@@ -1682,8 +1711,10 @@ default_frame_sizes:
        }
        /* If it's possible, set framerate to that (discrete) value */
        if (norm) {
-+#if !defined(DAVINCI_LSP_WORKAROUND)
++#if !defined(MVL_LSP)
          fix_num = gst_value_get_fraction_numerator (&norm->framerate);
          fix_denom = gst_value_get_fraction_denominator (&norm->framerate);
 +#endif
        }
      }
  
-@@ -1729,6 +1763,13 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
-   /* get size delimiters */
-   memset (&fmt, 0, sizeof (fmt));
-   fmt.type = v4l2object->type;
-+#if defined(DAVINCI_LSP_WORKAROUND)
-+  r = ioctl(fd, VIDIOC_G_FMT, &fmt);
-+  if (r < 0) {
-+    GST_ERROR("Failed to get format\n");
-+    return FALSE;
-+  }
-+#endif
-   fmt.fmt.pix.width = *width;
-   fmt.fmt.pix.height = *height;
-   fmt.fmt.pix.pixelformat = pixelformat;
-@@ -1798,6 +1839,13 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
-   GST_V4L2_CHECK_OPEN (v4l2object);
-   GST_V4L2_CHECK_NOT_ACTIVE (v4l2object);
+@@ -1713,6 +1744,7 @@ default_frame_sizes:
+   }
+ }
  
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
-+  if (pixelformat != V4L2_PIX_FMT_NV12) {
-+    GST_INFO("closing ipipe module\n");
-+    dm365_resize_destroy(v4l2object);
-+  }
-+#endif
-+
-   memset (&format, 0x00, sizeof (struct v4l2_format));
-   format.type = v4l2object->type;
++#if !defined(MVL_LSP)
+ static gboolean
+ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
+     guint32 pixelformat, gint * width, gint * height)
+@@ -1790,6 +1822,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
  
-@@ -1811,7 +1859,29 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
-   /* request whole frames; change when gstreamer supports interlaced video
-    * (INTERLACED mode returns frames where the fields have already been
+   return TRUE;
+ }
++#endif
+ 
+ 
+ gboolean
+@@ -1821,6 +1854,10 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
     *  combined, there are other modes for requesting fields individually) */
-+#if defined(DAVINCI_LSP_WORKAROUND) && !defined(Platform_dm6467)
    format.fmt.pix.field = V4L2_FIELD_INTERLACED;
-+#endif
-+
-+#if defined(DAVINCI_LSP_WORKAROUND)
-+  v4l2object->bytesused = format.fmt.pix.sizeimage;
-+#endif
-+
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
-+  if(v4l2object->input_src) {
-+    if (!strcmp(v4l2object->input_src, "component"))
-+        format.fmt.pix.field = V4L2_FIELD_NONE;
-+    else
-+        format.fmt.pix.field = V4L2_FIELD_INTERLACED;
-+  }
-+  else
-+        format.fmt.pix.field = V4L2_FIELD_NONE;
-+
-+  if (v4l2_ioctl (fd, VIDIOC_TRY_FMT, &format) < 0) {
-+    if (errno != EINVAL)
-+      goto set_fmt_failed;
-+  }
-+#endif
  
++  #if defined(MVL_LSP) 
++    v4l2object->bytesused = format.fmt.pix.sizeimage;
++  #endif
++
    if (v4l2_ioctl (fd, VIDIOC_S_FMT, &format) < 0) {
      if (errno != EINVAL)
+       goto set_fmt_failed;
 diff --git a/sys/v4l2/gstv4l2object.h b/sys/v4l2/gstv4l2object.h
-index 4aac3a5..67aff0d 100644
+index 853e6ac..9aabdfa 100644
 --- a/sys/v4l2/gstv4l2object.h
 +++ b/sys/v4l2/gstv4l2object.h
-@@ -118,6 +118,15 @@ struct _GstV4l2Object {
+@@ -120,6 +120,14 @@ struct _GstV4l2Object {
    GstV4l2GetInOutFunction  get_in_out_func;
    GstV4l2SetInOutFunction  set_in_out_func;
    GstV4l2UpdateFpsFunction update_fps_func;
 +
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
-+  gchar *input_src;
++#if defined(MVL_LSP) && defined(Platform_dm365)
 +  gboolean force_720p_30;
 +#endif
-+#if defined(DAVINCI_LSP_WORKAROUND)
++#if defined(MVL_LSP)
 +  guint32 bytesused;
 +#endif
 +
@@ -291,59 +279,55 @@ index 4aac3a5..67aff0d 100644
  
  struct _GstV4l2ObjectClassHelper {
 diff --git a/sys/v4l2/gstv4l2src.c b/sys/v4l2/gstv4l2src.c
-index 463bef3..3c2b9c2 100644
+index e7c83f0..ac9ccc0 100644
 --- a/sys/v4l2/gstv4l2src.c
 +++ b/sys/v4l2/gstv4l2src.c
-@@ -79,7 +79,11 @@ enum
-   PROP_0,
+@@ -80,6 +80,9 @@ enum
    V4L2_STD_OBJECT_PROPS,
    PROP_QUEUE_SIZE,
--  PROP_ALWAYS_COPY
-+  PROP_ALWAYS_COPY,
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
-+  PROP_INPUT_SRC,
+   PROP_ALWAYS_COPY,
++#if defined(MVL_LSP) && defined(Platform_dm365)
 +  PROP_FORCE_720P_30,
 +#endif
+   PROP_INPUT_SRC
  };
  
- GST_IMPLEMENT_V4L2_PROBE_METHODS (GstV4l2SrcClass, gst_v4l2src);
-@@ -252,7 +256,16 @@ gst_v4l2src_class_init (GstV4l2SrcClass * klass)
-       g_param_spec_boolean ("always-copy", "Always Copy",
-           "If the buffer will or not be used directly from mmap",
-           PROP_DEF_ALWAYS_COPY, G_PARAM_READWRITE));
--
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
-+  g_object_class_install_property (gobject_class, PROP_INPUT_SRC,
-+      g_param_spec_string ("input-src", "Select the input source",
-+          "Select the input source (composite, component, svideo)",
-+          NULL, G_PARAM_READWRITE));
+@@ -256,6 +259,12 @@ gst_v4l2src_class_init (GstV4l2SrcClass * klass)
+   g_object_class_install_property (gobject_class, PROP_INPUT_SRC,
+       g_param_spec_string ("input-src", "Select the input source",
+           "Select the input source)", NULL, G_PARAM_READWRITE));
++#if defined(MVL_LSP) && defined(Platform_dm365)
 +  g_object_class_install_property (gobject_class, PROP_FORCE_720P_30,
 +      g_param_spec_boolean ("force-720p-30", "Configure 720P @ 30fps",
 +          "Force driver to work on 720P @ 30fps",
 +          FALSE, G_PARAM_READWRITE));
 +#endif
+ 
    basesrc_class->get_caps = GST_DEBUG_FUNCPTR (gst_v4l2src_get_caps);
    basesrc_class->set_caps = GST_DEBUG_FUNCPTR (gst_v4l2src_set_caps);
-   basesrc_class->start = GST_DEBUG_FUNCPTR (gst_v4l2src_start);
-@@ -280,6 +293,10 @@ gst_v4l2src_init (GstV4l2Src * v4l2src, GstV4l2SrcClass * klass)
-   v4l2src->always_copy = PROP_DEF_ALWAYS_COPY;
+@@ -285,10 +294,17 @@ gst_v4l2src_init (GstV4l2Src * v4l2src, GstV4l2SrcClass * klass)
  
    v4l2src->is_capturing = FALSE;
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
-+  v4l2src->v4l2object->input_src = NULL;
+   v4l2src->v4l2object->input_src = NULL;
++#if defined(MVL_LSP) && defined(Platform_dm365)
 +  v4l2src->v4l2object->force_720p_30 = FALSE;
 +#endif
  
-   gst_base_src_set_format (GST_BASE_SRC (v4l2src), GST_FORMAT_TIME);
-   gst_base_src_set_live (GST_BASE_SRC (v4l2src), TRUE);
-@@ -326,6 +343,14 @@ gst_v4l2src_set_property (GObject * object,
-       case PROP_ALWAYS_COPY:
-         v4l2src->always_copy = g_value_get_boolean (value);
+   /* Set the default input ID on a per-target basis */
+   #if defined (Platform_dm365)
++    #if defined(MVL_LSP)
++      v4l2src->v4l2object->input_id = 4;  /* Component (MVL) */
++    #else
+       v4l2src->v4l2object->input_id = 2;  /* Component */
++    #endif
+   #elif defined (Platform_dm6467t) || defined (Platform_dm6467)
+       v4l2src->v4l2object->input_id = 1;  /* Component */
+   #else
+@@ -344,6 +360,11 @@ gst_v4l2src_set_property (GObject * object,
+         v4l2src->v4l2object->input_src =
+           g_ascii_strup(g_value_get_string(value), -1);
          break;
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
-+      case PROP_INPUT_SRC:
-+        v4l2src->v4l2object->input_src = g_strdup(g_value_get_string(value));
-+        break;
++#if defined(MVL_LSP) && defined(Platform_dm365)
 +      case PROP_FORCE_720P_30:
 +        v4l2src->v4l2object->force_720p_30 = g_value_get_boolean (value);
 +        break;
@@ -351,14 +335,11 @@ index 463bef3..3c2b9c2 100644
        default:
          G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
          break;
-@@ -349,6 +374,14 @@ gst_v4l2src_get_property (GObject * object,
-       case PROP_ALWAYS_COPY:
-         g_value_set_boolean (value, v4l2src->always_copy);
+@@ -370,6 +391,11 @@ gst_v4l2src_get_property (GObject * object,
+       case PROP_INPUT_SRC:
+         g_value_set_string(value, v4l2src->v4l2object->input_src);
          break;
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
-+      case PROP_INPUT_SRC:
-+        g_value_set_string(value, v4l2src->v4l2object->input_src);
-+        break;
++#if defined(MVL_LSP) && defined(Platform_dm365)
 +      case PROP_FORCE_720P_30:
 +        g_value_set_boolean (value, v4l2src->v4l2object->force_720p_30);
 +        break;
@@ -366,81 +347,52 @@ index 463bef3..3c2b9c2 100644
        default:
          G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
          break;
-diff --git a/sys/v4l2/gstv4l2src.h b/sys/v4l2/gstv4l2src.h
-index fef3f10..5a4e9cd 100644
---- a/sys/v4l2/gstv4l2src.h
-+++ b/sys/v4l2/gstv4l2src.h
-@@ -80,6 +80,7 @@ struct _GstV4l2Src
-   guint64 offset;
- 
-   gint     fps_d, fps_n;       /* framerate if device is open */
-+
- };
- 
- struct _GstV4l2SrcClass
 diff --git a/sys/v4l2/v4l2_calls.c b/sys/v4l2/v4l2_calls.c
-index 5f6261e..1d0447a 100644
+index d72a160..f6084f5 100644
 --- a/sys/v4l2/v4l2_calls.c
 +++ b/sys/v4l2/v4l2_calls.c
 @@ -50,6 +50,10 @@
  
  #include "gst/gst-i18n-plugin.h"
  
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
-+#include "v4l2src_davinci.h"
++#if defined(MVL_LSP) && defined(Platform_dm365)
++#include "v4l2src_mvl_lsp.h"
 +#endif
 +
  /* Those are ioctl calls */
  #ifndef V4L2_CID_HCENTER
  #define V4L2_CID_HCENTER V4L2_CID_HCENTER_DEPRECATED
-@@ -410,6 +414,14 @@ gst_v4l2_open (GstV4l2Object * v4l2object)
-   int libv4l2_fd;
-   GstPollFD pollfd = GST_POLL_FD_INIT;
- 
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
-+   GST_DEBUG_OBJECT(v4l2object->element, 
-+        "Opening IPIPE module (rsz+prev) to enable NV12\n");
-+   if (dm365_resize_create(v4l2object) < 0) {
-+     GST_ERROR("failed to create ipipe handle\n");
-+   }
-+#endif
-+
-   GST_DEBUG_OBJECT (v4l2object->element, "Trying to open device %s",
-       v4l2object->videodev);
- 
-@@ -548,6 +560,12 @@ gst_v4l2_close (GstV4l2Object * v4l2object)
-   gst_poll_remove_fd (v4l2object->poll, &pollfd);
-   v4l2object->video_fd = -1;
- 
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
-+  if (dm365_resize_destroy(v4l2object) < 0) {
-+    GST_LOG("failed to close ipipe module\n");
-+  }
-+#endif
-+
-   /* empty lists */
-   gst_v4l2_empty_lists (v4l2object);
- 
 diff --git a/sys/v4l2/v4l2src_calls.c b/sys/v4l2/v4l2src_calls.c
-index d8e365f..1b7385b 100644
+index d8e365f..f5e8270 100644
 --- a/sys/v4l2/v4l2src_calls.c
 +++ b/sys/v4l2/v4l2src_calls.c
-@@ -105,6 +105,10 @@ gst_v4l2src_grab_frame (GstV4l2Src * v4l2src, GstBuffer ** buf)
+@@ -47,6 +47,10 @@
+ 
+ #include "gst/gst-i18n-plugin.h"
+ 
++#if defined(MVL_LSP) && defined(Platform_dm365)
++#include "v4l2src_mvl_lsp.h"
++#endif
++
+ GST_DEBUG_CATEGORY_EXTERN (v4l2src_debug);
+ #define GST_CAT_DEFAULT v4l2src_debug
+ 
+@@ -105,6 +109,10 @@ gst_v4l2src_grab_frame (GstV4l2Src * v4l2src, GstBuffer ** buf)
    v4l2object = v4l2src->v4l2object;
    pool = v4l2src->pool;
  
-+  #if defined(DAVINCI_LSP_WORKAROUND)
++  #if defined(MVL_LSP)
 +  pool->bytesused = v4l2src->v4l2object->bytesused;
 +  #endif
 +
    GST_DEBUG_OBJECT (v4l2src, "grab frame");
  
    for (;;) {
-@@ -342,6 +346,12 @@ gst_v4l2src_capture_start (GstV4l2Src * v4l2src)
+@@ -342,6 +350,12 @@ gst_v4l2src_capture_start (GstV4l2Src * v4l2src)
    v4l2src->quit = FALSE;
  
    if (v4l2src->use_mmap) {
-+#if defined(DAVINCI_LSP_WORKAROUND) && defined(Platform_dm365)
++#if defined(MVL_LSP) && defined(Platform_dm365)
 +    if (v4l2src->v4l2object->force_720p_30) {
 +        if (!gst_v4l2_force_720p_30(v4l2src))
 +            return FALSE;
@@ -449,14 +401,14 @@ index d8e365f..1b7385b 100644
      if (!gst_v4l2src_buffer_pool_activate (v4l2src->pool, v4l2src)) {
        return FALSE;
      }
-diff --git a/sys/v4l2/v4l2src_davinci.c b/sys/v4l2/v4l2src_davinci.c
+diff --git a/sys/v4l2/v4l2src_mvl_lsp.c b/sys/v4l2/v4l2src_mvl_lsp.c
 new file mode 100644
-index 0000000..75e412d
+index 0000000..d06d339
 --- /dev/null
-+++ b/sys/v4l2/v4l2src_davinci.c
-@@ -0,0 +1,494 @@
++++ b/sys/v4l2/v4l2src_mvl_lsp.c
+@@ -0,0 +1,234 @@
 +/*
-+ * v4l2src_davinci.c
++ * v4l2src_mvl_lsp.c
 + *
 + * This file defines functions needed to get v4l2src on dm6446, dm355, dm6467
 + * , dm357 and dm365 LSP's.
@@ -508,27 +460,16 @@ index 0000000..75e412d
 +#include <string.h>
 +#include <errno.h>
 +#include <unistd.h>
++#include <ctype.h>
 +#ifdef __sun
 +/* Needed on older Solaris Nevada builds (72 at least) */
 +#include <stropts.h>
 +#include <sys/ioccom.h>
 +#endif
 +
-+#include "v4l2src_davinci.h"
++#include "v4l2src_mvl_lsp.h"
 +
-+#if defined(DAVINCI_LSP_WORKAROUND)
-+void gst_v4l2src_convert_to_upper (char *str)
-+{
-+    int ch, i;
-+    if (str == NULL)
-+        return;
-+  
-+    for(i=0; i<strlen(str); i++) {
-+        ch = toupper(str[i]);
-+        str[i]  = ch;
-+    }
-+}
-+
++#if defined(MVL_LSP)
 +/******************************************************
 + * gst_v4l2src_get_resolution
 + *   get the video resolution
@@ -539,37 +480,6 @@ index 0000000..75e412d
 +  v4l2_std_id  std;
 +  gint failCount = 0, ret;
 +  
-+  #if defined(Platform_dm365) 
-+  struct v4l2_input  v4l2Input;
-+  int input, queryInput, idx;
-+  char *strings[6] = {"RAW", "RAW-1", "COMPOSITE", "SVIDEO", "COMPONENT" };
-+
-+  gst_v4l2src_convert_to_upper(v4l2object->input_src); 
-+  
-+  v4l2Input.type = V4L2_INPUT_TYPE_CAMERA;
-+  v4l2Input.index = 0;
-+  GST_LOG ("Enumerating video inputs\n");
-+  do {
-+    idx = v4l2Input.index;
-+    if (ioctl(fd, VIDIOC_ENUMINPUT, &v4l2Input) < 0) {
-+        if (errno == EINVAL || errno == ENOTTY)
-+            break;
-+    }
-+
-+    if (v4l2object->input_src && !strcmp(v4l2object->input_src, strings[idx])) {
-+        break;
-+    }
-+    v4l2Input.index++;
-+
-+  }while(1);
-+
-+  input = v4l2Input.index;
-+  GST_LOG("setting index=%d, name=%s\n", v4l2Input.index, v4l2Input.name);
-+
-+  ioctl(fd, VIDIOC_S_INPUT, &input);
-+  ioctl(fd, VIDIOC_G_INPUT, &queryInput);
-+  #endif  
-+
 +  do {
 +    ret = ioctl(fd, VIDIOC_QUERYSTD, &std);
 +    if (ret == -1 && errno == EAGAIN) {
@@ -676,17 +586,6 @@ index 0000000..75e412d
 +}
 +
 +#if defined(Platform_dm365)
-+#include <asm/arch/imp_resizer.h>
-+#include <asm/arch/imp_previewer.h>
-+#include <asm/arch/dm365_ipipe.h>
-+
-+#define RESIZER_DEVICE   "/dev/davinci_resizer"
-+#define PREVIEWER_DEVICE "/dev/davinci_previewer"
-+
-+/* resizer and previewer file descriptors */
-+static gint resizer_fd   = -1;
-+static gint previewer_fd = -1;
-+
 +/******************************************************
 + * gst_v4l2src_force_720p_30
 + *****************************************************/
@@ -739,224 +638,17 @@ index 0000000..75e412d
 +    "720P @30fps\n"), (NULL));
 +  return TRUE;
 +}
-+
-+static gint
-+gst_v4l2_setresize_continuous(void)
-+{
-+    gint rsz_fd;
-+    unsigned int oper_mode, user_mode;
-+    struct rsz_channel_config rsz_chan_config;
-+    struct rsz_continuous_config rsz_cont_config;
-+
-+    user_mode = IMP_MODE_CONTINUOUS;
-+    rsz_fd = open((const char *)RESIZER_DEVICE, O_RDWR);
-+    if (rsz_fd <= 0) {
-+        GST_DEBUG ("Failed to open resizer device %s", RESIZER_DEVICE);
-+        return -1;
-+    }
-+
-+    if (ioctl(rsz_fd, RSZ_S_OPER_MODE, &user_mode) < 0) {
-+        GST_DEBUG ("Can't set operation mode (%s)\n", strerror(errno));
-+        close(rsz_fd);
-+        return -1;
-+    }
-+
-+    if (ioctl(rsz_fd, RSZ_G_OPER_MODE, &oper_mode) < 0) {
-+        GST_DEBUG ("Can't get operation mode (%s)\n", strerror(errno));
-+        close(rsz_fd);
-+        return -1;
-+    }
-+
-+    if (oper_mode == user_mode) {
-+        GST_DEBUG ("Successfully set mode to continuous in resizer\n");
-+    }
-+    else {
-+        GST_DEBUG ("Failed to set mode to continuous in resizer\n");
-+        close(rsz_fd);
-+        return -1;
-+    }
-+
-+    /* set configuration to chain resizer with preview */
-+    rsz_chan_config.oper_mode = user_mode;
-+    rsz_chan_config.chain  = 1;
-+    rsz_chan_config.len = 0;
-+    rsz_chan_config.config = NULL; /* to set defaults in driver */
-+    if (ioctl(rsz_fd, RSZ_S_CONFIG, &rsz_chan_config) < 0) {
-+        GST_DEBUG ("Error in setting default configuration in resizer (%s)\n",
-+            strerror(errno));
-+        close(rsz_fd);
-+        return -1;
-+    }
-+
-+    bzero(&rsz_cont_config, sizeof(struct rsz_continuous_config));
-+    rsz_chan_config.oper_mode = user_mode;
-+    rsz_chan_config.chain = 1;
-+    rsz_chan_config.len = sizeof(struct rsz_continuous_config);
-+    rsz_chan_config.config = &rsz_cont_config;
-+
-+    if (ioctl(rsz_fd, RSZ_G_CONFIG, &rsz_chan_config) < 0) {
-+        GST_DEBUG ("Error in getting channel configuration from resizer (%s)\n",
-+            strerror(errno));
-+        close(rsz_fd);
-+        return -1;
-+    }
-+
-+    /* we can ignore the input spec since we are chaining. So only set output
-+     * specs
-+     */
-+    rsz_cont_config.output1.enable  = 1;
-+    rsz_cont_config.output2.enable  = 0;
-+    rsz_chan_config.len = sizeof(struct rsz_continuous_config);
-+    rsz_chan_config.config = &rsz_cont_config;
-+    if (ioctl(rsz_fd, RSZ_S_CONFIG, &rsz_chan_config) < 0) {
-+        GST_DEBUG ("Error in setting resizer configuration (%s)\n",
-+                    strerror(errno));
-+        close(rsz_fd);
-+        return -1;
-+    }
-+
-+    GST_DEBUG ("Resizer initialized\n");
-+    return rsz_fd;
-+}
-+
-+static gint
-+gst_v4l2_setpreview_continuous(void)
-+{
-+    gint preview_fd;
-+    unsigned int oper_mode, user_mode;
-+    struct prev_channel_config prev_chan_config;
-+    struct prev_continuous_config prev_cont_config;
-+
-+    user_mode = IMP_MODE_CONTINUOUS;
-+
-+    preview_fd = open((const char *)PREVIEWER_DEVICE, O_RDWR);
-+    if (preview_fd <= 0) {
-+        GST_DEBUG ("Cannot open previewer device \n");
-+        return -1;
-+    }
-+
-+    if (ioctl(preview_fd,PREV_S_OPER_MODE, &user_mode) < 0) {
-+        GST_DEBUG ("Can't set operation mode in previewer (%s)\n",
-+                    strerror(errno));
-+        close(preview_fd);
-+        return -1;
-+    }
-+
-+    if (ioctl(preview_fd,PREV_G_OPER_MODE, &oper_mode) < 0) {
-+        GST_DEBUG ("Can't get operation mode from previewer (%s)\n",
-+                    strerror(errno));
-+        close(preview_fd);
-+        return -1;
-+    }
-+
-+    if (oper_mode == user_mode) {
-+        GST_DEBUG ("Operating mode changed successfully to continuous"
-+                   " in previewer");
-+    }
-+    else {
-+        GST_DEBUG ("failed to set mode to continuous in previewer\n");
-+        close(preview_fd);
-+        return -1;
-+    }
-+
-+    prev_chan_config.oper_mode = oper_mode;
-+    prev_chan_config.len = 0;
-+    prev_chan_config.config = NULL; /* to set defaults in driver */
-+    if (ioctl(preview_fd, PREV_S_CONFIG, &prev_chan_config) < 0) {
-+        GST_DEBUG ("Error in setting default previewer configuration (%s)\n",
-+            strerror(errno));
-+        close(preview_fd);
-+        return -1;
-+    }
-+
-+    prev_chan_config.oper_mode = oper_mode;
-+    prev_chan_config.len = sizeof(struct prev_continuous_config);
-+    prev_chan_config.config = &prev_cont_config;
-+    if (ioctl(preview_fd, PREV_G_CONFIG, &prev_chan_config) < 0) {
-+        GST_DEBUG ("Error in getting configuration from previewer (%s)\n",
-+                strerror(errno));
-+        close(preview_fd);
-+        return -1;
-+    }
-+
-+    prev_chan_config.oper_mode = oper_mode;
-+    prev_chan_config.len = sizeof(struct prev_continuous_config);
-+    prev_chan_config.config = &prev_cont_config;
-+    if (ioctl(preview_fd, PREV_S_CONFIG, &prev_chan_config) < 0) {
-+        GST_DEBUG ("Error in setting previewer configuration (%s)\n",
-+                    strerror(errno));
-+        close(preview_fd);
-+        return -1;
-+    }
-+
-+    GST_DEBUG ("Previewer initialized\n");
-+    return preview_fd;
-+}
-+
-+static void
-+gst_v4l2_delete_resize(gint fd)
-+{
-+    if (fd) {
-+        if (close(fd) == -1) {
-+            GST_DEBUG ("Failed to close resizer device (%s)\n",
-+                strerror(errno));
-+            return;
-+        }
-+    }
-+}
-+
-+static void
-+gst_v4l2_delete_preview(gint fd)
-+{
-+    if (fd) {
-+        if (close(fd) == -1) {
-+            GST_DEBUG ("Failed to close previewer device (%s)\n",
-+                        strerror(errno));
-+            return;
-+        }
-+    }
-+}
-+
-+int dm365_resize_create(GstV4l2Object * v4l2object)
-+{
-+    resizer_fd = gst_v4l2_setresize_continuous();
-+    if(resizer_fd <= 0) {
-+        GST_DEBUG_OBJECT (v4l2object->element,
-+            "Unable to configure resizer device\n");
-+        return -1;
-+    }
-+
-+    previewer_fd = gst_v4l2_setpreview_continuous();
-+    if(previewer_fd <= 0) {
-+        GST_DEBUG_OBJECT (v4l2object->element,
-+            "Unable to configure previewer device\n");
-+        return -1;
-+    }
-+    return 0;
-+}
-+
-+int dm365_resize_destroy(GstV4l2Object * v4l2object)
-+{
-+    if(previewer_fd > 0) {
-+        gst_v4l2_delete_preview(previewer_fd);
-+        previewer_fd = -1;
-+    }
-+    if(resizer_fd > 0) {
-+        gst_v4l2_delete_resize(resizer_fd);
-+        resizer_fd = -1;
-+    }
-+    return 0;
-+}
 +#endif /* Platform_dm365 */
-+#endif /* DAVINCI_LSP_WORKAROUND */
-diff --git a/sys/v4l2/v4l2src_davinci.h b/sys/v4l2/v4l2src_davinci.h
++
++#endif /* MVL_LSP */
+diff --git a/sys/v4l2/v4l2src_mvl_lsp.h b/sys/v4l2/v4l2src_mvl_lsp.h
 new file mode 100644
-index 0000000..eedc8bf
+index 0000000..5f1ae7c
 --- /dev/null
-+++ b/sys/v4l2/v4l2src_davinci.h
-@@ -0,0 +1,55 @@
++++ b/sys/v4l2/v4l2src_mvl_lsp.h
+@@ -0,0 +1,52 @@
 +/*
-+ * v42lsrc_davinci.h
++ * v4l2src_mvl_lsp.h
 + *
 + * This file defines functions needed to get v4l2src on dm6446, dm355, dm6467
 + * , dm357 and dm365 LSP's.
@@ -1003,9 +695,6 @@ index 0000000..eedc8bf
 +
 +void  gst_v4l2src_get_resolution (GstV4l2Object *v4l2object, gint *width, 
 + gint *height, gint *fps_num, gint *fps_denom);
-+void gst_v4l2src_convert_to_upper (char *str);
-+int dm365_resize_create(GstV4l2Object * v4l2object);
-+int dm365_resize_destroy(GstV4l2Object * v4l2object);
 +gboolean gst_v4l2_force_720p_30 (GstV4l2Src * v4l2src);
 +
 +#endif /* __GST_DM365_RESIZER_H__ */

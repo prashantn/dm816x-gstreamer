@@ -1,0 +1,72 @@
+From ad78916c7bf81f2041cd3654d1e08cc846757354 Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Mon, 17 May 2010 11:12:21 -0500
+Subject: [PATCH 04/14] v4l2src: keep track of the input ID that will be used for capture
+
+The default ID is set on a per-target basis to one that is reasonable.  This
+will typically be the same default as the DVSDK encode demo.
+---
+ sys/v4l2/gstv4l2object.h |    1 +
+ sys/v4l2/gstv4l2src.c    |    9 +++++++++
+ sys/v4l2/v4l2_calls.c    |   10 ++++++++--
+ 3 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.h b/sys/v4l2/gstv4l2object.h
+index 81669b9..853e6ac 100644
+--- a/sys/v4l2/gstv4l2object.h
++++ b/sys/v4l2/gstv4l2object.h
+@@ -110,6 +110,7 @@ struct _GstV4l2Object {
+   gchar *channel;
+   gulong frequency;
+   gchar *input_src;
++  gint   input_id;
+ 
+   /* X-overlay */
+   GstV4l2Xv *xv;
+diff --git a/sys/v4l2/gstv4l2src.c b/sys/v4l2/gstv4l2src.c
+index 0b0e62c..e7c83f0 100644
+--- a/sys/v4l2/gstv4l2src.c
++++ b/sys/v4l2/gstv4l2src.c
+@@ -286,6 +286,15 @@ gst_v4l2src_init (GstV4l2Src * v4l2src, GstV4l2SrcClass * klass)
+   v4l2src->is_capturing = FALSE;
+   v4l2src->v4l2object->input_src = NULL;
+ 
++  /* Set the default input ID on a per-target basis */
++  #if defined (Platform_dm365)
++      v4l2src->v4l2object->input_id = 2;  /* Component */
++  #elif defined (Platform_dm6467t) || defined (Platform_dm6467)
++      v4l2src->v4l2object->input_id = 1;  /* Component */
++  #else
++      v4l2src->v4l2object->input_id = 0;  /* Default to first input */
++  #endif
++
+   gst_base_src_set_format (GST_BASE_SRC (v4l2src), GST_FORMAT_TIME);
+   gst_base_src_set_live (GST_BASE_SRC (v4l2src), TRUE);
+ 
+diff --git a/sys/v4l2/v4l2_calls.c b/sys/v4l2/v4l2_calls.c
+index b98bae7..d72a160 100644
+--- a/sys/v4l2/v4l2_calls.c
++++ b/sys/v4l2/v4l2_calls.c
+@@ -155,11 +155,17 @@ gst_v4l2_fill_lists (GstV4l2Object * v4l2object)
+ 
+       g_free(input_name);
+ 
+-      if (input_match) 
+-         input_src_found = TRUE;
++      if (input_match) {
++         input_src_found      = TRUE;
++         v4l2object->input_id = input.index;
++      }
+       else
+          continue;
+     }
++    else {
++      if (input.index != v4l2object->input_id)
++         continue;
++    }
+ 
+     GST_LOG_OBJECT (e, "   index:     %d", input.index);
+     GST_LOG_OBJECT (e, "   name:      '%s'", input.name);
+-- 
+1.6.3.3
+

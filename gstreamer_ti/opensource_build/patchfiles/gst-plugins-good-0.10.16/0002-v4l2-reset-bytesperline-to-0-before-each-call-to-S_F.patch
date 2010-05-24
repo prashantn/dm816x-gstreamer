@@ -1,0 +1,63 @@
+From 880ffc1512b8b819e277352641f2600215adb6f3 Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Tue, 18 May 2010 10:45:13 -0500
+Subject: [PATCH 02/14] v4l2: reset bytesperline to 0 before each call to S_FMT and TRY_FMT
+
+If bytesperline is set to 0, it will be calculated by a call to S_FMT or
+TRY_FMT.  However, in most cases where S_FMT and TRY_FMT is called,
+bytesperline still contains a left-over value from a previous call.  This
+change ensures that bytesperline is always initialized to 0 before S_FMT and
+TRY_FMT calls.
+
+This change affects both v4l2src and v4l2sink, but is needed mostly for
+v4l2sink to work properly.
+---
+ sys/v4l2/gstv4l2object.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index f73ce21..f94236c 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -1739,6 +1739,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
+     /* try again with progressive video */
+     fmt.fmt.pix.width = *width;
+     fmt.fmt.pix.height = *height;
++    fmt.fmt.pix.bytesperline = 0;
+     fmt.fmt.pix.pixelformat = pixelformat;
+     fmt.fmt.pix.field = V4L2_FIELD_NONE;
+     r = v4l2_ioctl (fd, VIDIOC_TRY_FMT, &fmt);
+@@ -1760,12 +1761,14 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
+ 
+     fmt.fmt.pix.width = *width;
+     fmt.fmt.pix.height = *height;
++    fmt.fmt.pix.bytesperline = 0;
+ 
+     r = v4l2_ioctl (fd, VIDIOC_S_FMT, &fmt);
+     if (r < 0 && errno == EINVAL) {
+       /* try again with progressive video */
+       fmt.fmt.pix.width = *width;
+       fmt.fmt.pix.height = *height;
++      fmt.fmt.pix.bytesperline = 0;
+       fmt.fmt.pix.pixelformat = pixelformat;
+       fmt.fmt.pix.field = V4L2_FIELD_NONE;
+       r = v4l2_ioctl (fd, VIDIOC_S_FMT, &fmt);
+@@ -1807,6 +1810,7 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
+   format.type = v4l2object->type;
+   format.fmt.pix.width = width;
+   format.fmt.pix.height = height;
++  format.fmt.pix.bytesperline = 0;
+   format.fmt.pix.pixelformat = pixelformat;
+   /* request whole frames; change when gstreamer supports interlaced video
+    * (INTERLACED mode returns frames where the fields have already been
+@@ -1822,6 +1826,7 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
+     /* try again with progressive video */
+     format.fmt.pix.width = width;
+     format.fmt.pix.height = height;
++    format.fmt.pix.bytesperline = 0;
+     format.fmt.pix.pixelformat = pixelformat;
+     format.fmt.pix.field = V4L2_FIELD_NONE;
+     if (v4l2_ioctl (fd, VIDIOC_S_FMT, &format) < 0)
+-- 
+1.6.3.3
+

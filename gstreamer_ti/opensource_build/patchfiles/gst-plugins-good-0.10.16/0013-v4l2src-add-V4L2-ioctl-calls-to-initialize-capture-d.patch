@@ -1,0 +1,47 @@
+From 94e4596f313da3bafd14a93485129f445330bd85 Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Tue, 16 Mar 2010 16:31:51 -0500
+Subject: [PATCH 13/14] v4l2src: add V4L2 ioctl calls to initialize capture drivers properly
+
+After calling the ENUMINPUT on an input, call S_INPUT and G_INPUT on that
+input.  Otherwise, the video standards (norms) may not be detected properly,
+and selecting a specific video input may not work.
+---
+ sys/v4l2/v4l2_calls.c |   21 +++++++++++++++++++++
+ 1 files changed, 21 insertions(+), 0 deletions(-)
+
+diff --git a/sys/v4l2/v4l2_calls.c b/sys/v4l2/v4l2_calls.c
+index da9c215..b483db7 100644
+--- a/sys/v4l2/v4l2_calls.c
++++ b/sys/v4l2/v4l2_calls.c
+@@ -174,6 +174,27 @@ gst_v4l2_fill_lists (GstV4l2Object * v4l2object)
+          continue;
+     }
+ 
++    /* Try setting the input and see if we can retrieve it as a valid setting.
++     * This is also needed to ensure the driver gets initialized properly.
++     */
++    if (gst_v4l2_set_input(v4l2object, input.index)) {
++      gint g_index;
++
++      if (!gst_v4l2_get_input(v4l2object, &g_index)) {
++        return FALSE;
++      }
++
++      if (input.index != g_index) {
++        GST_ELEMENT_ERROR (e, RESOURCE, SETTINGS,
++          (_("Attempted to set video input to %d in device '%s', "
++            "but it still has an input setting of %d.  Please make sure the "
++            "video input is connected properly."),
++            input.index, v4l2object->videodev, g_index),
++            NULL);
++          return FALSE;
++      }
++    }
++
+     GST_LOG_OBJECT (e, "   index:     %d", input.index);
+     GST_LOG_OBJECT (e, "   name:      '%s'", input.name);
+     GST_LOG_OBJECT (e, "   type:      %08x", input.type);
+-- 
+1.6.3.3
+

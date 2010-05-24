@@ -1,0 +1,48 @@
+From 0fcf857a2ab90a8094360b6a6eb4dc03a81b4c2f Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Thu, 11 Mar 2010 17:40:52 -0600
+Subject: [PATCH 10/14] v4l2src: add support for NV16 colorspace
+
+---
+ sys/v4l2/gstv4l2object.c |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index e02dc1d..99021f3 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -700,6 +700,9 @@ static const guint32 gst_v4l2_formats[] = {
+ #ifdef V4L2_PIX_FMT_YVYU
+   V4L2_PIX_FMT_YVYU,
+ #endif
++#ifdef V4L2_PIX_FMT_NV16
++  V4L2_PIX_FMT_NV16,
++#endif
+ #ifdef V4L2_PIX_FMT_YUV422UVP
+    V4L2_PIX_FMT_YUV422UVP
+ #endif
+@@ -1034,6 +1037,9 @@ gst_v4l2_object_v4l2fourcc_to_structure (guint32 fourcc)
+ #ifdef V4L2_PIX_FMT_YVYU
+     case V4L2_PIX_FMT_YVYU:
+ #endif
++#ifdef V4L2_PIX_FMT_NV16
++    case V4L2_PIX_FMT_NV16:
++#endif
+ #ifdef V4L2_PIX_FMT_YUV422UVP
+     case V4L2_PIX_FMT_YUV422UVP:
+ #endif
+@@ -1079,6 +1085,11 @@ gst_v4l2_object_v4l2fourcc_to_structure (guint32 fourcc)
+           fcc = GST_MAKE_FOURCC ('Y', 'V', 'Y', 'U');
+           break;
+ #endif
++#ifdef V4L2_PIX_FMT_NV16
++       case V4L2_PIX_FMT_NV16:
++         fcc = GST_MAKE_FOURCC ('N', 'V', '1', '6');
++         break;
++#endif
+ #ifdef V4L2_PIX_FMT_YUV422UVP
+        case V4L2_PIX_FMT_YUV422UVP:
+          fcc = GST_MAKE_FOURCC ('Y', '8', 'C', '8');
+-- 
+1.6.3.3
+

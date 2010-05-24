@@ -1,7 +1,7 @@
-From f38722004b40f18f766df424dc090c0d4951c4dc Mon Sep 17 00:00:00 2001
+From 69ebf83afb5ad0e6e4d730e4ffa77ff711ddecc9 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Thu, 11 Mar 2010 13:12:07 -0600
-Subject: [PATCH 3/3] Fix for streaming encode with rtph264pay.
+Subject: [PATCH 01/14] rtph264pay: fix for streaming encode
 
 Converted from plugins_good3_0_10_16.patch
 ---

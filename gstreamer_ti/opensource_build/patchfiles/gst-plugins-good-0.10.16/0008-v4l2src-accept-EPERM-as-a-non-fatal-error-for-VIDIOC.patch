@@ -1,0 +1,51 @@
+From 5b8e981b491a39ee696c93587d188d4f1fa86bc6 Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Mon, 19 Apr 2010 15:22:45 -0500
+Subject: [PATCH 08/14] v4l2src: accept EPERM as a non-fatal error for VIDIOC_TRY_FMT and VIDIOC_S_FMT
+
+When setting the capture mode, the v4l2src will try interlaced mode first, and
+if the driver returns EINVAL it will try progressive mode.  Any other errno
+value will result in failure.
+
+On TI device drivers, the driver may also return EPERM when trying to set
+interlaced mode on a capture input that doesn't support it.  This change
+now treats EPERM the same was as EINVAL, and tries again with progressive
+mode instead of failing.
+---
+ sys/v4l2/gstv4l2object.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 9b4a5f8..ac0b0d7 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -1791,7 +1791,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
+   fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
+ 
+   r = v4l2_ioctl (fd, VIDIOC_TRY_FMT, &fmt);
+-  if (r < 0 && errno == EINVAL) {
++  if (r < 0 && (errno == EINVAL || errno == EPERM)) {
+     /* try again with progressive video */
+     fmt.fmt.pix.width = *width;
+     fmt.fmt.pix.height = *height;
+@@ -1820,7 +1820,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
+     fmt.fmt.pix.bytesperline = 0;
+ 
+     r = v4l2_ioctl (fd, VIDIOC_S_FMT, &fmt);
+-    if (r < 0 && errno == EINVAL) {
++    if (r < 0 && (errno == EINVAL || errno == EPERM)) {
+       /* try again with progressive video */
+       fmt.fmt.pix.width = *width;
+       fmt.fmt.pix.height = *height;
+@@ -1886,7 +1886,7 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
+   #endif
+ 
+   if (v4l2_ioctl (fd, VIDIOC_S_FMT, &format) < 0) {
+-    if (errno != EINVAL)
++    if (errno != EINVAL && errno != EPERM)
+       goto set_fmt_failed;
+ 
+     GST_DEBUG_OBJECT (v4l2object->element, "trying again...");
+-- 
+1.6.3.3
+

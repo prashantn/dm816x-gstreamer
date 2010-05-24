@@ -1,0 +1,28 @@
+From a61a4718b013baf4aec6d361ec24a232b8809859 Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Wed, 24 Mar 2010 11:15:29 -0500
+Subject: [PATCH 14/14] v4l2src: disable video device polling by default on DM6467T
+
+It blocks forever if used.
+---
+ sys/v4l2/v4l2_calls.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/sys/v4l2/v4l2_calls.c b/sys/v4l2/v4l2_calls.c
+index b483db7..9c33a53 100644
+--- a/sys/v4l2/v4l2_calls.c
++++ b/sys/v4l2/v4l2_calls.c
+@@ -514,6 +514,10 @@ gst_v4l2_open (GstV4l2Object * v4l2object)
+ 
+   v4l2object->can_poll_device = TRUE;
+ 
++  #if defined(Platform_dm6467t)
++    v4l2object->can_poll_device = FALSE;
++  #endif
++
+   /* get capabilities, error will be posted */
+   if (!gst_v4l2_get_capabilities (v4l2object))
+     goto error;
+-- 
+1.6.3.3
+

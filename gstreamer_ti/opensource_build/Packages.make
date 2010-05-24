@@ -109,9 +109,20 @@ BASE_PACKAGES += $(PACKAGE_plugins_base_BUILD_TARGET)
 PACKAGE_plugins_good_BUILD_TARGET        = plugins_good
 PACKAGE_plugins_good_ARCHIVE_BASENAME    = gst-plugins-good-0.10.16
 PACKAGE_plugins_good_PRECONFIG_PATCHES   = \
-    0001-Fix-OSS-support-to-handle-all-supported-sample-rates.patch \
-    0002-Support-for-non-standard-colorspaces-and-custom-V4L2.patch \
-    0003-Fix-for-streaming-encode-with-rtph264pay.patch
+    0001-rtph264pay-fix-for-streaming-encode.patch \
+    0002-v4l2-reset-bytesperline-to-0-before-each-call-to-S_F.patch \
+    0003-v4l2src-add-input-src-property-to-specify-capture-in.patch \
+    0004-v4l2src-keep-track-of-the-input-ID-that-will-be-used.patch \
+    0005-osssink-handle-all-supported-sample-rates.patch \
+    0006-v4l2src-add-support-for-DaVinci-platforms-using-MVL-.patch \
+    0007-v4l2src-support-NV12-capture-on-DM365-using-the-IPIP.patch \
+    0008-v4l2src-accept-EPERM-as-a-non-fatal-error-for-VIDIOC.patch \
+    0009-v4l2src-try-progressive-mode-first-for-component-inp.patch \
+    0010-v4l2src-add-support-for-NV16-colorspace.patch \
+    0011-v4l2src-set-bytesperline-and-sizeimage-before-callin.patch \
+    0012-v4l2src-update-gst_v4l2_get_norm-to-handle-DM6467T-a.patch \
+    0013-v4l2src-add-V4L2-ioctl-calls-to-initialize-capture-d.patch \
+    0014-v4l2src-disable-video-device-polling-by-default-on-D.patch
 PACKAGE_plugins_good_CONFIGURE_OPTS      = 
 PACKAGE_plugins_good_POSTCONFIG_PATCHES  =
 PACKAGE_plugins_good_BUILD_DIRS          = gst/avi
