@@ -37,6 +37,24 @@ all:
 	$(CMD_PREFIX) $(MAKE) ti_build         $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) gstreamer_demo   $(BUILD_INSTALL)
 
+clean_dev: 
+	@echo "Removing header files....."
+	$(CMD_PREFIX) rm -rf $(TARGET_GSTREAMER_DIR)/include
+	@echo "Removing pkgconfig files....."
+	$(CMD_PREFIX) rm -rf $(TARGET_GSTREAMER_DIR)/lib/pkgconfig
+	@echo "Removing static libraries....."
+	$(CMD_PREFIX) find $(TARGET_GSTREAMER_DIR) -type f -name "*.a" -exec rm {} \;
+	$(CMD_PREFIX) find $(TARGET_GSTREAMER_DIR) -type f -name "*.la" -exec rm {} \;
+	@echo "Stripping executables and shared libraries....."
+	$(CMD_PREFIX) find $(TARGET_GSTREAMER_DIR) -type f -exec $(MVTOOL_PREFIX)strip {} \; > /dev/null 2>&1
+
+clean_docs: 
+	@echo "Removing docs....."
+	$(CMD_PREFIX) rm -rf $(TARGET_GSTREAMER_DIR)/share/man
+	$(CMD_PREFIX) rm -rf $(TARGET_GSTREAMER_DIR)/share/doc
+	$(CMD_PREFIX) rm -rf $(TARGET_GSTREAMER_DIR)/share/gtk-doc
+	$(CMD_PREFIX) rm -rf $(TARGET_GSTREAMER_DIR)/share/info
+
 $(SUBDIRS): 
 	@echo Building $@
 	$(CMD_PREFIX) $(MAKE) $(MAKE_VERBOSE) -C $@ all $(BUILD_INSTALL) VERBOSE=$(VERBOSE)
