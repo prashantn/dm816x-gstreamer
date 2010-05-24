@@ -214,6 +214,7 @@ CPPFLAGS_dm6467    = -DDAVINCI_LSP_WORKAROUND
 CPPFLAGS_dm6467   += -I$(LINUXKERNEL_INSTALL_DIR)/include
 CPPFLAGS_omap3530  = -I$(LINUXLIBS_INSTALL_DIR)/include
 
+CFLAGS_all         = -O2
 CFLAGS_dm355       = -march=armv5te -mtune=arm926ej-s
 CFLAGS_dm6446      = -march=armv5te -mtune=arm926ej-s
 CFLAGS_dm357       = -march=armv5te -mtune=arm926ej-s
