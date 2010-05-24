@@ -133,6 +133,11 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
          "height=(int)[ 1, MAX ];"
+    "video/x-raw-yuv, "                         /* NV16 - YUV422 semi planar */
+         "format=(fourcc)NV16, "
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ];"
      "video/x-raw-yuv, "                        /* NV12 - YUV420 semi planar */
          "format=(fourcc)NV12, "               
          "framerate=(fraction)[ 0, MAX ], "
@@ -290,7 +295,7 @@ static void gst_tividenc1_class_init(GstTIVidenc1Class *klass)
 
     g_object_class_install_property(gobject_class, PROP_IN_COLORSPACE,
         g_param_spec_string("iColorSpace", "Input colorspace",
-            "Input color space (UYVY, Y8C8 or NV12)",
+            "Input color space (UYVY, Y8C8, NV16 or NV12)",
             "unspecified", G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_BITRATE,
@@ -456,6 +461,8 @@ static ColorSpace_Type gst_tividenc1_find_colorSpace (const gchar *colorSpace)
 {
     if (!strcmp(colorSpace, "UYVY"))
         return ColorSpace_UYVY;
+    else if (!strcmp(colorSpace, "NV16")) 
+        return ColorSpace_YUV422PSEMI;
     else if (!strcmp(colorSpace, "Y8C8")) 
         return ColorSpace_YUV422PSEMI;
     else if (!strcmp(colorSpace, "NV12")) 
@@ -665,6 +672,7 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
                     videnc1->colorSpace = ColorSpace_UYVY;
                     break;
 
+                case GST_MAKE_FOURCC('N', 'V', '1', '6'):
                 case GST_MAKE_FOURCC('Y', '8', 'C', '8'):
                     videnc1->colorSpace = ColorSpace_YUV422PSEMI;
                     break;
