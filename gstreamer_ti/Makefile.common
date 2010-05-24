@@ -31,6 +31,13 @@
 #            MVL_4_0_1:  MontaVista   v4.0.1
 #            MVL_5_0:    MontaVista   v5.0
 #            CS_2008Q1:  CodeSourcery v2008q1
+#    GST_TI_PLATFORM
+#         This variable is currently always set to the PLATFORM variable in the
+#         DVSDK's Rules.make, and is used in the build system to uniquely
+#         identify the EVM we are building for.  We do not use the PLATFORM
+#         variable directly, as future DVSDK releases may use the same
+#         PLATFORM setting for two different EVMs (i.e. PLATFORM=dm6467 for
+#         both DM6467 and DM6467T).
 #
 # These paths must be specified or the build will fail.
 #------------------------------------------------------------------------------
@@ -38,6 +45,7 @@ DVSDK_INSTALL_DIR    =
 TARGET_ROOT_DIR      = 
 GSTREAMER_DIR        = /opt/gstreamer
 CROSS_COMPILER       = 
+GST_TI_PLATFORM      =
 
 #------------------------------------------------------------------------------
 # Build configuration:
@@ -53,11 +61,16 @@ VERBOSE = false
 ifndef DVSDK_INSTALL_DIR
    $(error DVSDK_INSTALL_DIR must be set in Makefile before building)
 endif
+
 include $(DVSDK_INSTALL_DIR)/Rules.make
 
-# Ensure the PLATFORM variable was set
-ifndef PLATFORM
-   $(error expected Rules.make from DVSDK to set the PLATFORM variable -- this variable must be set to the build target)
+# Set GST_TI_PLATFORM from the DVSDK's variable if it hasn't been set already
+ifndef GST_TI_PLATFORM
+   # Ensure the PLATFORM variable was set
+   ifndef PLATFORM
+      $(error expected Rules.make from DVSDK to set the PLATFORM variable -- this variable must be set to the build target)
+   endif
+   GST_TI_PLATFORM=$(PLATFORM)
 endif
 
 # DVSDK 1.30 doesn't include DMAI, so make sure it gets added to the Rules.make
@@ -84,7 +97,7 @@ export LINUXKERNEL_INSTALL_DIR
 export LPM_INSTALL_DIR
 export MVTOOL_DIR
 export MVTOOL_PREFIX
-export PLATFORM
+export GST_TI_PLATFORM
 export XDAIS_INSTALL_DIR
 export XDC_INSTALL_DIR
 export EDMA3_LLD_INSTALL_DIR
@@ -99,22 +112,22 @@ TARGET_GSTREAMER_DIR = $(TARGET_ROOT_DIR)/$(GSTREAMER_DIR)
 # Set a default cross compiler if one has not been specified
 #------------------------------------------------------------------------------
 ifndef CROSS_COMPILER
-    ifeq ($(PLATFORM), dm355)
+    ifeq ($(GST_TI_PLATFORM), dm355)
         CROSS_COMPILER=MVL_5_0
     endif
-    ifeq ($(PLATFORM), dm6446)
+    ifeq ($(GST_TI_PLATFORM), dm6446)
         CROSS_COMPILER=MVL_5_0
     endif
-    ifeq ($(PLATFORM), dm6467)
+    ifeq ($(GST_TI_PLATFORM), dm6467)
         CROSS_COMPILER=MVL_5_0
     endif
-    ifeq ($(PLATFORM), dm357)
+    ifeq ($(GST_TI_PLATFORM), dm357)
         CROSS_COMPILER=MVL_5_0
     endif
-    ifeq ($(PLATFORM), dm365)
+    ifeq ($(GST_TI_PLATFORM), dm365)
         CROSS_COMPILER=MVL_5_0
     endif
-    ifeq ($(PLATFORM), omap3530)
+    ifeq ($(GST_TI_PLATFORM), omap3530)
         CROSS_COMPILER=CS_2008Q1
     endif
 endif
@@ -143,32 +156,32 @@ endif
 #------------------------------------------------------------------------------
 # Set XDC target and platform based on PLATFORM variable
 #------------------------------------------------------------------------------
-ifeq ($(PLATFORM), dm355)
+ifeq ($(GST_TI_PLATFORM), dm355)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM355
 endif
 
-ifeq ($(PLATFORM), dm6446)
+ifeq ($(GST_TI_PLATFORM), dm6446)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM6446
 endif
 
-ifeq ($(PLATFORM), dm357)
+ifeq ($(GST_TI_PLATFORM), dm357)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM357
 endif
 
-ifeq ($(PLATFORM), dm365)
+ifeq ($(GST_TI_PLATFORM), dm365)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM365
 endif
 
-ifeq ($(PLATFORM), dm6467)
+ifeq ($(GST_TI_PLATFORM), dm6467)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM6467
 endif
 
-ifeq ($(PLATFORM), omap3530)
+ifeq ($(GST_TI_PLATFORM), omap3530)
     export XDC_TARGET    = gnu.targets.arm.GCArmv5T
     export XDC_PLATFORM  = ti.platforms.evm3530
     export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
@@ -200,7 +213,7 @@ endif
 #    headers directly is not needed, and the headers that come with gcc should
 #    be sufficient.
 #------------------------------------------------------------------------------
-CPPFLAGS_all       = -DPlatform_$(PLATFORM)
+CPPFLAGS_all       = -DPlatform_$(GST_TI_PLATFORM)
 CPPFLAGS_all      += -I$(TARGET_GSTREAMER_DIR)/include
 CPPFLAGS_dm355     = -DMVL_LSP
 CPPFLAGS_dm355    += -I$(LINUXKERNEL_INSTALL_DIR)/include
@@ -278,9 +291,9 @@ CC_CONFIGURE_OPTS  = --build=i686-linux --host=arm-linux
 CC_CONFIGURE_OPTS += --prefix=$(TARGET_GSTREAMER_DIR)
 CC_CONFIGURE_OPTS += NM=$(MVTOOL_PREFIX)nm
 CC_CONFIGURE_OPTS += RANLIB=$(MVTOOL_PREFIX)ranlib
-CC_CONFIGURE_OPTS += CPPFLAGS="$(CPPFLAGS_all) $(CPPFLAGS_$(PLATFORM))"
-CC_CONFIGURE_OPTS += CFLAGS="$(CFLAGS_all) $(CFLAGS_$(PLATFORM))"
-CC_CONFIGURE_OPTS += LDFLAGS="$(LDFLAGS_all) $(LDFLAGS_$(PLATFORM))"
+CC_CONFIGURE_OPTS += CPPFLAGS="$(CPPFLAGS_all) $(CPPFLAGS_$(GST_TI_PLATFORM))"
+CC_CONFIGURE_OPTS += CFLAGS="$(CFLAGS_all) $(CFLAGS_$(GST_TI_PLATFORM))"
+CC_CONFIGURE_OPTS += LDFLAGS="$(LDFLAGS_all) $(LDFLAGS_$(GST_TI_PLATFORM))"
         
 export CC                = $(MVTOOL_PREFIX)gcc
 export CXX               = $(MVTOOL_PREFIX)g++

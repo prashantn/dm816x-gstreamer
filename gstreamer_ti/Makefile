@@ -62,32 +62,32 @@ $(SUBDIRS):
 gstreamer_demo:
 	@echo copying gstreamer_demo directory to target
 	$(CMD_PREFIX) install -d ./gstreamer_demo $(TARGET_DEMO_DIR)
-	$(CMD_PREFIX) install -d ./gstreamer_demo/$(PLATFORM) $(TARGET_DEMO_DIR)/$(PLATFORM)
-	$(CMD_PREFIX) install ./gstreamer_demo/$(PLATFORM)/* $(TARGET_DEMO_DIR)/$(PLATFORM)
-	$(CMD_PREFIX) install ./gstreamer_demo/shared/* $(TARGET_DEMO_DIR)/$(PLATFORM)
+	$(CMD_PREFIX) install -d ./gstreamer_demo/$(GST_TI_PLATFORM) $(TARGET_DEMO_DIR)/$(GST_TI_PLATFORM)
+	$(CMD_PREFIX) install ./gstreamer_demo/$(GST_TI_PLATFORM)/* $(TARGET_DEMO_DIR)/$(GST_TI_PLATFORM)
+	$(CMD_PREFIX) install ./gstreamer_demo/shared/* $(TARGET_DEMO_DIR)/$(GST_TI_PLATFORM)
 	
 	@echo copying relevant kernel modules
 	$(CMD_PREFIX) if [ -d $(DVSDK_INSTALL_DIR)/kernel_binaries/$(PLATFORM) ]; then \
-	    install $(DVSDK_INSTALL_DIR)/kernel_binaries/$(PLATFORM)/* $(TARGET_DEMO_DIR)/$(PLATFORM); \
+	    install $(DVSDK_INSTALL_DIR)/kernel_binaries/$(PLATFORM)/* $(TARGET_DEMO_DIR)/$(GST_TI_PLATFORM); \
 	fi
 	
 	@echo copying mapdmaq if platform needs it
-	$(CMD_PREFIX) if [ $(PLATFORM) = "dm355" ]; then \
-	    install $(DVSDK_INSTALL_DIR)/mapdmaq/mapdmaq $(TARGET_DEMO_DIR)/$(PLATFORM); \
+	$(CMD_PREFIX) if [ $(GST_TI_PLATFORM) = "dm355" ]; then \
+	    install $(DVSDK_INSTALL_DIR)/mapdmaq/mapdmaq $(TARGET_DEMO_DIR)/$(GST_TI_PLATFORM); \
 	fi
 	
 	@echo copying mapdmaq-hd if platform needs it
-	$(CMD_PREFIX) if [ $(PLATFORM) = "dm6467" ]; then \
-	    install $(DVSDK_INSTALL_DIR)/mapdmaq-hd/mapdmaq-hd $(TARGET_DEMO_DIR)/$(PLATFORM); \
+	$(CMD_PREFIX) if [ $(GST_TI_PLATFORM) = "dm6467" ]; then \
+	    install $(DVSDK_INSTALL_DIR)/mapdmaq-hd/mapdmaq-hd $(TARGET_DEMO_DIR)/$(GST_TI_PLATFORM); \
 	fi
 	
 	@echo copying codec combos if platform needs it
-	$(CMD_PREFIX) if [ $(PLATFORM) = "dm357" ]; then \
+	$(CMD_PREFIX) if [ $(GST_TI_PLATFORM) = "dm357" ]; then \
 	    file=`find $(CODEC_INSTALL_DIR) -name "hmjcp.accel"`; \
-	    install $${file} $(TARGET_DEMO_DIR)/$(PLATFORM);\
+	    install $${file} $(TARGET_DEMO_DIR)/$(GST_TI_PLATFORM);\
 	else \
 	    for file in `find $(CODEC_INSTALL_DIR) -name "*.x64P"`; do \
-	    install $${file} $(TARGET_DEMO_DIR)/$(PLATFORM); \
+	    install $${file} $(TARGET_DEMO_DIR)/$(GST_TI_PLATFORM); \
 	    done \
 	fi
 

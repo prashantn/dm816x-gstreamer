@@ -1,6 +1,6 @@
 # plugindir is set in configure
 
-XDC_CONFIG_BASENAME = gstticodecplugin_$(PLATFORM)
+XDC_CONFIG_BASENAME = gstticodecplugin_$(GST_TI_PLATFORM)
 plugin_LTLIBRARIES  = libgstticodecplugin.la
 
 # sources used to compile this plug-in
@@ -21,7 +21,7 @@ BUILT_SOURCES = $(XDC_CONFIG_BASENAME)/compiler.opt $(XDC_CONFIG_BASENAME)/linke
 XDC_PATH      = .;$(XDC_INSTALL_DIR)/packages;$(LINK_XDC_ROOT);$(FC_INSTALL_DIR)/packages;$(CE_INSTALL_DIR)/packages;$(XDAIS_INSTALL_DIR)/packages;$(CODEC_INSTALL_DIR)/packages;$(CMEM_INSTALL_DIR)/packages;$(DMAI_INSTALL_DIR)/packages;$(LPM_INSTALL_DIR)/packages;$(XDC_USER_PATH);$(EDMA3_LLD_INSTALL_DIR)/packages;
 
 gstticodecs_platform.c :
-	ln -s $(srcdir)/gstticodecs_$(PLATFORM).c gstticodecs_platform.c
+	ln -s $(srcdir)/gstticodecs_$(GST_TI_PLATFORM).c gstticodecs_platform.c
 
 %/compiler.opt %/linker.cmd : %.cfg
 	XDCPATH="$(XDC_PATH)" $(CONFIGURO) -c $(MVTOOL_DIR) -o  $(XDC_CONFIG_BASENAME) -t $(XDC_TARGET) -p $(XDC_PLATFORM) -b $(DMAI_INSTALL_DIR)/packages/config.bld $<

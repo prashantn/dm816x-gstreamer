@@ -25,7 +25,7 @@ endif
 default:
 	@echo "Please specify the target: dm6446, omap3530, dm355, dm6467, dm365"
 
-export PLATFORM=$(MAKECMDGOALS)
+export GST_TI_PLATFORM=$(MAKECMDGOALS)
 export BIOS_INSTALL_DIR
 export CE_INSTALL_DIR
 export CMEM_INSTALL_DIR
@@ -42,34 +42,34 @@ export XDAIS_INSTALL_DIR
 export XDC_INSTALL_DIR
 export EDMA3_LLD_INSTALL_DIR
 
-ifeq ($(PLATFORM), dm355)
+ifeq ($(GST_TI_PLATFORM), dm355)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM355
 endif
 
-ifeq ($(PLATFORM), dm6446)
+ifeq ($(GST_TI_PLATFORM), dm6446)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM6446
 endif
 
-ifeq ($(PLATFORM), dm6467)
+ifeq ($(GST_TI_PLATFORM), dm6467)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM6467
 endif
 
-ifeq ($(PLATFORM), dm365)
+ifeq ($(GST_TI_PLATFORM), dm365)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM365
 endif
 
-ifeq ($(PLATFORM), omap3530)
+ifeq ($(GST_TI_PLATFORM), omap3530)
     export XDC_TARGET    = gnu.targets.arm.GCArmv5T
     export XDC_PLATFORM  = ti.platforms.evm3530
     export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
     export MVTOOL_DIR    = $(CSTOOL_DIR)
 endif
 
-CPPFLAGS=-DPlatform_$(PLATFORM) 
+CPPFLAGS=-DPlatform_$(GST_TI_PLATFORM) 
 HOST=arm-none-linux-gnueabi
 
 configure:
