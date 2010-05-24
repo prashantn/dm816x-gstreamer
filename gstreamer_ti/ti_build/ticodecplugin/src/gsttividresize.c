@@ -90,6 +90,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
     ( GST_VIDEO_CAPS_YUV("UYVY")";"
+      GST_VIDEO_CAPS_YUV("NV16")";"
       GST_VIDEO_CAPS_YUV("Y8C8")";"
       GST_VIDEO_CAPS_YUV("NV12")
     )
@@ -101,6 +102,7 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
     ( GST_VIDEO_CAPS_YUV("UYVY")";"
+      GST_VIDEO_CAPS_YUV("NV16")";"
       GST_VIDEO_CAPS_YUV("Y8C8")";"
       GST_VIDEO_CAPS_YUV("NV12")
     )
@@ -583,6 +585,7 @@ static GstCaps * gst_tividresize_transform_caps (GstBaseTransform *trans,
     int                 i;
     static const guint32 supported_fmt[] = {
                                             GST_MAKE_FOURCC('U','Y','V','Y'),
+                                            GST_MAKE_FOURCC('N','V','1','6'),
                                             GST_MAKE_FOURCC('Y','8','C','8'),
                                             GST_MAKE_FOURCC('N','V','1','2'),
                                            };
@@ -649,6 +652,7 @@ ColorSpace_Type gst_tividresize_get_colorSpace (guint32 fourcc)
     switch (fourcc) {
         case GST_MAKE_FOURCC('U', 'Y', 'V', 'Y'):            
             return ColorSpace_UYVY;
+        case GST_MAKE_FOURCC('N', 'V', '1', '6'):
         case GST_MAKE_FOURCC('Y', '8', 'C', '8'):
             return ColorSpace_YUV422PSEMI;
         case GST_MAKE_FOURCC('N', 'V', '1', '2'):
