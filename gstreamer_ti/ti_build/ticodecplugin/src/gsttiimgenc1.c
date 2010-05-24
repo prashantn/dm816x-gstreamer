@@ -1551,7 +1551,7 @@ static gboolean gst_tiimgenc1_codec_start (GstTIImgenc1  *imgenc1)
     if (imgenc1->hIe == NULL) {
         GST_ELEMENT_ERROR(imgenc1, STREAM, CODEC_NOT_FOUND,
         ("failed to create image encoder: %s\n", imgenc1->codecName), (NULL));
-        GST_DEBUG("Verify that the values being used for input and output ColorSpace are supported by your coded.\n");
+        GST_DEBUG("Verify that the values being used for input and output ColorSpace are supported by your codec.\n");
         GST_LOG("closing codec engine\n");
         return FALSE;
     }
