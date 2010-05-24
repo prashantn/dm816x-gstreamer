@@ -1327,11 +1327,9 @@ static gboolean gst_tidmaivideosink_process_caps(GstBaseSink * bsink,
         case GST_MAKE_FOURCC('Y', '8', 'C', '8'):
             inBufColorSpace = ColorSpace_YUV422PSEMI;
             break;
-        #if defined(Platform_dm365)
         case GST_MAKE_FOURCC('N', 'V', '1', '2'):
             inBufColorSpace = ColorSpace_YUV420PSEMI;
             break;
-        #endif
         default:
             GST_ERROR("unsupported fourcc\n");
             return FALSE;
