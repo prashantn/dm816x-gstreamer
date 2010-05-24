@@ -92,6 +92,13 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
      "video/x-h264, "                             /* H264                  */
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ] ;"
+     "video/x-divx, "                             /* DivX (MPEG-4 ASP)     */
+         "divxversion=(int)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ] ;"
+     "video/x-xvid, "                             /* XviD (MPEG-4 ASP)     */
+         "width=(int)[ 1, MAX ], "
          "height=(int)[ 1, MAX ]"
     )
 );
@@ -614,6 +621,11 @@ static gboolean gst_tividdec2_set_sink_caps(GstPad *pad, GstCaps *caps)
     /* H.264 Decode */
     else if (!strcmp(mime, "video/x-h264")) {
         codec = gst_ticodec_get_codec("H.264 Video Decoder");
+    }
+
+    /* MPEG-4 ASP Decode (DivX / XviD) */
+    else if (!strcmp(mime, "video/x-divx") || !strcmp(mime, "video/x-xvid")) {
+        codec = gst_ticodec_get_codec("MPEG4 Video Decoder");
     }
 
     /* Mime type not supported */
