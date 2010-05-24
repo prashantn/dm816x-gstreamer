@@ -724,10 +724,13 @@ static gboolean gst_tividenc1_set_source_caps(
     gboolean              ret;
     GstPad               *pad;
     char                 *string;
-    GstTICodec           *h264Codec = NULL, *mpeg4Codec = NULL;
+    GstTICodec           *h264Codec  = NULL;
+    GstTICodec           *mpeg4Codec = NULL;
+    GstTICodec           *mpeg2Codec = NULL;
 
     h264Codec  =  gst_ticodec_get_codec("H.264 Video Encoder");
     mpeg4Codec  =  gst_ticodec_get_codec("MPEG4 Video Encoder");
+    mpeg2Codec  =  gst_ticodec_get_codec("MPEG2 Video Encoder");
 
     pad = videnc1->srcpad;
 
@@ -754,6 +757,24 @@ static gboolean gst_tividenc1_set_source_caps(
         g_free(string);
     }
  
+    /* Create MPEG-2 source cap */
+    if (mpeg2Codec && (!strcmp(mpeg2Codec->CE_CodecName, videnc1->codecName))) {
+        gint mpegversion = 2;
+
+        caps =
+            gst_caps_new_simple("video/mpeg",
+                "mpegversion",  G_TYPE_INT,         mpegversion,
+                "framerate",    GST_TYPE_FRACTION,  videnc1->framerateNum,
+                                                    videnc1->framerateDen,
+                "width",        G_TYPE_INT,         dim.width,
+                "height",       G_TYPE_INT,         dim.height,
+                NULL);
+
+        string =  gst_caps_to_string(caps); 
+        GST_LOG("setting source caps to mpeg2: %s", string);
+        g_free(string);
+    }
+
     /* Create MPEG4 source cap */
     if (mpeg4Codec && (!strcmp(mpeg4Codec->CE_CodecName, videnc1->codecName))) {
         gint mpegversion = 4;
