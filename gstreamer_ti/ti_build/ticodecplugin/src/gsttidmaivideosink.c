@@ -32,11 +32,12 @@
 /* Define sink (input) pad capabilities.
  *
  * UYVY - YUV 422 interleaved corresponding to V4L2_PIX_FMT_UYVY in v4l2
- * Y8C8 - YUV 422 semi planar. The dm6467 VDCE outputs this format after a
+ * NV16 - YUV 422 semi planar. The dm6467 VDCE outputs this format after a
  *        color conversion.The format consists of two planes: one with the
  *        Y component and one with the CbCr components interleaved (hence semi)  *
  *        See the LSP VDCE documentation for a thorough description of this
  *        format.
+ * Y8C8 - Same as NV16.  Y8C8 was used in MVL-based LSPs.
  * NV12 - YUV 420 semi planar corresponding to V4L2_PIX_FMT_NV12 in v4l2.
  *        The format consists of two planes: one with the
  *        Y component and one with the CbCr components interleaved with 
@@ -58,6 +59,11 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE (
          "height=(int)[ 1, MAX ];"
     "video/x-raw-yuv, "
          "format=(fourcc)Y8C8, "
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ];"
+    "video/x-raw-yuv, "
+         "format=(fourcc)NV16, "
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
          "height=(int)[ 1, MAX ];"
@@ -1307,6 +1313,7 @@ static gboolean gst_tidmaivideosink_process_caps(GstBaseSink * bsink,
         case GST_MAKE_FOURCC('U', 'Y', 'V', 'Y'):
             inBufColorSpace = ColorSpace_UYVY;
             break;
+        case GST_MAKE_FOURCC('N', 'V', '1', '6'):
         case GST_MAKE_FOURCC('Y', '8', 'C', '8'):
             inBufColorSpace = ColorSpace_YUV422PSEMI;
             break;
