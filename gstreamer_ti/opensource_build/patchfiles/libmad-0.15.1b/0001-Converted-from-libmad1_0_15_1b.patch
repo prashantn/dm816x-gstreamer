@@ -1,7 +1,7 @@
-From 62ead2ac1f883989e760b80dba557c7a4787d18d Mon Sep 17 00:00:00 2001
+From 40cd52241d2a4a27c0a042b9a3fafb97f838fe89 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Thu, 11 Mar 2010 13:51:31 -0600
-Subject: [PATCH] Converted from libmad1_0_15_1b.patch
+Subject: [PATCH 1/2] Converted from libmad1_0_15_1b
 
 ---
  Makefile.am  |    6 +++++-

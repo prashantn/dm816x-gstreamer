@@ -84,7 +84,8 @@ BASE_PACKAGES += $(PACKAGE_id3tag_BUILD_TARGET)
 PACKAGE_mad_BUILD_TARGET           = mad
 PACKAGE_mad_ARCHIVE_BASENAME       = libmad-0.15.1b
 PACKAGE_mad_PRECONFIG_PATCHES      = \
-    0001-Converted-from-libmad1_0_15_1b.patch.patch
+    0001-Converted-from-libmad1_0_15_1b.patch \
+    0002-Remove-fforce-mem-option-when-building-with-O2.patch
 PACKAGE_mad_POSTCONFIG_PATCHES     =
 PACKAGE_mad_DESCRIPTION            = mpeg audio decoder library
 BASE_PACKAGES += $(PACKAGE_mad_BUILD_TARGET)

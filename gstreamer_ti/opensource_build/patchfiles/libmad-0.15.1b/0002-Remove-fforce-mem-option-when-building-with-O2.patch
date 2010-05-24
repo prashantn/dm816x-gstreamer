@@ -1,0 +1,40 @@
+From d17d5b0a32d10ded89617a23a015a53d1ead03b6 Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Mon, 17 May 2010 17:41:27 -0500
+Subject: [PATCH 2/2] Remove -fforce-mem option when building with -O2.
+
+This option has been removed in CodeSourcery 2009q1.
+---
+ configure    |    2 +-
+ configure.ac |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/configure b/configure
+index ee421cc..2a2f123 100755
+--- a/configure
++++ b/configure
+@@ -19099,7 +19099,7 @@ then
+     case "$optimize" in
+ 	-O|"-O "*)
+ 	    optimize="-O"
+-	    optimize="$optimize -fforce-mem"
++	    : #x optimize="$optimize -fforce-mem"
+ 	    optimize="$optimize -fforce-addr"
+ 	    : #x optimize="$optimize -finline-functions"
+ 	    : #- optimize="$optimize -fstrength-reduce"
+diff --git a/configure.ac b/configure.ac
+index bbb8502..8c4a47d 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -140,7 +140,7 @@ then
+     case "$optimize" in
+ 	-O|"-O "*)
+ 	    optimize="-O"
+-	    optimize="$optimize -fforce-mem"
++	    : #x optimize="$optimize -fforce-mem"
+ 	    optimize="$optimize -fforce-addr"
+ 	    : #x optimize="$optimize -finline-functions"
+ 	    : #- optimize="$optimize -fstrength-reduce"
+-- 
+1.6.3.3
+
