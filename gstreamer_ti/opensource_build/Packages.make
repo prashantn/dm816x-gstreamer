@@ -45,7 +45,8 @@ BASE_PACKAGES += $(PACKAGE_check_BUILD_TARGET)
 #------------------------------------------------------------------------------
 PACKAGE_gstreamer_BUILD_TARGET       = gstreamer
 PACKAGE_gstreamer_ARCHIVE_BASENAME   = gstreamer-0.10.25
-PACKAGE_gstreamer_PRECONFIG_PATCHES  = 
+PACKAGE_gstreamer_PRECONFIG_PATCHES  = \
+    0001-Always-return-NULL-for-the-last-buffer-property.patch
 PACKAGE_gstreamer_CONFIGURE_OPTS     = --disable-loadsave --disable-tests --disable-examples
 PACKAGE_gstreamer_POSTCONFIG_PATCHES =
 PACKAGE_gstreamer_BUILD_DIRS         =
