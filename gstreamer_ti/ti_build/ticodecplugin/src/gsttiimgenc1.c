@@ -1807,11 +1807,13 @@ thread_failure:
 thread_exit:
  
     /* Re-claim any buffers owned by the codec */
-    bufIdx = BufTab_getNumBufs(imgenc1->hOutBufTab);
+    if (imgenc1->hOutBufTab) {
+        bufIdx = BufTab_getNumBufs(imgenc1->hOutBufTab);
 
-    while (bufIdx-- > 0) {
-        Buffer_Handle hBuf = BufTab_getBuf(imgenc1->hOutBufTab, bufIdx);
-        Buffer_freeUseMask(hBuf, gst_tiimgenc1_CODEC_FREE);
+        while (bufIdx-- > 0) {
+            Buffer_Handle hBuf = BufTab_getBuf(imgenc1->hOutBufTab, bufIdx);
+            Buffer_freeUseMask(hBuf, gst_tiimgenc1_CODEC_FREE);
+        }
     }
 
     /* Release the last buffer we retrieved from the circular buffer */
