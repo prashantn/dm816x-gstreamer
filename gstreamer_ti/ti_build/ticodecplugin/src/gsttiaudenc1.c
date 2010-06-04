@@ -28,7 +28,7 @@
  *     Brijesh Singh, Texas Instruments, Inc.
  *     Diego Dompe, RidgeRun
  *
- * Copyright (C) $year Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2008-2010 Texas Instruments Incorporated - http://www.ti.com/
  * Copyright (C) 2009 RidgeRun
  *
  * This program is free software; you can redistribute it and/or modify 

@@ -1,3 +1,7 @@
+2010-06-04: Don Darling, Texas Instruments, Inc.
+	* {*}, src/{*}:
+	Corrected TI Copyright notices (replaced $year with proper years).
+
 2010-05-24: Don Darling, Texas Instruments, Inc.
 	* src/gsttividdec2.c:
 	Add support for the DivX and XviD mime types in TIViddec2.

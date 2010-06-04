@@ -4,7 +4,7 @@
 # This file describes the build and run process for GStreamer on TI
 # DaVinci and OMAP platforms.
 #
-# Copyright (C) $year Texas Instruments Incorporated - http://www.ti.com/
+# Copyright (C) 2008-2010 Texas Instruments Incorporated - http://www.ti.com/
 #
 
 Contents

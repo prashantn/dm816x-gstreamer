@@ -5,7 +5,7 @@
  *     Chase Maupin, Texas Instruments, Inc.
  *     derived from fakesink
  *
- * Copyright (C) $year Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2008-2010 Texas Instruments Incorporated - http://www.ti.com/
  *
  * This program is free software; you can redistribute it and/or modify 
  * it under the terms of the GNU Lesser General Public License as
