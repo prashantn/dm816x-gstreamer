@@ -1,4 +1,4 @@
-From 94e4596f313da3bafd14a93485129f445330bd85 Mon Sep 17 00:00:00 2001
+From 09d722f41eaa0bc8b57040af198371855ee62257 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Tue, 16 Mar 2010 16:31:51 -0500
 Subject: [PATCH 13/14] v4l2src: add V4L2 ioctl calls to initialize capture drivers properly

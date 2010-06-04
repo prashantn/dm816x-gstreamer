@@ -1,4 +1,4 @@
-From 5fdeff3524a67ee4e2cfa6c8b2c5994bf8a477ea Mon Sep 17 00:00:00 2001
+From 79dff78f39c4317c1a75553865270759c734cc2e Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Tue, 16 Mar 2010 15:16:00 -0500
 Subject: [PATCH 12/14] v4l2src: update gst_v4l2_get_norm to handle DM6467T and DM365 properly

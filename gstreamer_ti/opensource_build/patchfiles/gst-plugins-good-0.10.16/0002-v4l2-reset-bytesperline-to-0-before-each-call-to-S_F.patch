@@ -1,4 +1,4 @@
-From 880ffc1512b8b819e277352641f2600215adb6f3 Mon Sep 17 00:00:00 2001
+From 40a39522ae2c3c68ae0737dcc95fe4bdded11da7 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Tue, 18 May 2010 10:45:13 -0500
 Subject: [PATCH 02/14] v4l2: reset bytesperline to 0 before each call to S_FMT and TRY_FMT

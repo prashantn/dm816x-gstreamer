@@ -1,4 +1,4 @@
-From d08e9d8383ab5c3d36fefc031b7a4be39c338657 Mon Sep 17 00:00:00 2001
+From 56601c8abf96336708633a6061221b796fdc1fd1 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Fri, 30 Apr 2010 12:56:58 -0500
 Subject: [PATCH 09/14] v4l2src: try progressive mode first for component input on some platforms
@@ -12,7 +12,7 @@ component input, we must try NONE (Progressive) on the first try.
  1 files changed, 48 insertions(+), 0 deletions(-)
 
 diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
-index ac0b0d7..e02dc1d 100644
+index 01da0c5..b78f11c 100644
 --- a/sys/v4l2/gstv4l2object.c
 +++ b/sys/v4l2/gstv4l2object.c
 @@ -1790,6 +1790,30 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
@@ -46,7 +46,7 @@ index ac0b0d7..e02dc1d 100644
    r = v4l2_ioctl (fd, VIDIOC_TRY_FMT, &fmt);
    if (r < 0 && (errno == EINVAL || errno == EPERM)) {
      /* try again with progressive video */
-@@ -1881,6 +1905,30 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
+@@ -1874,6 +1898,30 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
     *  combined, there are other modes for requesting fields individually) */
    format.fmt.pix.field = V4L2_FIELD_INTERLACED;
  

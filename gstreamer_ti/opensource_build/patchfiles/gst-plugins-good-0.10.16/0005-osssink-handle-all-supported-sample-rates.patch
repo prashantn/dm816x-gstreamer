@@ -1,4 +1,4 @@
-From 834cd5d3fef25edabbd7f437572e2c733866ce7f Mon Sep 17 00:00:00 2001
+From e37d444b261f55d78a598208d401ea28dbee384e Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Thu, 11 Mar 2010 13:07:19 -0600
 Subject: [PATCH 05/14] osssink: handle all supported sample rates

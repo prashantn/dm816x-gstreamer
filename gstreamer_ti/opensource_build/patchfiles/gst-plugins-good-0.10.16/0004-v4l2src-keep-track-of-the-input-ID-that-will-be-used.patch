@@ -1,4 +1,4 @@
-From ad78916c7bf81f2041cd3654d1e08cc846757354 Mon Sep 17 00:00:00 2001
+From 656668db217b701ec41f68134220e1f2f5d59c52 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Mon, 17 May 2010 11:12:21 -0500
 Subject: [PATCH 04/14] v4l2src: keep track of the input ID that will be used for capture

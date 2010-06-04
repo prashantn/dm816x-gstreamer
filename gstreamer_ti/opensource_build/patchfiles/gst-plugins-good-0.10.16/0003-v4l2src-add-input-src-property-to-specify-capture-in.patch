@@ -1,4 +1,4 @@
-From 2b523c13c8b0ad08cf3922f34d8cf72b055596dc Mon Sep 17 00:00:00 2001
+From 4b565ce5b684530d11e7c64224f46bfcecd62add Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Thu, 15 Apr 2010 16:07:29 -0500
 Subject: [PATCH 03/14] v4l2src: add input-src property to specify capture input
