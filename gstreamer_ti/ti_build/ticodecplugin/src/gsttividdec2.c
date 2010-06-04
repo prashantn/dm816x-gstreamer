@@ -420,8 +420,8 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     viddec2->waitOnDecodeDrain  = NULL;
     viddec2->waitOnBufTab       = NULL;
 
-    viddec2->framerateNum       = 0;
-    viddec2->framerateDen       = 0;
+    viddec2->framerateNum       = -1;
+    viddec2->framerateDen       = -1;
 
     viddec2->numOutputBufs      = 0UL;
     viddec2->hOutBufTab         = NULL;
@@ -580,8 +580,10 @@ static gboolean gst_tividdec2_set_sink_caps(GstPad *pad, GstCaps *caps)
 
         if (gst_structure_get_fraction(capStruct, "framerate", &framerateNum,
                 &framerateDen)) {
-            viddec2->framerateNum = framerateNum;
-            viddec2->framerateDen = framerateDen;
+            if (viddec2->framerateNum == -1) {
+                viddec2->framerateNum = framerateNum;
+                viddec2->framerateDen = framerateDen;
+            }
         }
     }
 
@@ -1643,7 +1645,7 @@ static void gst_tividdec2_drain_pipeline(GstTIViddec2 *viddec2)
 static GstClockTime gst_tividdec2_frame_duration(GstTIViddec2 *viddec2)
 {
     /* Default to 29.97 if the frame rate was not specified */
-    if (viddec2->framerateNum == 0 && viddec2->framerateDen == 0) {
+    if (viddec2->framerateNum == -1) {
         GST_WARNING("framerate not specified; using 29.97fps");
         viddec2->framerateNum = 30000;
         viddec2->framerateDen = 1001;
