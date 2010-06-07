@@ -1,3 +1,7 @@
+2010-06-07: Brijesh Singh, Texas Instruments, Inc.
+	* src/gsttiauddec1.c:
+	Fix duration query in TIAuddec1.
+
 2010-06-04: Don Darling, Texas Instruments, Inc.
 	* src/gsttividdec2.c:
 	Force the TIViddec2 frameRate property to override upstream caps.

@@ -1288,6 +1288,9 @@ static void* gst_tiauddec1_decode_thread(void *arg)
             offset         = GST_CLOCK_TIME_TO_FRAMES(auddec1->totalDuration,
                                                     sampleRate);
 
+            /* Increment total bytes recieved */
+            auddec1->totalBytes += encDataConsumed;
+
             /* Set the source pad capabilities based on the decoded frame
              * properties.
              */
