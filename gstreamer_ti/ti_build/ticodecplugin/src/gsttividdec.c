@@ -1129,7 +1129,7 @@ static GstStateChangeReturn gst_tividdec_change_state(GstElement *element,
 }
 
 /******************************************************************************
- * gst_tividdec2_codec_start
+ * gst_tividdec_codec_start
  *     Initialize codec engine
  *****************************************************************************/
 static gboolean gst_tividdec_codec_start (GstTIViddec  *viddec)
@@ -1214,7 +1214,7 @@ static gboolean gst_tividdec_codec_start (GstTIViddec  *viddec)
 }
 
 /******************************************************************************
- * gst_tividdec2_codec_stop
+ * gst_tividdec_codec_stop
  *     Release codec engine resources
  *****************************************************************************/
 static gboolean gst_tividdec_codec_stop (GstTIViddec  *viddec)
