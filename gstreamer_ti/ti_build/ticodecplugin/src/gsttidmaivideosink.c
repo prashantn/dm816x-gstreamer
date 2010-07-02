@@ -1301,7 +1301,7 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
 static gboolean gst_tidmaivideosink_process_caps(GstBaseSink * bsink,
                     GstCaps * caps)
 {
-    GstTIDmaiVideoSink *dmaisink  = GST_TIDMAIVIDEOSINK_CAST(bsink);
+    GstTIDmaiVideoSink *dmaisink  = GST_TIDMAIVIDEOSINK(bsink);
     GstStructure       *structure = NULL;
     gint                height;
     gint                width;
@@ -1371,7 +1371,7 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
 {
     Buffer_Handle         hDispBuf  = NULL;
     Buffer_Handle         inBuf     = NULL;
-    GstTIDmaiVideoSink   *sink      = GST_TIDMAIVIDEOSINK_CAST(bsink);
+    GstTIDmaiVideoSink   *sink      = GST_TIDMAIVIDEOSINK(bsink);
     BufferGfx_Dimensions  dim;
     gchar                 dur_str[64];
     gchar                 ts_str[64];
