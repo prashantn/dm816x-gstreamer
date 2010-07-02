@@ -379,6 +379,9 @@ void gst_ti_parse_newsegment(GstEvent **event, GstSegment *segment,
     gint64      new_start = 0, new_stop = -1;
     gdouble     rate;
 
+    /* Initialize debug category */
+    gst_ti_commonutils_debug_init();
+
     gst_event_parse_new_segment(*event, &update, &rate, &fmt, &start, &stop, 
                                 &position);
 
