@@ -1,4 +1,8 @@
 2010-06-14: Don Darling, Texas Instruments, Inc.
+	* src/src/gsttividdec2.c:
+	Correct the way source caps information is generated in TIViddec2.
+
+2010-06-14: Don Darling, Texas Instruments, Inc.
 	* src/{gstticodecplugin_dm357.cfg, gstticodecs_dm357.c}:
 	Remove DM357 support.
 

@@ -677,36 +677,49 @@ static gboolean gst_tividdec2_set_source_caps(
                     GstTIViddec2 *viddec2, Buffer_Handle hBuf)
 {
     BufferGfx_Dimensions  dim;
+    BufferGfx_Attrs       gfxAttrs = BufferGfx_Attrs_DEFAULT;
     GstCaps              *caps;
+    GValue                fourcc = {0};
     gboolean              ret;
     GstPad               *pad;
     char                 *string;
 
     pad = viddec2->srcpad;
 
-    /* Create a UYVY/NV12 caps object using the dimensions from the 
-       given buffer */
+    /* Create a caps object using the dimensions from the given buffer */
     BufferGfx_getDimensions(hBuf, &dim);
 
-#if !defined(Platform_dm365)
+    /* Retrieve the graphics attribute so we know the colorspace */
+    Buffer_getAttrs(hBuf, BufferGfx_getBufferAttrs(&gfxAttrs));
+
+    /* Determine the fourcc from the colorspace */
+    g_value_init(&fourcc, GST_TYPE_FOURCC);
+    g_assert(GST_VALUE_HOLDS_FOURCC(&fourcc));
+
+    switch (gfxAttrs.colorSpace) {
+        case ColorSpace_UYVY:
+            gst_value_set_fourcc(&fourcc, GST_MAKE_FOURCC('U','Y','V','Y'));
+            break;
+        case ColorSpace_YUV420PSEMI:
+            gst_value_set_fourcc(&fourcc, GST_MAKE_FOURCC('N','V','1','2'));
+            break;
+        case ColorSpace_YUV422PSEMI:
+            gst_value_set_fourcc(&fourcc, GST_MAKE_FOURCC('N','V','1','6'));
+            break;
+        default:
+            GST_ERROR("unsupported colorspace\n");
+            return FALSE;
+    }
+
+    /* Create caps structure */
     caps =
         gst_caps_new_simple("video/x-raw-yuv",
-            "format",    GST_TYPE_FOURCC,   GST_MAKE_FOURCC('U','Y','V','Y'),
+            "format",    GST_TYPE_FOURCC,   gst_value_get_fourcc(&fourcc),
             "framerate", GST_TYPE_FRACTION, viddec2->framerateNum,
                                             viddec2->framerateDen,
             "width",     G_TYPE_INT,        dim.width,
             "height",    G_TYPE_INT,        dim.height,
             NULL);
-#else
-    caps =
-        gst_caps_new_simple("video/x-raw-yuv",
-            "format",   GST_TYPE_FOURCC,  GST_MAKE_FOURCC('N','V','1','2'),
-            "framerate",GST_TYPE_FRACTION,viddec2->framerateNum,
-                                          viddec2->framerateDen,
-            "width",    G_TYPE_INT,       dim.width,
-            "height",   G_TYPE_INT,       dim.height,
-            NULL);
-#endif
 
     /* Set the source pad caps */
     string = gst_caps_to_string(caps);
