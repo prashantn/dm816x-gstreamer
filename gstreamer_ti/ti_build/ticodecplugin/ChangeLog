@@ -1,4 +1,8 @@
 2010-06-14: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaibuffertransport.{c,h}:
+	Remove the gst_tidmaibuffertransport_set_owner() function.
+
+2010-06-14: Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec.c, gsttiauddec1.c, gsttiaudenc1.c, gsttiimgdec.c,
 	gsttiimgdec1.c, gsttiimgenc.c, gsttiimgenc1.c, gsttividdec.c,
 	gsttividdec2.c, gsttividenc.c, gsttividenc1.c, gsttividresize.c}:

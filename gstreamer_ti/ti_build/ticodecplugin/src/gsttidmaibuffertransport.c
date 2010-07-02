@@ -210,34 +210,6 @@ GstBuffer* gst_tidmaibuffertransport_new(
 
 
 /******************************************************************************
- * gst_tidmaibuffertransport_set_owner
- *    Specifies the GstTIDmaiBufTab object that owns this buffer.  Calling this
- *    functino will create an additional reference to the owner, which will be
- *    released when the buffer is freed.  This guarantees that the
- *    GstTIDmaiBufTab object will not be freed while this buffer is still in
- *    use.
- ******************************************************************************/
-void gst_tidmaibuffertransport_set_owner(GstBuffer *gstbuffer,
-         GstTIDmaiBufTab* owner)
-{
-    GstTIDmaiBufferTransport *self = GST_TIDMAIBUFFERTRANSPORT(gstbuffer);
-
-    if (!self) {
-        GST_ERROR("not a GstTIDmaiBufferTransport object");
-        return;
-    }
-
-    if (self->owner) {
-        GST_ERROR("owner already specified for this GstTIDmaiBufferTransport");
-        return;
-    }
-
-    self->owner = owner;
-    gst_tidmaibuftab_ref(self->owner);
-}
-
-
-/******************************************************************************
  * Custom ViM Settings for editing this file
  ******************************************************************************/
 #if 0
