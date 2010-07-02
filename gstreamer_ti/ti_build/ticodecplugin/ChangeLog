@@ -1,4 +1,8 @@
 2010-06-14: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaibuffertransport.{c,h}:
+	Add gst_tidmaibuffertransport_set_owner() function.
+
+2010-06-14: Don Darling, Texas Instruments, Inc.
 	* src/{Makefile.am, gsttidmaibuftab.{c,h}}:
 	Create a "TIDmaiBufTab" buffer table object
 

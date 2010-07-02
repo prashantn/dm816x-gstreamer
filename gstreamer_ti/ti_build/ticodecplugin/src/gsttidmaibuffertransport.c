@@ -95,6 +95,7 @@ static void gst_tidmaibuffertransport_init(GstTIDmaiBufferTransport *self)
 
     self->dmaiBuffer = NULL;
     self->hRv        = NULL;
+    self->owner      = NULL;
 
     GST_LOG("end init\n");
 }
@@ -156,8 +157,14 @@ static void gst_tidmaibuffertransport_finalize(GstBuffer *gstbuffer)
         }
     }
 
+    /* Remove reference to the GstTIDmaiBufTab object that owns us, if any */
+    if (self->owner) {
+        gst_tidmaibuftab_unref(self->owner);
+    }
+
     self->dmaiBuffer = NULL;
     self->hRv        = NULL;
+    self->owner      = NULL;
 
     /* Call GstBuffer's finalize routine, so our base class can do it's cleanup
      * as well.  If we don't do this, we'll have a memory leak that is very
@@ -214,6 +221,39 @@ GstBuffer* gst_tidmaibuffertransport_new(
     return GST_BUFFER(tdt_buf);
 }
 
+
+/******************************************************************************
+ * gst_tidmaibuffertransport_set_owner
+ *    Specifies the GstTIDmaiBufTab object that owns this buffer.  Calling this
+ *    functino will create an additional reference to the owner, which will be
+ *    released when the buffer is freed.  This guarantees that the
+ *    GstTIDmaiBufTab object will not be freed while this buffer is still in
+ *    use.
+ ******************************************************************************/
+void gst_tidmaibuffertransport_set_owner(GstBuffer *gstbuffer,
+         GstTIDmaiBufTab* owner)
+{
+    GstTIDmaiBufferTransport *self = GST_TIDMAIBUFFERTRANSPORT(gstbuffer);
+
+    if (!self) {
+        GST_ERROR("not a GstTIDmaiBufferTransport object");
+        return;
+    }
+
+    if (self->owner) {
+        GST_ERROR("owner already specified for this GstTIDmaiBufferTransport");
+        return;
+    }
+
+    if (self->hRv) {
+        GST_ERROR("cannot specify owner if mutex specified during creation");
+        return;
+    }
+
+    self->owner = owner;
+    self->hRv   = GST_TIDMAIBUFTAB_MUTEX(self->owner);
+    gst_tidmaibuftab_ref(self->owner);
+}
 
 /******************************************************************************
  * gst_tidmaibuffertransport_register_orphaned_buffers

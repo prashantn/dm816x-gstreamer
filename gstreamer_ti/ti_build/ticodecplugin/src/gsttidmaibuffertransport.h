@@ -30,6 +30,8 @@
 #include <ti/sdo/dmai/Buffer.h>
 #include <ti/sdo/dmai/Rendezvous.h>
 
+#include "gsttidmaibuftab.h"
+
 G_BEGIN_DECLS
 
 /* Type macros for GST_TYPE_TIDMAIBUFFERTRANSPORT */
@@ -59,9 +61,10 @@ typedef struct _GstTIDmaiBufferTransportClass GstTIDmaiBufferTransportClass;
 
 /* _GstTIDmaiBufferTransport object */
 struct _GstTIDmaiBufferTransport {
-    GstBuffer         parent_instance;
-    Buffer_Handle     dmaiBuffer;
-    Rendezvous_Handle hRv;
+    GstBuffer          parent_instance;
+    Buffer_Handle      dmaiBuffer;
+    Rendezvous_Handle  hRv;
+    GstTIDmaiBufTab   *owner;
 };
 
 struct _GstTIDmaiBufferTransportClass {
@@ -71,6 +74,8 @@ struct _GstTIDmaiBufferTransportClass {
 /* External function declarations */
 GType      gst_tidmaibuffertransport_get_type(void);
 GstBuffer* gst_tidmaibuffertransport_new(Buffer_Handle, Rendezvous_Handle);
+void       gst_tidmaibuffertransport_set_owner(GstBuffer *gstbuffer,
+               GstTIDmaiBufTab* owner);
 void       gst_tidmaibuffertransport_register_orphaned_buffers(
                BufTab_Handle);
 
