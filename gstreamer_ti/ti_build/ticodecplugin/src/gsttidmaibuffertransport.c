@@ -94,7 +94,6 @@ static void gst_tidmaibuffertransport_init(GstTIDmaiBufferTransport *self)
     GST_LOG("begin init\n");
 
     self->dmaiBuffer = NULL;
-    self->hRv        = NULL;
     self->owner      = NULL;
 
     GST_LOG("end init\n");
@@ -151,9 +150,11 @@ static void gst_tidmaibuffertransport_finalize(GstBuffer *gstbuffer)
             Buffer_delete(self->dmaiBuffer);
         }
 
-        /* If rendezvous handle is set then wake-up caller */
-        if (self->hRv) {
-            Rendezvous_force(self->hRv);
+        /* If a GstTIDmaiBufTab object is blocked waiting for a buffer, wake
+         * it up.
+         */
+        if (self->owner) {
+            Rendezvous_force(GST_TIDMAIBUFTAB_MUTEX(self->owner));
         }
     }
 
@@ -163,7 +164,6 @@ static void gst_tidmaibuffertransport_finalize(GstBuffer *gstbuffer)
     }
 
     self->dmaiBuffer = NULL;
-    self->hRv        = NULL;
     self->owner      = NULL;
 
     /* Call GstBuffer's finalize routine, so our base class can do it's cleanup
@@ -209,7 +209,6 @@ GstBuffer* gst_tidmaibuffertransport_new(
      * that is managing one of its buffers.
      */ 
     if (tdt_buf->owner) {
-        tdt_buf->hRv   = GST_TIDMAIBUFTAB_MUTEX(tdt_buf->owner);
         gst_tidmaibuftab_ref(tdt_buf->owner);
     }
 
@@ -251,13 +250,7 @@ void gst_tidmaibuffertransport_set_owner(GstBuffer *gstbuffer,
         return;
     }
 
-    if (self->hRv) {
-        GST_ERROR("cannot specify owner if mutex specified during creation");
-        return;
-    }
-
     self->owner = owner;
-    self->hRv   = GST_TIDMAIBUFTAB_MUTEX(self->owner);
     gst_tidmaibuftab_ref(self->owner);
 }
 

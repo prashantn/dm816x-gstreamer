@@ -1,5 +1,9 @@
 2010-06-14: Don Darling, Texas Instruments, Inc.
 	* src/gsttidmaibuffertransport.{c,h}:
+	Remove hRv data member from GstTIDmaiBufferTransport.
+
+2010-06-14: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaibuffertransport.{c,h}:
 	Change second parameter of gst_tidmaibuffertransport_new().
 
 2010-06-14: Don Darling, Texas Instruments, Inc.

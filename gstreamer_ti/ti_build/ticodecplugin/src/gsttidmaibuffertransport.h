@@ -63,7 +63,6 @@ typedef struct _GstTIDmaiBufferTransportClass GstTIDmaiBufferTransportClass;
 struct _GstTIDmaiBufferTransport {
     GstBuffer          parent_instance;
     Buffer_Handle      dmaiBuffer;
-    Rendezvous_Handle  hRv;
     GstTIDmaiBufTab   *owner;
 };
 
