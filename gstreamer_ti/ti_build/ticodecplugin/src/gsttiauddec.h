@@ -37,6 +37,7 @@
 #include <ti/sdo/dmai/ce/Adec.h>
 
 #include "gstticircbuffer.h"
+#include "gsttidmaibuftab.h"
 
 G_BEGIN_DECLS
 
@@ -82,11 +83,10 @@ struct _GstTIAuddec
   pthread_t          decodeThread;
   Rendezvous_Handle  waitOnDecodeThread;
   Rendezvous_Handle  waitOnDecodeDrain;
-  Rendezvous_Handle  waitOnBufTab;
 
   /* Buffer management */
   UInt32           numOutputBufs;
-  BufTab_Handle    hOutBufTab;
+  GstTIDmaiBufTab *hOutBufTab;
   GstTICircBuffer *circBuf;
   GstBuffer       *adif_data;
 

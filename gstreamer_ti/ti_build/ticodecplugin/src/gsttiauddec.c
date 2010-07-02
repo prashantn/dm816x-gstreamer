@@ -382,7 +382,6 @@ static void gst_tiauddec_init(GstTIAuddec *auddec, GstTIAuddecClass *gclass)
 
     auddec->waitOnDecodeThread  = NULL;
     auddec->waitOnDecodeDrain   = NULL;
-    auddec->waitOnBufTab        = NULL;
 
     auddec->numOutputBufs       = 0UL;
     auddec->hOutBufTab          = NULL;
@@ -837,7 +836,6 @@ static gboolean gst_tiauddec_init_audio(GstTIAuddec * auddec)
     /* Initialize rendezvous objects for making threads wait on conditions */
     auddec->waitOnDecodeThread  = Rendezvous_create(2, &rzvAttrs);
     auddec->waitOnDecodeDrain   = Rendezvous_create(100, &rzvAttrs);
-    auddec->waitOnBufTab        = Rendezvous_create(100, &rzvAttrs);
     auddec->drainingEOS         = FALSE;
 
     /* Initialize the custom thread attributes */
@@ -957,11 +955,6 @@ static gboolean gst_tiauddec_exit_audio(GstTIAuddec *auddec)
         auddec->waitOnDecodeDrain = NULL;
     }
 
-    if (auddec->waitOnBufTab) {
-        Rendezvous_delete(auddec->waitOnBufTab);
-        auddec->waitOnBufTab = NULL;
-    }
-
     GST_LOG("end exit_audio\n");
     return TRUE;
 }
@@ -1040,14 +1033,8 @@ static gboolean gst_tiauddec_codec_stop (GstTIAuddec  *auddec)
     }
 
     if (auddec->hOutBufTab) {
-
-        /* Re-claim all output buffers that were pushed downstream, and then
-         * delete the BufTab.
-         */
-        gst_ti_reclaim_buffers(auddec->hOutBufTab);
-
         GST_LOG("freeing output buffers\n");
-        BufTab_delete(auddec->hOutBufTab);
+        gst_tidmaibuftab_unref(auddec->hOutBufTab);
         auddec->hOutBufTab = NULL;
     }
 
@@ -1137,9 +1124,8 @@ static gboolean gst_tiauddec_codec_start (GstTIAuddec  *auddec)
     /* By default, new buffers are marked as in-use by the codec */
     bAttrs.useMask = gst_tiauddec_CODEC_FREE;
 
-    auddec->hOutBufTab =
-        BufTab_create(auddec->numOutputBufs, Adec_getOutBufSize(auddec->hAd), 
-            &bAttrs);
+    auddec->hOutBufTab = gst_tidmaibuftab_new(
+        auddec->numOutputBufs, Adec_getOutBufSize(auddec->hAd), &bAttrs);
 
     if (auddec->hOutBufTab == NULL) {
         GST_ELEMENT_ERROR(auddec, RESOURCE, NO_SPACE_LEFT,
@@ -1203,25 +1189,12 @@ static void* gst_tiauddec_decode_thread(void *arg)
         }
 
         /* Obtain a free output buffer for the decoded data */
-        /* If we are not able to find free buffer from BufTab then decoder 
-         * thread will be blocked on waitOnBufTab rendezvous. And this will be 
-         * woke-up by dmaitransportbuffer finalize method.
-         */
-        hDstBuf = BufTab_getFreeBuf(auddec->hOutBufTab);
-        if (hDstBuf == NULL) {
-            Rendezvous_meet(auddec->waitOnBufTab);
-            hDstBuf = BufTab_getFreeBuf(auddec->hOutBufTab);
-
-            if (hDstBuf == NULL) {
-                GST_ELEMENT_ERROR(auddec, RESOURCE, NO_SPACE_LEFT,
+        if (!(hDstBuf = gst_tidmaibuftab_get_buf(auddec->hOutBufTab))) {
+            GST_ELEMENT_ERROR(auddec, RESOURCE, READ,
                 ("failed to get a free contiguous buffer from BufTab\n"), 
                 (NULL));
-                goto thread_failure;
-            }
+            goto thread_failure;
         }
-
-        /* Reset waitOnBufTab rendezvous handle to its orignal state */
-        Rendezvous_reset(auddec->waitOnBufTab);
 
         /* Invoke the audio decoder */
         GST_LOG("Invoking the audio decoder at 0x%08lx with %u bytes\n",
@@ -1297,8 +1270,9 @@ static void* gst_tiauddec_decode_thread(void *arg)
              * buffer for re-use in this element when the source pad calls
              * gst_buffer_unref().
              */
-            outBuf = gst_tidmaibuffertransport_new(hDstBuf, 
-                                                auddec->waitOnBufTab);
+            outBuf = gst_tidmaibuffertransport_new(hDstBuf, NULL);
+            gst_tidmaibuffertransport_set_owner(outBuf, auddec->hOutBufTab);
+
             gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
                 Buffer_getNumBytesUsed(hDstBuf));
             gst_buffer_set_caps(outBuf, GST_PAD_CAPS(auddec->srcpad));
@@ -1342,10 +1316,11 @@ thread_failure:
 thread_exit:
 
     /* Re-claim any buffers owned by the codec */
-    bufIdx = BufTab_getNumBufs(auddec->hOutBufTab);
+    bufIdx = BufTab_getNumBufs(GST_TIDMAIBUFTAB_BUFTAB(auddec->hOutBufTab));
 
     while (bufIdx-- > 0) {
-        Buffer_Handle hBuf = BufTab_getBuf(auddec->hOutBufTab, bufIdx);
+        Buffer_Handle hBuf = BufTab_getBuf(
+            GST_TIDMAIBUFTAB_BUFTAB(auddec->hOutBufTab), bufIdx);
         Buffer_freeUseMask(hBuf, gst_tiauddec_CODEC_FREE);
     }
 
