@@ -403,7 +403,6 @@ static void gst_tiimgdec_init(GstTIImgdec *imgdec, GstTIImgdecClass *gclass)
 
     imgdec->waitOnDecodeThread = NULL;
     imgdec->waitOnDecodeDrain  = NULL;
-    imgdec->waitOnBufTab       = NULL;
 
     imgdec->framerateNum       = 0;
     imgdec->framerateDen       = 0;
@@ -992,7 +991,6 @@ static gboolean gst_tiimgdec_init_image(GstTIImgdec *imgdec)
     /* Initialize rendezvous objects for making threads wait on conditions */
     imgdec->waitOnDecodeThread = Rendezvous_create(2, &rzvAttrs);
     imgdec->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
-    imgdec->waitOnBufTab       = Rendezvous_create(100, &rzvAttrs);
     imgdec->drainingEOS        = FALSE;
 
     /* Initialize custom thread attributes */
@@ -1104,11 +1102,6 @@ static gboolean gst_tiimgdec_exit_image(GstTIImgdec *imgdec)
         imgdec->waitOnDecodeThread = NULL;
     }
 
-    if (imgdec->waitOnBufTab) {
-        Rendezvous_delete(imgdec->waitOnBufTab);
-        imgdec->waitOnBufTab = NULL;
-    }
-
     /* Shut down thread status management */
     imgdec->threadStatus = 0UL;
     pthread_mutex_destroy(&imgdec->threadStatusMutex);
@@ -1186,14 +1179,8 @@ static gboolean gst_tiimgdec_codec_stop (GstTIImgdec  *imgdec)
     }
 
     if (imgdec->hOutBufTab) {
-
-        /* Re-claim all output buffers that were pushed downstream, and then
-         * delete the BufTab.
-         */
-        gst_ti_reclaim_buffers(imgdec->hOutBufTab);
-
         GST_LOG("freeing output buffers\n");
-        BufTab_delete(imgdec->hOutBufTab);
+        gst_tidmaibuftab_unref(imgdec->hOutBufTab);
         imgdec->hOutBufTab = NULL;
     }
 
@@ -1285,9 +1272,8 @@ static gboolean gst_tiimgdec_codec_start (GstTIImgdec  *imgdec)
     /* By default, new buffers are marked as in-use by the codec */
     gfxAttrs.bAttrs.useMask = gst_tiimgdec_CODEC_FREE;
 
-    imgdec->hOutBufTab =
-        BufTab_create(imgdec->numOutputBufs, Idec_getOutBufSize(imgdec->hIe),
-            BufferGfx_getBufferAttrs(&gfxAttrs));
+    imgdec->hOutBufTab = gst_tidmaibuftab_new(imgdec->numOutputBufs,
+        Idec_getOutBufSize(imgdec->hIe), BufferGfx_getBufferAttrs(&gfxAttrs));
 
     if (imgdec->hOutBufTab == NULL) {
         GST_ELEMENT_ERROR(imgdec, RESOURCE, NO_SPACE_LEFT,
@@ -1360,25 +1346,12 @@ static void* gst_tiimgdec_decode_thread(void *arg)
         }
 
         /* Obtain a free output buffer for the decoded data */
-        /* If we are not able to find free buffer from BufTab then decoder 
-         * thread will be blocked on waitOnBufTab rendezvous. And this will be 
-         * woke-up by dmaitransportbuffer finalize method.
-         */
-        hDstBuf = BufTab_getFreeBuf(imgdec->hOutBufTab);
-        if (hDstBuf == NULL) {
-            Rendezvous_meet(imgdec->waitOnBufTab);
-            hDstBuf = BufTab_getFreeBuf(imgdec->hOutBufTab);
-
-            if (hDstBuf == NULL) {
-                GST_ELEMENT_ERROR(imgdec, RESOURCE, READ,
+        if (!(hDstBuf = gst_tidmaibuftab_get_buf(imgdec->hOutBufTab))) {
+            GST_ELEMENT_ERROR(imgdec, RESOURCE, READ,
                 ("failed to get a free contiguous buffer from BufTab\n"),
                 (NULL));
-                goto thread_failure;
-            }
+            goto thread_failure;
         }
-
-        /* Reset waitOnBufTab rendezvous handle to its orignal state */
-        Rendezvous_reset(imgdec->waitOnBufTab);
 
         /* Make sure the whole buffer is used for output */
         BufferGfx_resetDimensions(hDstBuf);
@@ -1454,7 +1427,9 @@ static void* gst_tiimgdec_decode_thread(void *arg)
          * buffer for re-use in this element when the source pad calls
          * gst_buffer_unref().
          */
-        outBuf = gst_tidmaibuffertransport_new(hDstBuf, imgdec->waitOnBufTab);
+        outBuf = gst_tidmaibuffertransport_new(hDstBuf, NULL);
+        gst_tidmaibuffertransport_set_owner(outBuf, imgdec->hOutBufTab);
+
         gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
              gst_ti_correct_display_bufSize(hDstBuf));
         gst_buffer_set_caps(outBuf, GST_PAD_CAPS(imgdec->srcpad));
@@ -1494,10 +1469,11 @@ thread_failure:
 thread_exit:
  
     /* Re-claim any buffers owned by the codec */
-    bufIdx = BufTab_getNumBufs(imgdec->hOutBufTab);
+    bufIdx = BufTab_getNumBufs(GST_TIDMAIBUFTAB_BUFTAB(imgdec->hOutBufTab));
 
     while (bufIdx-- > 0) {
-        Buffer_Handle hBuf = BufTab_getBuf(imgdec->hOutBufTab, bufIdx);
+        Buffer_Handle hBuf = BufTab_getBuf(
+            GST_TIDMAIBUFTAB_BUFTAB(imgdec->hOutBufTab), bufIdx);
         Buffer_freeUseMask(hBuf, gst_tiimgdec_CODEC_FREE);
     }
 
