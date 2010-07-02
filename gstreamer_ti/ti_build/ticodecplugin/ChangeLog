@@ -1,4 +1,8 @@
 2010-06-14: Don Darling, Texas Instruments, Inc.
+	* src/{Makefile.am, gsttidmaibuftab.{c,h}}:
+	Create a "TIDmaiBufTab" buffer table object
+
+2010-06-14: Don Darling, Texas Instruments, Inc.
 	* src/gsttidmaivideosink.c:
 	Push all display initialization code into gst_tidmaivideosink_init_display.
 
