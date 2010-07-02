@@ -1,7 +1,7 @@
-From 9350effc6c82afbe06de22fba952fe49fa98c1bc Mon Sep 17 00:00:00 2001
+From 0e56f8831aa35c32a593bc5667bcb8f56549d99c Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Mon, 12 Apr 2010 13:07:24 -0500
-Subject: [PATCH 06/14] v4l2src: add support for DaVinci platforms using MVL-based kernels
+Subject: [PATCH 05/13] v4l2src: add support for DaVinci platforms using MVL-based kernels
 
 The following files add support for device-specific hand-shaking with the
 capture drivers for DaVinci platforms that use MontaVista-based Linux kernels:
@@ -126,7 +126,7 @@ index 36a4220..975c3df 100644
  
  struct _GstV4l2Buffer {
 diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
-index 6e38fbc..da1ed41 100644
+index f65c458..677ac70 100644
 --- a/sys/v4l2/gstv4l2object.c
 +++ b/sys/v4l2/gstv4l2object.c
 @@ -41,6 +41,9 @@
@@ -240,7 +240,7 @@ index 6e38fbc..da1ed41 100644
  static gboolean
  gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
      guint32 pixelformat, gint * width, gint * height)
-@@ -1790,6 +1822,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
+@@ -1787,6 +1819,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
  
    return TRUE;
  }
@@ -248,7 +248,7 @@ index 6e38fbc..da1ed41 100644
  
  
  gboolean
-@@ -1821,6 +1854,10 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
+@@ -1817,6 +1850,10 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
     *  combined, there are other modes for requesting fields individually) */
    format.fmt.pix.field = V4L2_FIELD_INTERLACED;
  
@@ -700,5 +700,5 @@ index 0000000..5f1ae7c
 +#endif /* __GST_DM365_RESIZER_H__ */
 +
 -- 
-1.6.3.3
+1.7.0.4
 

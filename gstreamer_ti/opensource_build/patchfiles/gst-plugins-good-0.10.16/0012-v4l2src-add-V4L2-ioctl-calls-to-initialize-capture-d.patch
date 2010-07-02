@@ -1,7 +1,7 @@
-From 09d722f41eaa0bc8b57040af198371855ee62257 Mon Sep 17 00:00:00 2001
+From 62a64e4dd0b2213cadde6996d8a98cfdb9713d84 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Tue, 16 Mar 2010 16:31:51 -0500
-Subject: [PATCH 13/14] v4l2src: add V4L2 ioctl calls to initialize capture drivers properly
+Subject: [PATCH 12/13] v4l2src: add V4L2 ioctl calls to initialize capture drivers properly
 
 After calling the ENUMINPUT on an input, call S_INPUT and G_INPUT on that
 input.  Otherwise, the video standards (norms) may not be detected properly,
@@ -43,5 +43,5 @@ index da9c215..b483db7 100644
      GST_LOG_OBJECT (e, "   name:      '%s'", input.name);
      GST_LOG_OBJECT (e, "   type:      %08x", input.type);
 -- 
-1.6.3.3
+1.7.0.4
 

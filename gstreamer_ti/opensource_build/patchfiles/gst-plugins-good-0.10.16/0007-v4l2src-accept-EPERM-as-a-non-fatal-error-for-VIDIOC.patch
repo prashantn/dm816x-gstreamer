@@ -1,7 +1,7 @@
-From 63222848980f6003a293c556c7a7597d30b2fc85 Mon Sep 17 00:00:00 2001
+From c966dd8b8f166260640e182e610b54c0e7419faa Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Mon, 19 Apr 2010 15:22:45 -0500
-Subject: [PATCH 08/14] v4l2src: accept EPERM as a non-fatal error for VIDIOC_TRY_FMT and VIDIOC_S_FMT
+Subject: [PATCH 07/13] v4l2src: accept EPERM as a non-fatal error for VIDIOC_TRY_FMT and VIDIOC_S_FMT
 
 When setting the capture mode, the v4l2src will try interlaced mode first, and
 if the driver returns EINVAL it will try progressive mode.  Any other errno
@@ -16,7 +16,7 @@ mode instead of failing.
  1 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
-index 7cdfc71..01da0c5 100644
+index 9d948a0..6bb456c 100644
 --- a/sys/v4l2/gstv4l2object.c
 +++ b/sys/v4l2/gstv4l2object.c
 @@ -1791,7 +1791,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
@@ -28,8 +28,8 @@ index 7cdfc71..01da0c5 100644
      /* try again with progressive video */
      fmt.fmt.pix.width = *width;
      fmt.fmt.pix.height = *height;
-@@ -1820,7 +1820,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
-     fmt.fmt.pix.bytesperline = 0;
+@@ -1818,7 +1818,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
+     fmt.fmt.pix.height = *height;
  
      r = v4l2_ioctl (fd, VIDIOC_S_FMT, &fmt);
 -    if (r < 0 && errno == EINVAL) {
@@ -37,7 +37,7 @@ index 7cdfc71..01da0c5 100644
        /* try again with progressive video */
        fmt.fmt.pix.width = *width;
        fmt.fmt.pix.height = *height;
-@@ -1879,7 +1879,7 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
+@@ -1875,7 +1875,7 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
    #endif
  
    if (v4l2_ioctl (fd, VIDIOC_S_FMT, &format) < 0) {
@@ -47,5 +47,5 @@ index 7cdfc71..01da0c5 100644
  
      GST_DEBUG_OBJECT (v4l2object->element, "trying again...");
 -- 
-1.6.3.3
+1.7.0.4
 

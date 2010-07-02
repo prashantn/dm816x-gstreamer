@@ -1,7 +1,7 @@
-From 1535ee0d6f9bdfd5e07e26e561a81a22cd489da1 Mon Sep 17 00:00:00 2001
+From 81c62ce865bc1e705506dbddd82b93c436e1b08b Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Wed, 14 Apr 2010 20:01:45 -0500
-Subject: [PATCH 07/14] v4l2src: support NV12 capture on DM365 using the IPIPE in on-the-fly mode
+Subject: [PATCH 06/13] v4l2src: support NV12 capture on DM365 using the IPIPE in on-the-fly mode
 
 ---
  sys/v4l2/Makefile.am        |    2 +
@@ -78,7 +78,7 @@ index dea048f..9f6a55b 100644
  @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(libgstvideo4linux2_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstvideo4linux2_la_CFLAGS) $(CFLAGS) -MT libgstvideo4linux2_la-v4l2src_mvl_lsp.lo -MD -MP -MF $(DEPDIR)/libgstvideo4linux2_la-v4l2src_mvl_lsp.Tpo -c -o libgstvideo4linux2_la-v4l2src_mvl_lsp.lo `test -f 'v4l2src_mvl_lsp.c' || echo '$(srcdir)/'`v4l2src_mvl_lsp.c
  @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libgstvideo4linux2_la-v4l2src_mvl_lsp.Tpo $(DEPDIR)/libgstvideo4linux2_la-v4l2src_mvl_lsp.Plo
 diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
-index da1ed41..7cdfc71 100644
+index 677ac70..9d948a0 100644
 --- a/sys/v4l2/gstv4l2object.c
 +++ b/sys/v4l2/gstv4l2object.c
 @@ -45,6 +45,8 @@
@@ -839,5 +839,5 @@ index 5f1ae7c..98c3281 100644
 +#endif /* __V4L2SRC_MVL_LSP_H__ */
  
 -- 
-1.6.3.3
+1.7.0.4
 

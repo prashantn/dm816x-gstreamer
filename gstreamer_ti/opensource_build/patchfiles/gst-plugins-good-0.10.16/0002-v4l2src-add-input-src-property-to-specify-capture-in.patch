@@ -1,7 +1,7 @@
-From 4b565ce5b684530d11e7c64224f46bfcecd62add Mon Sep 17 00:00:00 2001
+From af1a8c3503a3aecee09f5588bec2274e14310bed Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Thu, 15 Apr 2010 16:07:29 -0500
-Subject: [PATCH 03/14] v4l2src: add input-src property to specify capture input
+Subject: [PATCH 02/13] v4l2src: add input-src property to specify capture input
 
 This property specifies which capture input to use when multiple inputs
 are present on a capture device.
@@ -13,7 +13,7 @@ are present on a capture device.
  4 files changed, 44 insertions(+), 1 deletions(-)
 
 diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
-index f94236c..6e38fbc 100644
+index f73ce21..f65c458 100644
 --- a/sys/v4l2/gstv4l2object.c
 +++ b/sys/v4l2/gstv4l2object.c
 @@ -389,6 +389,10 @@ gst_v4l2_object_destroy (GstV4l2Object * v4l2object)
@@ -151,5 +151,5 @@ index 5f6261e..b98bae7 100644
    return TRUE;
  }
 -- 
-1.6.3.3
+1.7.0.4
 

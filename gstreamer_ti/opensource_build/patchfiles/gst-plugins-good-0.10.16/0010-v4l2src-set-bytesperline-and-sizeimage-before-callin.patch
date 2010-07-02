@@ -1,7 +1,7 @@
-From 8462ec658e14d30da6e7ff6a19249e798ad9cfaf Mon Sep 17 00:00:00 2001
+From 76fbe628fa8394c7960654d7e02620ec2e579b48 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Fri, 12 Mar 2010 09:38:05 -0600
-Subject: [PATCH 11/14] v4l2src: set bytesperline and sizeimage before calling the VIDIOC_S_FMT ioctl
+Subject: [PATCH 10/13] v4l2src: set bytesperline and sizeimage before calling the VIDIOC_S_FMT ioctl
 
 The V4L2 capture driver expects the application to set these fields prior
 to calling VIDIOC_TRY_FMT or VIDIOC_S_FMT:
@@ -17,7 +17,7 @@ to provide it.
  1 files changed, 23 insertions(+), 0 deletions(-)
 
 diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
-index 4715c4a..7b7eade 100644
+index 00b3bb3..82d6481 100644
 --- a/sys/v4l2/gstv4l2object.c
 +++ b/sys/v4l2/gstv4l2object.c
 @@ -1825,6 +1825,17 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
@@ -38,7 +38,7 @@ index 4715c4a..7b7eade 100644
    r = v4l2_ioctl (fd, VIDIOC_TRY_FMT, &fmt);
    if (r < 0 && (errno == EINVAL || errno == EPERM)) {
      /* try again with progressive video */
-@@ -1937,6 +1948,18 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
+@@ -1933,6 +1944,18 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
      v4l2object->bytesused = format.fmt.pix.sizeimage;
    #endif
  
@@ -58,5 +58,5 @@ index 4715c4a..7b7eade 100644
      if (errno != EINVAL && errno != EPERM)
        goto set_fmt_failed;
 -- 
-1.6.3.3
+1.7.0.4
 
