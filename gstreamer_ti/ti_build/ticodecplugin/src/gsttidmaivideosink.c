@@ -1191,19 +1191,8 @@ static gboolean gst_tidmaivideosink_exit_display(GstTIDmaiVideoSink * sink)
 /*******************************************************************************
  * gst_tidmaivideosink_init_display
  *
- * This function will intialize the display.  To do so it will:
- * 
- * 1.  Determine the Cpu device and set the defaults for that device
- * 2.  If the user specified display parameters on the command line
- *     override the defaults with those parameters.
- * 3.  Create the display device handle
- * 4.  Create the frame copy device handle
- * 
- *
- * TODO: As of now this function will need to be updated for how to set the
- *       default display attributes whenever a new device is added.  Hopefully
- *       there is a way around that.
-*******************************************************************************/
+ * This function intializes the display.
+ ******************************************************************************/
 static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
 {
     Resize_Attrs rAttrs = Resize_Attrs_DEFAULT;
@@ -1211,12 +1200,31 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
     Framecopy_Attrs fcAttrs = Framecopy_Attrs_DEFAULT;
     ColorSpace_Type colorSpace = sink->dGfxAttrs.colorSpace;
     
-
     GST_DEBUG("Begin\n");
 
-    /* This is an extra check that the display was not already created */
-    if (sink->hDisplay != NULL)
-        return TRUE;
+    /* Make sure this function is not called if the display has already been
+     * created.
+     */
+    if (sink->hDisplay != NULL) {
+        GST_ERROR("display has already been created");
+        return FALSE;
+    }
+
+    GST_DEBUG("display handle is NULL; creating a display");
+
+    /* Set the input videostd attrs so that when the display is created we can
+     * auto-detect what size it needs to be if requested.
+     */
+    sink->iattrs.width  = sink->dGfxAttrs.dim.width;
+    sink->iattrs.height = sink->dGfxAttrs.dim.height;
+
+    /* Set the input frame rate.  Round to the nearest integer */
+    sink->iattrs.framerate =
+        (int)(((gdouble) sink->dFramerateNum / sink->dFramerateDen) + .5);
+
+    GST_DEBUG("Frame rate numerator = %d\n", sink->dFramerateNum);
+    GST_DEBUG("Frame rate denominator = %d\n", sink->dFramerateDen);
+    GST_DEBUG("Frame rate rounded = %d\n", sink->iattrs.framerate);
 
     /* This loop will exit if one of the following conditions occurs:
      * 1.  The display was created
@@ -1289,6 +1297,11 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
         }
         GST_DEBUG("Frame Copy Device Created\n");
     }
+
+    /* Calculate the required framerepeat now that we have initialized
+     * the display and know the output frame rate.
+     */
+    sink->framerepeat = gst_tidmaivideosink_get_framerepeat(sink);
 
     GST_DEBUG("Finish\n");
     return TRUE;
@@ -1443,33 +1456,11 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
      * initialize (or re-initialize) our display to handle the new stream.
      */
     if (sink->hDisplay == NULL) {
-
-        /* Set the input videostd attrs so that when the display is created
-         * we can know what size it needs to be.
-         */
-        sink->iattrs.width  = sink->dGfxAttrs.dim.width;
-        sink->iattrs.height = sink->dGfxAttrs.dim.height;
-
-        /* Set the input frame rate.  Round to the nearest integer */
-        sink->iattrs.framerate =
-            (int)(((gdouble) sink->dFramerateNum / sink->dFramerateDen) + .5);
-
-        GST_DEBUG("Frame rate numerator = %d\n", sink->dFramerateNum);
-        GST_DEBUG("Frame rate denominator = %d\n", sink->dFramerateDen);
-        GST_DEBUG("Frame rate rounded = %d\n", sink->iattrs.framerate);
-
-        GST_DEBUG("Display Handle does not exist.  Creating a display\n");
-
         if (!gst_tidmaivideosink_init_display(sink)) {
             GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
              ("Unable to initialize display\n"), (NULL));
             goto cleanup;
         }
-
-        /* Calculate the required framerepeat now that we have initialized
-         * the display and know the output frame rate.
-         */
-        sink->framerepeat = gst_tidmaivideosink_get_framerepeat(sink);
     }
 
     /* Display the frame as many times as specified by framerepeat.  By
