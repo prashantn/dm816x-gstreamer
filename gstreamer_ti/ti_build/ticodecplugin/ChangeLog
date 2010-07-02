@@ -1,4 +1,8 @@
 2010-06-14: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaibuffertransport.{c,h}:
+	Remove support for registering and managing orphaned buffers.
+
+2010-06-14: Don Darling, Texas Instruments, Inc.
 	* src/gstticommonutils.{c,h}:
 	Remove gst_ti_reclaim_buffers function.
 

@@ -75,8 +75,6 @@ GType      gst_tidmaibuffertransport_get_type(void);
 GstBuffer* gst_tidmaibuffertransport_new(Buffer_Handle, GstTIDmaiBufTab*);
 void       gst_tidmaibuffertransport_set_owner(GstBuffer *gstbuffer,
                GstTIDmaiBufTab* owner);
-void       gst_tidmaibuffertransport_register_orphaned_buffers(
-               BufTab_Handle);
 
 G_END_DECLS 
 
