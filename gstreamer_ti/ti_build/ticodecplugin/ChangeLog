@@ -1,4 +1,9 @@
 2010-06-14: Don Darling, Texas Instruments, Inc.
+	* src/gsttividenc1.{c,h}:
+	Update TIVidenc1 to use the GstTIDmaiBufTab object to manage output
+	buffers.
+
+2010-06-14: Don Darling, Texas Instruments, Inc.
 	* src/gsttiimgdec.{c,h}:
 	Update TIImgdec to use the GstTIDmaiBufTab object to manage output buffers.
 

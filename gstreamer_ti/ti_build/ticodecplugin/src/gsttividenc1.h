@@ -27,6 +27,7 @@
 
 #include <gst/gst.h>
 #include "gstticircbuffer.h"
+#include "gsttidmaibuftab.h"
 
 #include <xdc/std.h>
 #include <ti/sdo/ce/Engine.h>
@@ -92,7 +93,6 @@ struct _GstTIVidenc1
   pthread_t          encodeThread;
   Rendezvous_Handle  waitOnEncodeThread;
   Rendezvous_Handle  waitOnEncodeDrain;
-  Rendezvous_Handle  waitOnBufTab;
 
   /* Framerate (Num/Den) */
   gint               framerateNum;
@@ -108,7 +108,7 @@ struct _GstTIVidenc1
   Framecopy_Handle hFc;
 
   /* Buffer management */
-  BufTab_Handle    hOutBufTab;
+  GstTIDmaiBufTab *hOutBufTab;
   GstTICircBuffer *circBuf;
 
   /* H.264 header */

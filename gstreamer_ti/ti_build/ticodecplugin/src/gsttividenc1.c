@@ -430,7 +430,6 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
 
     videnc1->waitOnEncodeThread     = NULL;
     videnc1->waitOnEncodeDrain      = NULL;
-    videnc1->waitOnBufTab           = NULL;
 
     videnc1->framerateNum           = 0;
     videnc1->framerateDen           = 0;
@@ -1248,7 +1247,6 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
     /* Initialize rendezvous objects for making threads wait on conditions */
     videnc1->waitOnEncodeThread = Rendezvous_create(2, &rzvAttrs);
     videnc1->waitOnEncodeDrain  = Rendezvous_create(100, &rzvAttrs);
-    videnc1->waitOnBufTab       = Rendezvous_create(100, &rzvAttrs);
     videnc1->drainingEOS        = FALSE;
 
     /* Initialize custom thread attributes */
@@ -1364,11 +1362,6 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
         videnc1->waitOnEncodeDrain = NULL;
     }
 
-    if (videnc1->waitOnBufTab) {
-        Rendezvous_delete(videnc1->waitOnBufTab);
-        videnc1->waitOnBufTab = NULL;
-    }
-
     if (videnc1->hFc) {
         GST_LOG("freeing framecopy handle\n");
         Framecopy_delete(videnc1->hFc);
@@ -1457,14 +1450,8 @@ static gboolean gst_tividenc1_codec_stop (GstTIVidenc1 *videnc1)
     }
 
     if (videnc1->hOutBufTab) {
-
-        /* Re-claim all output buffers that were pushed downstream, and then
-         * delete the BufTab.
-         */
-        gst_ti_reclaim_buffers(videnc1->hOutBufTab);
-
         GST_LOG("freeing output buffers\n");
-        BufTab_delete(videnc1->hOutBufTab);
+        gst_tidmaibuftab_unref(videnc1->hOutBufTab);
         videnc1->hOutBufTab = NULL;
     }
 
@@ -1635,10 +1622,10 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
     if (videnc1->numOutputBufs == 0) {
         videnc1->numOutputBufs = 3;
     }
-    videnc1->hOutBufTab =
-        BufTab_create(videnc1->numOutputBufs,
-                Venc1_getOutBufSize(videnc1->hVe1),
-                BufferGfx_getBufferAttrs(&gfxAttrs));
+
+    videnc1->hOutBufTab = gst_tidmaibuftab_new(videnc1->numOutputBufs,
+        Venc1_getOutBufSize(videnc1->hVe1),
+        BufferGfx_getBufferAttrs(&gfxAttrs));
 
     if (videnc1->hOutBufTab == NULL) {
         GST_ERROR("failed to create output buffers\n");
@@ -1781,25 +1768,12 @@ static void* gst_tividenc1_encode_thread(void *arg)
         }
 
         /* Obtain a free output buffer for the encoded data */
-        /* If we are not able to find free buffer from BufTab then decoder 
-         * thread will be blocked on waitOnBufTab rendezvous. And this will be 
-         * woke-up by dmaitransportbuffer finalize method.
-         */
-        hDstBuf = BufTab_getFreeBuf(videnc1->hOutBufTab);
-        if (hDstBuf == NULL) {
-            Rendezvous_meet(videnc1->waitOnBufTab);
-            hDstBuf = BufTab_getFreeBuf(videnc1->hOutBufTab);
-
-            if (hDstBuf == NULL) {
-                GST_ELEMENT_ERROR(videnc1, RESOURCE, READ,
+        if (!(hDstBuf = gst_tidmaibuftab_get_buf(videnc1->hOutBufTab))) {
+            GST_ELEMENT_ERROR(videnc1, RESOURCE, READ,
                 ("failed to get a free contiguous buffer from BufTab\n"),
                 (NULL));
-                goto thread_failure;
-            }
+            goto thread_failure;
         }
-
-        /* Reset waitOnBufTab rendezvous handle to its orignal state */
-        Rendezvous_reset(videnc1->waitOnBufTab);
 
         /* Make sure the whole buffer is used for output */
         BufferGfx_resetDimensions(hDstBuf);
@@ -1864,7 +1838,9 @@ static void* gst_tividenc1_encode_thread(void *arg)
          * buffer for re-use in this element when the source pad calls
          * gst_buffer_unref().
          */
-        outBuf = gst_tidmaibuffertransport_new(hDstBuf, videnc1->waitOnBufTab);
+        outBuf = gst_tidmaibuffertransport_new(hDstBuf, NULL);
+        gst_tidmaibuffertransport_set_owner(outBuf, videnc1->hOutBufTab);
+
         gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
             Buffer_getNumBytesUsed(hDstBuf));
         gst_buffer_set_caps(outBuf, GST_PAD_CAPS(videnc1->srcpad));
@@ -1903,10 +1879,11 @@ thread_failure:
 thread_exit: 
 
     /* Re-claim any buffers owned by the codec */
-    bufIdx = BufTab_getNumBufs(videnc1->hOutBufTab);
+    bufIdx = BufTab_getNumBufs(GST_TIDMAIBUFTAB_BUFTAB(videnc1->hOutBufTab));
 
     while (bufIdx-- > 0) {
-        Buffer_Handle hBuf = BufTab_getBuf(videnc1->hOutBufTab, bufIdx);
+        Buffer_Handle hBuf = BufTab_getBuf(
+            GST_TIDMAIBUFTAB_BUFTAB(videnc1->hOutBufTab), bufIdx);
         Buffer_freeUseMask(hBuf, gst_tividenc1_CODEC_FREE);
     }
 
