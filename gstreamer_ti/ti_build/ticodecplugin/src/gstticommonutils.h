@@ -71,9 +71,6 @@ void gst_ti_parse_newsegment(GstEvent **event, GstSegment *segment,
 gboolean gst_ti_query_srcpad(GstPad * pad, GstQuery * query, 
     GstPad *sinkpad, gint64 totalDuration, guint64 totalBytes);
 
-/* Function to re-claim BufTab buffers from downstream elements */
-gboolean gst_ti_reclaim_buffers(BufTab_Handle hBufTab);
-
 #endif 
 
 /******************************************************************************
