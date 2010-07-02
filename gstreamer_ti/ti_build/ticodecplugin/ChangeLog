@@ -1,4 +1,9 @@
 2010-06-14: Don Darling, Texas Instruments, Inc.
+	* src/gsttividdec2.{c,h}:
+	Update TIViddec2 to use the GstTIDmaiBufTab object to manage output
+	buffers.
+
+2010-06-14: Don Darling, Texas Instruments, Inc.
 	* src/gsttidmaibuffertransport.{c,h}:
 	Add gst_tidmaibuffertransport_set_owner() function.
 

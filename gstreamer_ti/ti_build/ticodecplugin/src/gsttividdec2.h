@@ -27,6 +27,7 @@
 
 #include <gst/gst.h>
 #include "gstticircbuffer.h"
+#include "gsttidmaibuftab.h"
 
 #include <xdc/std.h>
 #include <ti/sdo/ce/Engine.h>
@@ -81,7 +82,6 @@ struct _GstTIViddec2
   pthread_t          decodeThread;
   Rendezvous_Handle  waitOnDecodeThread;
   Rendezvous_Handle  waitOnDecodeDrain;
-  Rendezvous_Handle  waitOnBufTab;
 
   /* Framerate (Num/Den) */
   gint               framerateNum;
@@ -89,7 +89,7 @@ struct _GstTIViddec2
 
   /* Buffer management */
   UInt32           numOutputBufs;
-  BufTab_Handle    hOutBufTab;
+  GstTIDmaiBufTab *hOutBufTab;
   GstTICircBuffer *circBuf;
 
   /* Quicktime h264 header  */

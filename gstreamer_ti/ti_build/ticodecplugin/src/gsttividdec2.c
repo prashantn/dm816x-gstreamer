@@ -418,7 +418,6 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
 
     viddec2->waitOnDecodeThread = NULL;
     viddec2->waitOnDecodeDrain  = NULL;
-    viddec2->waitOnBufTab       = NULL;
 
     viddec2->framerateNum       = -1;
     viddec2->framerateDen       = -1;
@@ -973,7 +972,6 @@ static gboolean gst_tividdec2_init_video(GstTIViddec2 *viddec2)
     /* Initialize rendezvous objects for making threads wait on conditions */
     viddec2->waitOnDecodeThread = Rendezvous_create(2, &rzvAttrs);
     viddec2->waitOnDecodeDrain  = Rendezvous_create(100, &rzvAttrs);
-    viddec2->waitOnBufTab       = Rendezvous_create(100, &rzvAttrs);
     viddec2->drainingEOS        = FALSE;
 
     /* Initialize custom thread attributes */
@@ -1089,11 +1087,6 @@ static gboolean gst_tividdec2_exit_video(GstTIViddec2 *viddec2)
         viddec2->waitOnDecodeThread = NULL;
     }
 
-    if (viddec2->waitOnBufTab) {
-        Rendezvous_delete(viddec2->waitOnBufTab);
-        viddec2->waitOnBufTab = NULL;
-    }
-
     if (viddec2->sps_pps_data) {
         GST_LOG("freeing sps_pps buffers\n");
         gst_buffer_unref(viddec2->sps_pps_data);
@@ -1195,14 +1188,8 @@ static gboolean gst_tividdec2_codec_stop (GstTIViddec2  *viddec2)
     }
 
     if (viddec2->hOutBufTab) {
-
-        /* Re-claim all output buffers that were pushed downstream, and then
-         * delete the BufTab.
-         */
-        gst_ti_reclaim_buffers(viddec2->hOutBufTab);
-
         GST_LOG("freeing output buffers\n");
-        BufTab_delete(viddec2->hOutBufTab);
+        gst_tidmaibuftab_unref(viddec2->hOutBufTab);
         viddec2->hOutBufTab = NULL;
     }
 
@@ -1326,9 +1313,9 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
     /* By default, new buffers are marked as in-use by the codec */
     gfxAttrs.bAttrs.useMask = gst_tividdec2_CODEC_FREE;
 
-    viddec2->hOutBufTab =
-        BufTab_create(viddec2->numOutputBufs, Vdec2_getOutBufSize(viddec2->hVd),
-            BufferGfx_getBufferAttrs(&gfxAttrs));
+    viddec2->hOutBufTab = gst_tidmaibuftab_new(
+        viddec2->numOutputBufs, Vdec2_getOutBufSize(viddec2->hVd),
+        BufferGfx_getBufferAttrs(&gfxAttrs));
 
     if (viddec2->hOutBufTab == NULL) {
         GST_ELEMENT_ERROR(viddec2, RESOURCE, NO_SPACE_LEFT,
@@ -1337,7 +1324,8 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
     }
 
     /* Tell the Vdec module that hOutBufTab will be used for display buffers */
-    Vdec2_setBufTab(viddec2->hVd, viddec2->hOutBufTab);
+    Vdec2_setBufTab(viddec2->hVd,
+        GST_TIDMAIBUFTAB_BUFTAB(viddec2->hOutBufTab));
 
     return TRUE;
 }
@@ -1426,25 +1414,12 @@ static void* gst_tividdec2_decode_thread(void *arg)
         }
 
         /* Obtain a free output buffer for the decoded data */
-        /* If we are not able to find free buffer from BufTab then decoder 
-         * thread will be blocked on waitOnBufTab rendezvous. And this will be 
-         * woke-up by dmaitransportbuffer finalize method.
-         */
-        hDstBuf = BufTab_getFreeBuf(viddec2->hOutBufTab);
-        if (hDstBuf == NULL) {
-            Rendezvous_meet(viddec2->waitOnBufTab);
-            hDstBuf = BufTab_getFreeBuf(viddec2->hOutBufTab);
-
-            if (hDstBuf == NULL) {
-                GST_ELEMENT_ERROR(viddec2, RESOURCE, READ,
+        if (!(hDstBuf = gst_tidmaibuftab_get_buf(viddec2->hOutBufTab))) {
+            GST_ELEMENT_ERROR(viddec2, RESOURCE, READ,
                 ("failed to get a free contiguous buffer from BufTab\n"), 
                 (NULL));
-                goto thread_exit;
-            }
+            goto thread_exit;
         }
-
-        /* Reset waitOnBufTab rendezvous handle to its orignal state */
-        Rendezvous_reset(viddec2->waitOnBufTab);
 
         /* Make sure the whole buffer is used for output */
         BufferGfx_resetDimensions(hDstBuf);
@@ -1535,8 +1510,9 @@ static void* gst_tividdec2_decode_thread(void *arg)
              * buffer for re-use in this element when the source pad calls
              * gst_buffer_unref().
              */
-            outBuf = gst_tidmaibuffertransport_new(hDstBuf, 
-                                                    viddec2->waitOnBufTab);
+            outBuf = gst_tidmaibuffertransport_new(hDstBuf, NULL);
+            gst_tidmaibuffertransport_set_owner(outBuf, viddec2->hOutBufTab);
+
             gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
                 gst_ti_correct_display_bufSize(hDstBuf));
             gst_buffer_set_caps(outBuf, GST_PAD_CAPS(viddec2->srcpad));
@@ -1586,10 +1562,11 @@ thread_failure:
 thread_exit:
 
     /* Re-claim any buffers owned by the codec */
-    bufIdx = BufTab_getNumBufs(viddec2->hOutBufTab);
+    bufIdx = BufTab_getNumBufs(GST_TIDMAIBUFTAB_BUFTAB(viddec2->hOutBufTab));
 
     while (bufIdx-- > 0) {
-        Buffer_Handle hBuf = BufTab_getBuf(viddec2->hOutBufTab, bufIdx);
+        Buffer_Handle hBuf = BufTab_getBuf(
+            GST_TIDMAIBUFTAB_BUFTAB(viddec2->hOutBufTab), bufIdx);
         Buffer_freeUseMask(hBuf, gst_tividdec2_CODEC_FREE);
     }
 
