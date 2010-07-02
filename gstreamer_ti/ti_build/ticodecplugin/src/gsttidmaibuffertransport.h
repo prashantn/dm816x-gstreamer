@@ -73,7 +73,7 @@ struct _GstTIDmaiBufferTransportClass {
 
 /* External function declarations */
 GType      gst_tidmaibuffertransport_get_type(void);
-GstBuffer* gst_tidmaibuffertransport_new(Buffer_Handle, Rendezvous_Handle);
+GstBuffer* gst_tidmaibuffertransport_new(Buffer_Handle, GstTIDmaiBufTab*);
 void       gst_tidmaibuffertransport_set_owner(GstBuffer *gstbuffer,
                GstTIDmaiBufTab* owner);
 void       gst_tidmaibuffertransport_register_orphaned_buffers(

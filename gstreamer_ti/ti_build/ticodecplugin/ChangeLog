@@ -1,4 +1,8 @@
 2010-06-14: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaibuffertransport.{c,h}:
+	Change second parameter of gst_tidmaibuffertransport_new().
+
+2010-06-14: Don Darling, Texas Instruments, Inc.
 	* src/gsttividresize.{c,h}:
 	Update TIVidResize to use the GstTIDmaiBufTab object to manage output
 	buffers.

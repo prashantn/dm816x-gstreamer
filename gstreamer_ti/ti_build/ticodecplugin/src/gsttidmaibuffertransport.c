@@ -180,12 +180,9 @@ static void gst_tidmaibuffertransport_finalize(GstBuffer *gstbuffer)
 /******************************************************************************
  * gst_tidmaibuffertransport_new
  *    Create a new DMAI buffer transport object.
- *
- * Note: If Rendezvous_Handle is set then Rendenzvous_force will be called for 
- *       this handle during finalize method.
  ******************************************************************************/
 GstBuffer* gst_tidmaibuffertransport_new(
-               Buffer_Handle dmaiBuffer, Rendezvous_Handle hRv)
+               Buffer_Handle dmaiBuffer, GstTIDmaiBufTab *owner)
 {
     GstTIDmaiBufferTransport *tdt_buf;
 
@@ -205,7 +202,16 @@ GstBuffer* gst_tidmaibuffertransport_new(
     }
 
     tdt_buf->dmaiBuffer = dmaiBuffer;
-    tdt_buf->hRv        = hRv;
+    tdt_buf->owner      = owner;
+
+    /* If the owner was specified, create a reference to it.  This keeps the
+     * owning GstTIDmaiBufTab object alive while there is a transport buffer
+     * that is managing one of its buffers.
+     */ 
+    if (tdt_buf->owner) {
+        tdt_buf->hRv   = GST_TIDMAIBUFTAB_MUTEX(tdt_buf->owner);
+        gst_tidmaibuftab_ref(tdt_buf->owner);
+    }
 
     /* If the DMAI buffer is part of a BufTab, mark it as being in use by the
      * GStreamer pipeline.
