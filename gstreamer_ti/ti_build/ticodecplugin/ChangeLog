@@ -1,4 +1,10 @@
 2010-06-14: Don Darling, Texas Instruments, Inc.
+	* src/{Makefile.am, gsttiauddec.{c,h}, gstticodecplugin.c,
+	gsttiimgdec.{c,h}, gsttiimgenc.{c,h}, gsttividdec.{c,h},
+	gsttividenc.{c,h}}:
+	Remove support for xDM 0.9-based codecs.
+
+2010-06-14: Don Darling, Texas Instruments, Inc.
 	* src/gsttidmaibuffertransport.{c,h}:
 	Remove the gst_tidmaibuffertransport_set_owner() function.
 

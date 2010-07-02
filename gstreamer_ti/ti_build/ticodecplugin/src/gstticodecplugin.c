@@ -33,16 +33,11 @@
 #include <ti/sdo/ce/CERuntime.h>
 #include <ti/sdo/dmai/Dmai.h>
 
-#include "gsttiauddec.h"
 #include "gsttiauddec1.h"
-#include "gsttividdec.h"
 #include "gsttividdec2.h"
 #include "gsttiimgenc1.h"
-#include "gsttiimgenc.h"
 #include "gsttiimgdec1.h"
-#include "gsttiimgdec.h"
 #include "gsttidmaivideosink.h"
-#include "gsttividenc.h"
 #include "gsttividenc1.h"
 #include "gsttiaudenc1.h"
 #include "gsttividresize.h"
@@ -70,20 +65,6 @@ TICodecPlugin_init (GstPlugin * TICodecPlugin)
         GST_TYPE_TIVIDENC1))
         return FALSE;
 
-    env_value = getenv("GST_TI_TIVidenc_DISABLE");
-
-    if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
-        TICodecPlugin, "TIVidenc", GST_RANK_PRIMARY,
-        GST_TYPE_TIVIDENC))
-        return FALSE;
-
-    env_value = getenv("GST_TI_TIViddec_DISABLE");
-
-    if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
-        TICodecPlugin, "TIViddec", GST_RANK_PRIMARY,
-        GST_TYPE_TIVIDDEC))
-        return FALSE;
-
     env_value = getenv("GST_TI_TIViddec2_DISABLE");
 
     if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
@@ -98,32 +79,11 @@ TICodecPlugin_init (GstPlugin * TICodecPlugin)
         GST_TYPE_TIIMGENC1))
         return FALSE;
 
-    env_value = getenv("GST_TI_TIImgenc_DISABLE");
-
-    if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
-        TICodecPlugin, "TIImgenc", GST_RANK_PRIMARY,
-        GST_TYPE_TIIMGENC))
-        return FALSE;
-
     env_value = getenv("GST_TI_TIImgdec1_DISABLE");
 
     if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
         TICodecPlugin, "TIImgdec1", GST_RANK_PRIMARY,
         GST_TYPE_TIIMGDEC1))
-        return FALSE;
-
-    env_value = getenv("GST_TI_TIImgdec_DISABLE");
-
-    if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
-        TICodecPlugin, "TIImgdec", GST_RANK_PRIMARY,
-        GST_TYPE_TIIMGDEC))
-        return FALSE;
-
-    env_value = getenv("GST_TI_TIAuddec_DISABLE");
-
-    if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
-        TICodecPlugin, "TIAuddec", GST_RANK_PRIMARY,
-        GST_TYPE_TIAUDDEC))
         return FALSE;
 
     env_value = getenv("GST_TI_TIAuddec1_DISABLE");
