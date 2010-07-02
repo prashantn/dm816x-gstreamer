@@ -1,4 +1,8 @@
 2010-07-01: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaibuffertransport.c:
+	Remove GST_LOG call at the beginning of gst_tidmaibuffertransport_new().
+
+2010-07-01: Don Darling, Texas Instruments, Inc.
 	* src/gstticircbuffer.c:
 	Remove GST_LOG call at the beginning of gst_ticircbuffer_new().
 

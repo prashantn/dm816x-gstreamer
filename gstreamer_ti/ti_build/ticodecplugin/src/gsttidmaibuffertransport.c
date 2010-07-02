@@ -168,8 +168,6 @@ GstBuffer* gst_tidmaibuffertransport_new(
 {
     GstTIDmaiBufferTransport *tdt_buf;
 
-    GST_LOG("begin new\n");
-
     tdt_buf = (GstTIDmaiBufferTransport*)
               gst_mini_object_new(GST_TYPE_TIDMAIBUFFERTRANSPORT);
 
