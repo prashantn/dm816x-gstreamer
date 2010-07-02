@@ -1,3 +1,7 @@
+2010-06-14: Don Darling, Texas Instruments, Inc.
+	* src/{gstticodecplugin_dm357.cfg, gstticodecs_dm357.c}:
+	Remove DM357 support.
+
 2010-06-07: Brijesh Singh, Texas Instruments, Inc.
 	* src/gsttiauddec1.c:
 	Fix duration query in TIAuddec1.

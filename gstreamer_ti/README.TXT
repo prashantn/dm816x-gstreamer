@@ -106,7 +106,6 @@ DM6446      2.00.00.22
 DM355       2.00.00.22
 DM6467      2.00.00.22
 OMAP35xx    3.00.02.44
-DM357       2.05.00.14
 DM365       2.10.01.18
 
 Prerequisites
@@ -163,18 +162,6 @@ above.
 By default, the GStreamer binaries will be installed to "/opt/gstreamer" on
 the target, and some demonstration scripts will be installed to
 "/opt/gstreamer_demo".
-
-Special Notes on DM357 Build
-----------------------------
-DVSDK 2.05 for DM357 comes with DMAI version 1.13.  This version of DMAI is not
-sufficient for building the TI GStreamer Plugin.  You must install DMAI
-version 1.20.00.06 to build, and update the DMAI_INSTALL_DIR variable in
-the DVSDK's "Rules.make" file to point to the location of this DMAI
-installation.  Once this is done, the build process is the same as for other
-platforms.
-
-DMAI 1.20.00.06 is available for download from:
-     https://gforge.ti.com/gf/project/dmai/frs/?action=FrsReleaseBrowse&frs_package_id=31
 
 Board Set-Up
 ============
