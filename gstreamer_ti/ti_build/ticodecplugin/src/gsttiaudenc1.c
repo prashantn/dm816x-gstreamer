@@ -108,9 +108,6 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
         "mpegversion = (int) { 4 }")
 );
 
-/* Constants */
-#define gst_tiaudenc1_CODEC_FREE 0x2
-
 /* Enclare a global pointer to our element base class */
 static GstElementClass *parent_class = NULL;
 
@@ -1056,7 +1053,7 @@ static gboolean gst_tiaudenc1_codec_start (GstTIAudenc1  *audenc1)
     GST_LOG("creating output buffers\n");
       
     /* By default, new buffers are marked as in-use by the codec */
-    bAttrs.useMask = gst_tiaudenc1_CODEC_FREE;
+    bAttrs.useMask = gst_tidmaibuffer_CODEC_FREE;
 
     audenc1->hOutBufTab = gst_tidmaibuftab_new(audenc1->numOutputBufs, 
         Aenc1_getOutBufSize(audenc1->hAe), &bAttrs);
@@ -1214,7 +1211,7 @@ static void* gst_tiaudenc1_encode_thread(void *arg)
         }
 
         /* Release buffers no longer in use by the codec */
-        Buffer_freeUseMask(hDstBuf, gst_tiaudenc1_CODEC_FREE);
+        Buffer_freeUseMask(hDstBuf, gst_tidmaibuffer_CODEC_FREE);
     }
 
 thread_failure:
@@ -1231,7 +1228,7 @@ thread_exit:
     while (bufIdx-- > 0) {
         Buffer_Handle hBuf = BufTab_getBuf(
             GST_TIDMAIBUFTAB_BUFTAB(audenc1->hOutBufTab), bufIdx);
-        Buffer_freeUseMask(hBuf, gst_tiaudenc1_CODEC_FREE);
+        Buffer_freeUseMask(hBuf, gst_tidmaibuffer_CODEC_FREE);
     }
 
     /* Release the last buffer we retrieved from the circular buffer */

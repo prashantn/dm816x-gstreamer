@@ -122,9 +122,6 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     GST_STATIC_CAPS_ANY
 );
 
-/* Constants */
-#define gst_tiimgenc1_CODEC_FREE 0x2
-
 /* Declare a global pointer to our element base class */
 static GstElementClass *parent_class = NULL;
 
@@ -1585,7 +1582,7 @@ static gboolean gst_tiimgenc1_codec_start (GstTIImgenc1  *imgenc1)
     gfxAttrs.bAttrs.memParams.align = 128;
 
     /* By default, new buffers are marked as in-use by the codec */
-    gfxAttrs.bAttrs.useMask = gst_tiimgenc1_CODEC_FREE;
+    gfxAttrs.bAttrs.useMask = gst_tidmaibuffer_CODEC_FREE;
 
     imgenc1->hOutBufTab = gst_tidmaibuftab_new(imgenc1->numOutputBufs,
         Ienc1_getOutBufSize(imgenc1->hIe),
@@ -1769,7 +1766,7 @@ static void* gst_tiimgenc1_encode_thread(void *arg)
         }
 
         /* Release buffers no longer in use by the codec */
-        Buffer_freeUseMask(hDstBuf, gst_tiimgenc1_CODEC_FREE);
+        Buffer_freeUseMask(hDstBuf, gst_tidmaibuffer_CODEC_FREE);
     }
 
 thread_failure:
@@ -1788,7 +1785,7 @@ thread_exit:
         while (bufIdx-- > 0) {
             Buffer_Handle hBuf = BufTab_getBuf(
                 GST_TIDMAIBUFTAB_BUFTAB(imgenc1->hOutBufTab), bufIdx);
-            Buffer_freeUseMask(hBuf, gst_tiimgenc1_CODEC_FREE);
+            Buffer_freeUseMask(hBuf, gst_tidmaibuffer_CODEC_FREE);
         }
     }
 

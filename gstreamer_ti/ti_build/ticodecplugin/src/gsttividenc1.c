@@ -146,9 +146,6 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     )
 );
 
-/* Constants */
-#define gst_tividenc1_CODEC_FREE 0x2
-
 /* Declare a global pointer to our element base class */
 static GstElementClass *parent_class = NULL;
 
@@ -1617,7 +1614,7 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
     gfxAttrs.bAttrs.memParams.align = 128;
 
     /* By default, new buffers are marked as in-use by the codec */
-    gfxAttrs.bAttrs.useMask = gst_tividenc1_CODEC_FREE;
+    gfxAttrs.bAttrs.useMask = gst_tidmaibuffer_CODEC_FREE;
 
     if (videnc1->numOutputBufs == 0) {
         videnc1->numOutputBufs = 3;
@@ -1865,7 +1862,7 @@ static void* gst_tividenc1_encode_thread(void *arg)
         }
 
         /* Release buffers no longer in use by the codec */
-        Buffer_freeUseMask(hDstBuf, gst_tividenc1_CODEC_FREE);
+        Buffer_freeUseMask(hDstBuf, gst_tidmaibuffer_CODEC_FREE);
     }
 
 thread_failure:
@@ -1882,7 +1879,7 @@ thread_exit:
     while (bufIdx-- > 0) {
         Buffer_Handle hBuf = BufTab_getBuf(
             GST_TIDMAIBUFTAB_BUFTAB(videnc1->hOutBufTab), bufIdx);
-        Buffer_freeUseMask(hBuf, gst_tividenc1_CODEC_FREE);
+        Buffer_freeUseMask(hBuf, gst_tidmaibuffer_CODEC_FREE);
     }
 
     /* Release the last buffer we retrieved from the circular buffer */

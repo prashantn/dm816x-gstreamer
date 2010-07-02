@@ -90,9 +90,6 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     )
 );
 
-/* Constants */
-#define gst_tiimgdec1_CODEC_FREE 0x2
-
 /* Declare a global pointer to our element base class */
 static GstElementClass *parent_class = NULL;
 
@@ -1269,7 +1266,7 @@ static gboolean gst_tiimgdec1_codec_start (GstTIImgdec1  *imgdec1)
     gfxAttrs.bAttrs.memParams.align = 128;
 
     /* By default, new buffers are marked as in-use by the codec */
-    gfxAttrs.bAttrs.useMask = gst_tiimgdec1_CODEC_FREE;
+    gfxAttrs.bAttrs.useMask = gst_tidmaibuffer_CODEC_FREE;
 
     imgdec1->hOutBufTab = gst_tidmaibuftab_new(imgdec1->numOutputBufs,
         Idec1_getOutBufSize(imgdec1->hIe),
@@ -1456,7 +1453,7 @@ static void* gst_tiimgdec1_decode_thread(void *arg)
         }
 
         /* Release buffers no longer in use by the codec */
-        Buffer_freeUseMask(hDstBuf, gst_tiimgdec1_CODEC_FREE);
+        Buffer_freeUseMask(hDstBuf, gst_tidmaibuffer_CODEC_FREE);
     }
 
 thread_failure:
@@ -1473,7 +1470,7 @@ thread_exit:
     while (bufIdx-- > 0) {
         Buffer_Handle hBuf = BufTab_getBuf(
             GST_TIDMAIBUFTAB_BUFTAB(imgdec1->hOutBufTab), bufIdx);
-        Buffer_freeUseMask(hBuf, gst_tiimgdec1_CODEC_FREE);
+        Buffer_freeUseMask(hBuf, gst_tidmaibuffer_CODEC_FREE);
     }
 
     /* Release the last buffer we retrieved from the circular buffer */

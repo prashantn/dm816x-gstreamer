@@ -696,7 +696,7 @@ static gboolean gst_tividresize_set_caps (GstBaseTransform *trans,
         vidresize->dstHeight, vidresize->dstColorSpace);
 
     /* allocate output buffer */
-    gfxAttrs.bAttrs.useMask = gst_tidmaibuffertransport_GST_FREE;
+    gfxAttrs.bAttrs.useMask = gst_tidmaibuffer_GST_FREE;
     gfxAttrs.colorSpace = vidresize->dstColorSpace;
     gfxAttrs.dim.width = vidresize->dstWidth;
     gfxAttrs.dim.height = vidresize->dstHeight;

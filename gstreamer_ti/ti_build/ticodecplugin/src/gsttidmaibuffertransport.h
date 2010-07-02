@@ -51,13 +51,16 @@ G_BEGIN_DECLS
     (G_TYPE_INSTANCE_GET_CLASS ((obj), GST_TYPE_TIDMAIBUFFERTRANSPORT, \
     GstTIDmaiBufferTransportClass))
 
+/* Use mask flags that keep track of where buffer is in use */
+#define gst_tidmaibuffer_GST_FREE    0x1
+#define gst_tidmaibuffer_CODEC_FREE  0x2
+
 typedef struct _GstTIDmaiBufferTransport      GstTIDmaiBufferTransport;
 typedef struct _GstTIDmaiBufferTransportClass GstTIDmaiBufferTransportClass;
 
 /* Utility macros for GST_TYPE_TIDMAIBUFFERTRANSPORT */
 #define GST_TIDMAIBUFFERTRANSPORT_DMAIBUF(obj) \
     (GST_TIDMAIBUFFERTRANSPORT(obj)->dmaiBuffer)
-#define gst_tidmaibuffertransport_GST_FREE  0x1
 
 /* _GstTIDmaiBufferTransport object */
 struct _GstTIDmaiBufferTransport {
