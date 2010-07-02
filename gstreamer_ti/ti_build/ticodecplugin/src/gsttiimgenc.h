@@ -27,6 +27,7 @@
 
 #include <gst/gst.h>
 #include "gstticircbuffer.h"
+#include "gsttidmaibuftab.h"
 
 #include <xdc/std.h>
 #include <ti/sdo/ce/Engine.h>
@@ -95,7 +96,6 @@ struct _GstTIImgenc
   pthread_t                 encodeThread;
   Rendezvous_Handle         waitOnEncodeThread;
   Rendezvous_Handle         waitOnEncodeDrain;
-  Rendezvous_Handle         waitOnBufTab;
 
   /* Framerate (Num/Den) */
   gint                      framerateNum;
@@ -103,8 +103,8 @@ struct _GstTIImgenc
 
   /* Buffer management */
   UInt32                    numOutputBufs;
-  BufTab_Handle             hOutBufTab;
-  GstTICircBuffer           *circBuf;
+  GstTIDmaiBufTab          *hOutBufTab;
+  GstTICircBuffer          *circBuf;
   Buffer_Handle             hInBuf;
 };
 
