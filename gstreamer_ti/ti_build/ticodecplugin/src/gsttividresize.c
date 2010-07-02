@@ -332,22 +332,11 @@ static GstFlowReturn gst_tividresize_prepare_output_buffer (GstBaseTransform
     GST_LOG("begin prepare output buffer\n");
 
     /* Get free buffer from buftab */
-    hOutBuf = BufTab_getFreeBuf(vidresize->hOutBufTab);
-
-    if (hOutBuf == NULL) {
-        GST_LOG("failed to get free buffer, waiting for downstream to unref\n");
-
-        Rendezvous_meet(vidresize->waitOnBufTab);
-        hOutBuf = BufTab_getFreeBuf(vidresize->hOutBufTab);
-        if (hOutBuf == NULL) {
-            GST_ELEMENT_ERROR(vidresize, RESOURCE, READ,
+    if (!(hOutBuf = gst_tidmaibuftab_get_buf(vidresize->hOutBufTab))) {
+        GST_ELEMENT_ERROR(vidresize, RESOURCE, READ,
             ("failed to get free buffer\n"), (NULL));
-            return GST_FLOW_ERROR;
-        }
+        return GST_FLOW_ERROR;
     }
-
-    /* Reset waitOnBufTab rendezvous handle to its orignal state */
-    Rendezvous_reset(vidresize->waitOnBufTab);
 
     /* Create a DMAI transport buffer object to carry a DMAI buffer to
      * the source pad.  The transport buffer knows how to release the
@@ -355,8 +344,9 @@ static GstFlowReturn gst_tividresize_prepare_output_buffer (GstBaseTransform
      * gst_buffer_unref().
      */
     GST_LOG("creating dmai transport buffer\n");
-    *outBuf = gst_tidmaibuffertransport_new(hOutBuf, 
-                vidresize->waitOnBufTab);
+    *outBuf = gst_tidmaibuffertransport_new(hOutBuf, NULL);
+    gst_tidmaibuffertransport_set_owner(*outBuf, vidresize->hOutBufTab);
+
     gst_buffer_set_data(*outBuf, (guint8*) Buffer_getUserPtr(hOutBuf), 
                         Buffer_getSize(hOutBuf));
     gst_buffer_set_caps(*outBuf, GST_PAD_CAPS(trans->srcpad));
@@ -671,7 +661,6 @@ static gboolean gst_tividresize_set_caps (GstBaseTransform *trans,
 {
     GstTIVidresize      *vidresize  = GST_TIVIDRESIZE(trans);
     BufferGfx_Attrs     gfxAttrs    = BufferGfx_Attrs_DEFAULT;
-    Rendezvous_Attrs    rzvAttrs    = Rendezvous_Attrs_DEFAULT;
     gboolean            ret         = FALSE;
     guint32             fourcc;
     guint               outBufSize;
@@ -708,14 +697,6 @@ static gboolean gst_tividresize_set_caps (GstBaseTransform *trans,
     outBufSize = gst_ti_calc_buffer_size(vidresize->dstWidth,
         vidresize->dstHeight, vidresize->dstColorSpace);
 
-    /* create rendezvous handle for buffer release */
-    vidresize->waitOnBufTab = Rendezvous_create (100, &rzvAttrs);
-    if (vidresize->waitOnBufTab == NULL) {
-        GST_ELEMENT_ERROR(vidresize, RESOURCE, FAILED,
-        ("failed t create waitonbuftab handle\n"), (NULL));
-        goto exit;
-    }
-
     /* allocate output buffer */
     gfxAttrs.bAttrs.useMask = gst_tidmaibuffertransport_GST_FREE;
     gfxAttrs.colorSpace = vidresize->dstColorSpace;
@@ -728,8 +709,9 @@ static gboolean gst_tividresize_set_caps (GstBaseTransform *trans,
         vidresize->numOutputBufs = 2;
     }
  
-   vidresize->hOutBufTab = BufTab_create(vidresize->numOutputBufs, outBufSize, 
-                BufferGfx_getBufferAttrs (&gfxAttrs));
+   vidresize->hOutBufTab = gst_tidmaibuftab_new(vidresize->numOutputBufs,
+       outBufSize, BufferGfx_getBufferAttrs (&gfxAttrs));
+
     if (vidresize->hOutBufTab == NULL) {
         GST_ELEMENT_ERROR(vidresize, RESOURCE, NO_SPACE_LEFT,
         ("failed to create output bufTab\n"), (NULL));
@@ -796,15 +778,9 @@ static gboolean gst_tividresize_exit_resize(GstTIVidresize *vidresize)
         vidresize->hResize = NULL;
     }
 
-    if (vidresize->waitOnBufTab) {
-        GST_LOG("deleting  Rendezvous handle\n");
-         Rendezvous_delete(vidresize->waitOnBufTab);
-        vidresize->waitOnBufTab = NULL;
-    }
-
     if (vidresize->hOutBufTab) {
         GST_LOG("freeing output buffers\n");
-        BufTab_delete(vidresize->hOutBufTab);
+        gst_tidmaibuftab_unref(vidresize->hOutBufTab);
         vidresize->hOutBufTab = NULL;
     }
 

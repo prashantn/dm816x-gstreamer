@@ -38,6 +38,8 @@
 #include <ti/sdo/dmai/ColorSpace.h>
 #include <ti/sdo/dmai/Cpu.h>
 
+#include "gsttidmaibuftab.h"
+
 G_BEGIN_DECLS
 
 /* Standard macros for maniuplating TIVidresize objects */
@@ -79,8 +81,7 @@ struct _GstTIVidresize
   Resize_Handle     hResize;
   ColorSpace_Type   srcColorSpace;
   ColorSpace_Type   dstColorSpace;
-  BufTab_Handle     hOutBufTab;
-  Rendezvous_Handle waitOnBufTab;
+  GstTIDmaiBufTab  *hOutBufTab;
   Cpu_Handle        hCpu;
   Cpu_Device        device;
 };
