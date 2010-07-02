@@ -1510,9 +1510,8 @@ static void* gst_tividdec2_decode_thread(void *arg)
              * buffer for re-use in this element when the source pad calls
              * gst_buffer_unref().
              */
-            outBuf = gst_tidmaibuffertransport_new(hDstBuf, NULL);
-            gst_tidmaibuffertransport_set_owner(outBuf, viddec2->hOutBufTab);
-
+            outBuf = gst_tidmaibuffertransport_new(
+                hDstBuf, viddec2->hOutBufTab);
             gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
                 gst_ti_correct_display_bufSize(hDstBuf));
             gst_buffer_set_caps(outBuf, GST_PAD_CAPS(viddec2->srcpad));

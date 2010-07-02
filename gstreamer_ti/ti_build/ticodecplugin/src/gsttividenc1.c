@@ -1838,9 +1838,7 @@ static void* gst_tividenc1_encode_thread(void *arg)
          * buffer for re-use in this element when the source pad calls
          * gst_buffer_unref().
          */
-        outBuf = gst_tidmaibuffertransport_new(hDstBuf, NULL);
-        gst_tidmaibuffertransport_set_owner(outBuf, videnc1->hOutBufTab);
-
+        outBuf = gst_tidmaibuffertransport_new(hDstBuf, videnc1->hOutBufTab);
         gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
             Buffer_getNumBytesUsed(hDstBuf));
         gst_buffer_set_caps(outBuf, GST_PAD_CAPS(videnc1->srcpad));

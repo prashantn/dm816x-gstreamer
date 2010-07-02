@@ -344,9 +344,7 @@ static GstFlowReturn gst_tividresize_prepare_output_buffer (GstBaseTransform
      * gst_buffer_unref().
      */
     GST_LOG("creating dmai transport buffer\n");
-    *outBuf = gst_tidmaibuffertransport_new(hOutBuf, NULL);
-    gst_tidmaibuffertransport_set_owner(*outBuf, vidresize->hOutBufTab);
-
+    *outBuf = gst_tidmaibuffertransport_new(hOutBuf, vidresize->hOutBufTab);
     gst_buffer_set_data(*outBuf, (guint8*) Buffer_getUserPtr(hOutBuf), 
                         Buffer_getSize(hOutBuf));
     gst_buffer_set_caps(*outBuf, GST_PAD_CAPS(trans->srcpad));

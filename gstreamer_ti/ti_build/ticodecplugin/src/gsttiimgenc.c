@@ -1738,9 +1738,7 @@ static void* gst_tiimgenc_encode_thread(void *arg)
          * buffer for re-use in this element when the source pad calls
          * gst_buffer_unref().
          */
-        outBuf = gst_tidmaibuffertransport_new(hDstBuf, NULL);
-        gst_tidmaibuffertransport_set_owner(outBuf, imgenc->hOutBufTab);
-
+        outBuf = gst_tidmaibuffertransport_new(hDstBuf, imgenc->hOutBufTab);
         gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
             Buffer_getNumBytesUsed(hDstBuf));
         gst_buffer_set_caps(outBuf, GST_PAD_CAPS(imgenc->srcpad));
