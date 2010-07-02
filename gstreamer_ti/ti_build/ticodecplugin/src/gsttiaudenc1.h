@@ -39,6 +39,7 @@
 #include <ti/sdo/dmai/ce/Aenc1.h>
 
 #include "gstticircbuffer.h"
+#include "gsttidmaibuftab.h"
 
 G_BEGIN_DECLS
 
@@ -91,12 +92,11 @@ struct _GstTIAudenc1
   pthread_t          encodeThread;
   Rendezvous_Handle  waitOnEncodeThread;
   Rendezvous_Handle  waitOnEncodeDrain;
-  Rendezvous_Handle  waitOnBufTab;
   
   /* Buffer management */
   UInt32            numOutputBufs;
-  BufTab_Handle     hOutBufTab;
-  GstTICircBuffer   *circBuf;
+  GstTIDmaiBufTab  *hOutBufTab;
+  GstTICircBuffer  *circBuf;
 
   /* AAC header (qtdemuxer) */
   GstBuffer       *aac_header_data;
