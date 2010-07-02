@@ -119,7 +119,8 @@ enum
   PROP_SIGNAL_HANDOFFS,
   PROP_CAN_ACTIVATE_PUSH,
   PROP_CAN_ACTIVATE_PULL,
-  PROP_CONTIG_INPUT_BUF
+  PROP_CONTIG_INPUT_BUF,
+  PROP_USERPTR_BUFS
 };
 
 enum
@@ -170,6 +171,8 @@ static void
     gst_tidmaivideosink_init_env(GstTIDmaiVideoSink *sink);
 static int
     gst_tidmaivideosink_videostd_get_refresh_latency(VideoStd_Type videoStd);
+static gboolean
+    gst_tidmaivideosink_alloc_display_buffers(GstTIDmaiVideoSink * sink);
 
 static guint gst_tidmaivideosink_signals[LAST_SIGNAL] = { 0 };
 
@@ -284,6 +287,12 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
         g_param_spec_boolean("contiguousInputFrame", "Contiguous Input frame",
             "Set this if elemenet recieves contiguous input frame",
             FALSE, G_PARAM_WRITABLE));
+
+    g_object_class_install_property(gobject_class, PROP_USERPTR_BUFS,
+        g_param_spec_boolean("useUserptrBufs", "Use USERPTR display buffers",
+            "Allocate our own V4L2 display buffers.  The number of buffers"
+            "allocated is specified by the numBufs property",
+            FALSE, G_PARAM_READWRITE));
 
     /**
     * GstTIDmaiVideoSink::handoff:
@@ -422,6 +431,8 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     dmaisink->accelFrameCopy      = TRUE;
     dmaisink->autoselect          = FALSE;
     dmaisink->prevVideoStd        = 0;
+    dmaisink->useUserptrBufs      = FALSE;
+    dmaisink->hDispBufTab         = NULL;
 
     dmaisink->signal_handoffs = DEFAULT_SIGNAL_HANDOFFS;
 
@@ -514,6 +525,9 @@ static void gst_tidmaivideosink_set_property(GObject * object, guint prop_id,
         case PROP_CONTIG_INPUT_BUF:
             sink->contiguousInputFrame = g_value_get_boolean(value);
             break;
+        case PROP_USERPTR_BUFS:
+            sink->useUserptrBufs = g_value_get_boolean(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
             break;
@@ -576,6 +590,9 @@ static void gst_tidmaivideosink_get_property(GObject * object, guint prop_id,
             break;
         case PROP_CONTIG_INPUT_BUF:
             g_value_set_boolean(value, sink->contiguousInputFrame);
+            break;
+        case PROP_USERPTR_BUFS:
+            g_value_set_boolean(value, sink->useUserptrBufs);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1176,6 +1193,12 @@ static gboolean gst_tidmaivideosink_exit_display(GstTIDmaiVideoSink * sink)
         sink->hDisplay = NULL;
     }
 
+    if (sink->hDispBufTab) {
+        GST_DEBUG("freeing display buffers\n");
+        BufTab_delete(sink->hDispBufTab);
+        sink->hDispBufTab = NULL;
+    }
+
     if (sink->tempDmaiBuf) {
         GST_DEBUG("Freeing temporary DMAI buffer\n");
         Buffer_delete(sink->tempDmaiBuf);
@@ -1237,8 +1260,16 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
             return FALSE;
         }
 
+        /* Allocate user-allocated display buffers, if requested */
+        if (!sink->hDispBufTab && sink->useUserptrBufs) {
+            if (!gst_tidmaivideosink_alloc_display_buffers(sink)) {
+                GST_ERROR("Failed to allocate display buffers");
+                return FALSE;
+            }
+        }
+
         /* Create the display device using the attributes set above */
-        sink->hDisplay = Display_create(NULL, &sink->dAttrs);
+        sink->hDisplay = Display_create(sink->hDispBufTab, &sink->dAttrs);
 
         if ((sink->hDisplay == NULL) && (sink->autoselect == TRUE)) {
             GST_DEBUG("Could not create display with videoStd %d.  Searching for next valid standard.\n", 
@@ -1739,6 +1770,63 @@ static gboolean gst_tidmaivideosink_set_caps(GstBaseSink * bsink,
                     GstCaps * caps)
 {
     /* Just return true for now.  I don't have anything to set here yet */
+    return TRUE;
+}
+
+
+/******************************************************************************
+ * gst_tidmaivideosink_alloc_display_buffers
+ *
+ * Allocate display buffers.
+ ******************************************************************************/
+static gboolean gst_tidmaivideosink_alloc_display_buffers(
+                    GstTIDmaiVideoSink * sink)
+{
+    BufferGfx_Attrs gfxAttrs = BufferGfx_Attrs_DEFAULT;
+    Int32           bufSize; 
+
+    if (sink->dAttrs.displayStd != Display_Std_V4L2) {
+        GST_ERROR("useUserptrBufs=TRUE can only be used with V4L2 displays\n");
+        return FALSE;
+    }
+
+    GST_INFO("Allocating %ld display buffers", sink->dAttrs.numBufs);
+
+    /* Set the dimensions for the display */
+    if (VideoStd_getResolution(sink->dAttrs.videoStd, &gfxAttrs.dim.width,
+        &gfxAttrs.dim.height) < 0) {
+        GST_ERROR("Failed to calculate resolution of video standard\n");
+        return FALSE;
+    }
+
+    /* Set the colorspace for the display.  On DM365, it will match that of
+     * the input buffer and has already been set in the display attributes.  
+     * For other platforms, unfortunately there is no default set and we need
+     * to specify one.
+     */
+    #if defined(Platform_dm365)
+        gfxAttrs.colorSpace = sink->dAttrs.colorSpace;
+    #elif defined(Platform_dm6467) || defined(Platform_dm6467t)
+        gfxAttrs.colorSpace = ColorSpace_YUV422PSEMI;
+    #else /* default to UYVY */
+        gfxAttrs.colorSpace = ColorSpace_UYVY;
+    #endif
+
+    /* Set the pitch (lineLength) for the display. */
+    gfxAttrs.dim.lineLength =
+        BufferGfx_calcLineLength(gfxAttrs.dim.width, gfxAttrs.colorSpace);
+
+    /* On DM365 the display pitch must be aligned to a 32-byte boundary */
+    #if defined(Platform_dm365)
+        gfxAttrs.dim.lineLength = Dmai_roundUp(gfxAttrs.dim.lineLength, 32);
+    #endif
+
+    bufSize = gst_ti_calc_buffer_size(gfxAttrs.dim.width, gfxAttrs.dim.height,
+                  gfxAttrs.colorSpace);
+
+    sink->hDispBufTab = BufTab_create(sink->dAttrs.numBufs, bufSize,
+        BufferGfx_getBufferAttrs(&gfxAttrs));
+
     return TRUE;
 }
 

@@ -92,6 +92,10 @@ struct _GstTIDmaiVideoSink {
   gint              dFramerateNum;
   gint              dFramerateDen;
 
+  /* User-allocated Display Buffers */
+  gboolean          useUserptrBufs;
+  BufTab_Handle     hDispBufTab;
+
   /* Attributes for hardware-accelerated frame-copies */
   Framecopy_Handle  hFc;
   Resize_Handle     hResize;
