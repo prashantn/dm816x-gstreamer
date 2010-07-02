@@ -1,4 +1,8 @@
 2010-07-01: Don Darling, Texas Instruments, Inc.
+	* src/gstticircbuffer.c:
+	Remove GST_LOG call at the beginning of gst_ticircbuffer_new().
+
+2010-07-01: Don Darling, Texas Instruments, Inc.
 	* src/gstticommonutils.c:
 	Fix assertion failure caused by gst_ti_parse_newsegment().
 

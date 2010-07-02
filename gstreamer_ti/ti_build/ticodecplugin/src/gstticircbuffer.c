@@ -193,8 +193,6 @@ GstTICircBuffer* gst_ticircbuffer_new(Int32 windowSize, Int32 numWindows,
     Buffer_Attrs     bAttrs  = Buffer_Attrs_DEFAULT;
     Int32            bufSize;
 
-    GST_LOG("begin new");
-
     circBuf = (GstTICircBuffer*)gst_mini_object_new(GST_TYPE_TICIRCBUFFER);
 
     g_return_val_if_fail(circBuf != NULL, NULL);
