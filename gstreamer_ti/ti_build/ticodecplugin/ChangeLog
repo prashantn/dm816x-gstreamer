@@ -1,4 +1,8 @@
 2010-06-14: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaivideosink.c:
+	Add static declaration for gst_tidmaivideosink_process_caps.
+
+2010-06-14: Don Darling, Texas Instruments, Inc.
 	* src/src/gsttividdec2.c:
 	Correct the way source caps information is generated in TIViddec2.
 

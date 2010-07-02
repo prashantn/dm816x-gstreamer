@@ -160,6 +160,8 @@ static gboolean
 static gboolean
  gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink * sink, 
     ColorSpace_Type colorSpace);
+static gboolean
+ gst_tidmaivideosink_process_caps(GstBaseSink * bsink, GstCaps * caps);
 static GstFlowReturn
  gst_tidmaivideosink_render(GstBaseSink * bsink, GstBuffer * buffer);
 static gboolean
