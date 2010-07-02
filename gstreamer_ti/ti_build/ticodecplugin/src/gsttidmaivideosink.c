@@ -120,7 +120,8 @@ enum
   PROP_CAN_ACTIVATE_PUSH,
   PROP_CAN_ACTIVATE_PULL,
   PROP_CONTIG_INPUT_BUF,
-  PROP_USERPTR_BUFS
+  PROP_USERPTR_BUFS,
+  PROP_HIDE_OSD
 };
 
 enum
@@ -173,6 +174,10 @@ static int
     gst_tidmaivideosink_videostd_get_refresh_latency(VideoStd_Type videoStd);
 static gboolean
     gst_tidmaivideosink_alloc_display_buffers(GstTIDmaiVideoSink * sink);
+static gboolean
+    gst_tidmaivideosink_open_osd(GstTIDmaiVideoSink * sink);
+static gboolean
+    gst_tidmaivideosink_close_osd(GstTIDmaiVideoSink * sink);
 
 static guint gst_tidmaivideosink_signals[LAST_SIGNAL] = { 0 };
 
@@ -292,6 +297,11 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
         g_param_spec_boolean("useUserptrBufs", "Use USERPTR display buffers",
             "Allocate our own V4L2 display buffers.  The number of buffers"
             "allocated is specified by the numBufs property",
+            FALSE, G_PARAM_READWRITE));
+
+    g_object_class_install_property(gobject_class, PROP_HIDE_OSD,
+        g_param_spec_boolean("hideOSD", "Hide the OSD during video playback",
+            "Initialize and hide the OSD during video playback",
             FALSE, G_PARAM_READWRITE));
 
     /**
@@ -432,6 +442,7 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     dmaisink->autoselect          = FALSE;
     dmaisink->prevVideoStd        = 0;
     dmaisink->useUserptrBufs      = FALSE;
+    dmaisink->hideOSD             = FALSE;
     dmaisink->hDispBufTab         = NULL;
 
     dmaisink->signal_handoffs = DEFAULT_SIGNAL_HANDOFFS;
@@ -528,6 +539,9 @@ static void gst_tidmaivideosink_set_property(GObject * object, guint prop_id,
         case PROP_USERPTR_BUFS:
             sink->useUserptrBufs = g_value_get_boolean(value);
             break;
+        case PROP_HIDE_OSD:
+            sink->hideOSD = g_value_get_boolean(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
             break;
@@ -593,6 +607,9 @@ static void gst_tidmaivideosink_get_property(GObject * object, guint prop_id,
             break;
         case PROP_USERPTR_BUFS:
             g_value_set_boolean(value, sink->useUserptrBufs);
+            break;
+        case PROP_HIDE_OSD:
+            g_value_set_boolean(value, sink->hideOSD);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1205,6 +1222,8 @@ static gboolean gst_tidmaivideosink_exit_display(GstTIDmaiVideoSink * sink)
         sink->tempDmaiBuf = NULL;
     }
 
+    gst_tidmaivideosink_close_osd(sink);
+
     GST_DEBUG("Finish\n");
 
     return TRUE;
@@ -1266,6 +1285,14 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
                 GST_ERROR("Failed to allocate display buffers");
                 return FALSE;
             }
+        }
+
+        /* Open the OSD.  We don't use it, but opening it clears the contents
+         * and makes it transparent so it doesn't interfere with the display.
+         */
+        if (sink->hideOSD && !gst_tidmaivideosink_open_osd(sink)) {
+            GST_ERROR("Failed to hide the OSD");
+            return FALSE;
         }
 
         /* Create the display device using the attributes set above */
@@ -1830,6 +1857,99 @@ static gboolean gst_tidmaivideosink_alloc_display_buffers(
     return TRUE;
 }
 
+
+/******************************************************************************
+ * gst_tidmaivideosink_open_osd
+ *    Open the OSD display on certain platforms.
+ ******************************************************************************/
+static gboolean gst_tidmaivideosink_open_osd(GstTIDmaiVideoSink * sink)
+{
+    Display_Attrs   oAttrs = {0};
+    Display_Attrs   aAttrs = {0};
+    Buffer_Handle   hBuf;
+
+    #if defined(Platform_dm365)
+        oAttrs = Display_Attrs_DM365_OSD_DEFAULT;
+        aAttrs = Display_Attrs_DM365_ATTR_DEFAULT;
+    #elif defined(Platform_dm6446) || defined(Platform_dm355)
+        oAttrs = Display_Attrs_DM6446_DM355_OSD_DEFAULT;
+        aAttrs = Display_Attrs_DM6446_DM355_ATTR_DEFAULT;
+    #else
+        return TRUE;  /* OSD not supported on this patform -- do nothing */
+    #endif
+
+    /* Determine video output settings for OSD */
+    aAttrs.videoOutput = sink->dAttrs.videoOutput;
+
+    switch (aAttrs.videoOutput) {
+        case Display_Output_COMPONENT:
+            aAttrs.videoStd = VideoStd_480P;
+            break;
+
+        case Display_Output_COMPOSITE:
+        default:
+            oAttrs.videoOutput = aAttrs.videoOutput;
+
+            if (sink->dAttrs.videoStd == VideoStd_D1_PAL) {
+                oAttrs.videoStd = VideoStd_D1_PAL;
+            } else {
+                oAttrs.videoStd = VideoStd_D1_NTSC;
+            }
+            break;
+    }
+
+    /* Open the OSD and attribute planes */
+    if (!(sink->hOsdAttrs = Display_create(NULL, &aAttrs))) {
+        GST_ERROR("Failed to open the OSD attribute plane\n");
+        return FALSE;
+    }
+
+    if (!(sink->hOsd = Display_create(NULL, &oAttrs))) {
+        GST_ERROR("Failed to open the OSD plane\n");
+        return FALSE;
+    }
+
+    /* Clear the attribute plane and make the OSD transparent */
+    if (Display_get(sink->hOsdAttrs, &hBuf) < 0) {
+        GST_ERROR("Failed to get OSD attribute buffer\n");
+        return FALSE;
+    }
+
+    memset(Buffer_getUserPtr(hBuf), 0, Buffer_getSize(hBuf));
+
+    if (Display_put(sink->hOsdAttrs, hBuf) < 0) {
+        GST_ERROR("Failed to put OSD attribute buffer\n");
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+
+/******************************************************************************
+ * gst_tidmaivideosink_close_osd
+ *    Close the OSD and attribute planes.
+ ******************************************************************************/
+static gboolean gst_tidmaivideosink_close_osd(GstTIDmaiVideoSink * sink)
+{
+    if (sink->hOsd) {
+        if (Display_delete(sink->hOsd) < 0) {
+            GST_ERROR("Failed to close the OSD plane\n");
+            return FALSE;
+        }
+        sink->hOsd = NULL;
+    }
+
+    if (sink->hOsdAttrs) {
+        if (Display_delete(sink->hOsdAttrs) < 0) {
+            GST_ERROR("Failed to close the OSD attribute plane\n");
+            return FALSE;
+        }
+        sink->hOsdAttrs = NULL;
+    }
+
+    return TRUE;
+}
 
 /******************************************************************************
  * Custom ViM Settings for editing this file
