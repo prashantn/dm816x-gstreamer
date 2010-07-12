@@ -1817,7 +1817,7 @@ static gboolean gst_tidmaivideosink_alloc_display_buffers(
         return FALSE;
     }
 
-    GST_INFO("Allocating %ld display buffers", sink->dAttrs.numBufs);
+    GST_INFO("Allocating %d display buffers", sink->dAttrs.numBufs);
 
     /* Set the dimensions for the display */
     if (VideoStd_getResolution(sink->dAttrs.videoStd, &gfxAttrs.dim.width,
