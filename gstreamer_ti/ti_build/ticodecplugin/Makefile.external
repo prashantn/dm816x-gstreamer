@@ -23,7 +23,7 @@ $(error You need to define the environment variable DMAI_INSTALL_DIR)
 endif
 
 default:
-	@echo "Please specify the target: dm6446, omap3530, dm355, dm6467, dm365"
+	@echo "Please specify the target: dm6446, omap3530, dm355, dm6467, dm6467t, dm365"
 
 export GST_TI_PLATFORM=$(MAKECMDGOALS)
 export BIOS_INSTALL_DIR
@@ -57,6 +57,15 @@ ifeq ($(GST_TI_PLATFORM), dm6467)
     export XDC_PLATFORM = ti.platforms.evmDM6467
 endif
 
+ifeq ($(GST_TI_PLATFORM), dm6467t)
+    export XDC_TARGET    = gnu.targets.arm.GCArmv5T
+    export XDC_PLATFORM  = ti.platforms.evmDM6467
+    export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
+    export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
+    export MVTOOL_DIR    = $(CSTOOL_DIR)
+    export PLATFORM_XDC  = ${XDC_PLATFORM}
+endif
+
 ifeq ($(GST_TI_PLATFORM), dm365)
     export XDC_TARGET   = gnu.targets.MVArm9
     export XDC_PLATFORM = ti.platforms.evmDM365
@@ -85,6 +94,9 @@ dm6446: Makefile
 	$(MAKE) -f Makefile
 
 dm6467: Makefile
+	$(MAKE) -f Makefile
+
+dm6467t: Makefile
 	$(MAKE) -f Makefile
 
 dm355: Makefile

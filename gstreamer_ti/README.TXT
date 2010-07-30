@@ -100,6 +100,7 @@ Platform    DVSDK Version
 DM6446      2.00.00.22
 DM355       2.00.00.22
 DM6467      2.00.00.22
+DM6467T     3.10.00.19
 OMAP35xx    3.00.02.44
 DM365       2.10.01.18
 
@@ -147,6 +148,7 @@ Set the following variables at the top of the file:
                         it explicitly to one of these values:
                             MVL_5_0:    MontaVista   v5.0
                             CS_2008Q1:  CodeSourcery v2008q1
+                            CS_2009Q1:  CodeSourcery v2009q1
 
 Execute this command from the top-level "gstreamer_ti" directory:
 % make all install VERBOSE=true
@@ -157,6 +159,24 @@ above.
 By default, the GStreamer binaries will be installed to "/opt/gstreamer" on
 the target, and some demonstration scripts will be installed to
 "/opt/gstreamer_demo".
+
+Special Notes on DM6467 and DM6467T Build
+-----------------------------------------
+When building for DM6467 or DM6467T you must edit the Makefile.common file and
+set GST_TI_PLATFORM to the EVM you are using.
+
+DM6467 example:
+    GST_TI_PLATFORM = dm6467
+
+DM6467T example:
+    GST_TI_PLATFORM = dm6467t
+
+If you fail to set this variable, you will get the following error when you
+build:
+    
+    Makefile.common:72: *** when building for dm6467 or dm6467t, the platform
+    type must be specified explicity at the top of Makefile.commom with
+    GST_TI_PLATFORM=dm6467 or GST_TI_PLATFORM=dm6467t.  Stop.
 
 Board Set-Up
 ============
@@ -229,6 +249,28 @@ OMAP35xx EVM.
 
   Other platforms should use the bootargs settings in the DVSDK Getting
   Started Guide.
+
+Special Notes:  DVSDK 3.10
+--------------------------
+By default, GStreamer uses mmap buffer drivers for the capture and display.
+With the more recent kernels, there are no guarantees in the kernel that it
+will be able to allocate enough space for these buffers when requested.  For
+DVSDK 3.10, you need to use the additional patches available on this kernel
+staging branch in order to make mmap buffer use reliable:
+
+http://arago-project.org/git/projects/?p=linux-davinci.git;a=shortlog;h=refs/heads/video-boot-time-mem-alloc
+
+With these kernel patches applied, you should be using the kernel boot
+arguments below to make sure space is allocated for mmap driver buffers.  Note
+that all of the bootargs options should be on a single line.
+
+DM6467T:
+
+bootargs=console=ttyS0,115200n8 noinitrd rw ip=dhcp root=/dev/nfs
+  nfsroot=<nfsserver_ip>:<path to root filesystem>,nolock
+  vpif_display.ch2_numbuffers=0 vpif_display.ch3_numbuffers=0 mem=104M
+  vpif_display.cont_bufsize=12582912 vpif_capture.cont_bufoffset=12582912
+  vpif_capture.cont_bufsize=12582912 
 
 Example GStreamer Usage
 =======================

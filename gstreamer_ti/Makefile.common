@@ -30,13 +30,12 @@
 #        values:
 #            MVL_5_0:    MontaVista   v5.0
 #            CS_2008Q1:  CodeSourcery v2008q1
+#            CS_2009Q1:  CodeSourcery v2009q1
 #    GST_TI_PLATFORM
-#         This variable is currently always set to the PLATFORM variable in the
-#         DVSDK's Rules.make, and is used in the build system to uniquely
-#         identify the EVM we are building for.  We do not use the PLATFORM
-#         variable directly, as future DVSDK releases may use the same
-#         PLATFORM setting for two different EVMs (i.e. PLATFORM=dm6467 for
-#         both DM6467 and DM6467T).
+#         In most cases this variable will be automatically set to be the same
+#         as the PLATFORM variable in the Rules.make for the DVSDK.  Currently
+#         the only time it must be set here is when building for dm6467 or
+#         dm6467t.
 #
 # These paths must be specified or the build will fail.
 #------------------------------------------------------------------------------
@@ -68,6 +67,9 @@ ifndef GST_TI_PLATFORM
    # Ensure the PLATFORM variable was set
    ifndef PLATFORM
       $(error expected Rules.make from DVSDK to set the PLATFORM variable -- this variable must be set to the build target)
+   endif
+   ifeq ($(PLATFORM), dm6467)
+      $(error when building for dm6467 or dm6467t, the platform type must be specified explicity at the top of Makefile.commom with GST_TI_PLATFORM=dm6467 or GST_TI_PLATFORM=dm6467t)
    endif
    GST_TI_PLATFORM=$(PLATFORM)
 endif
@@ -120,6 +122,9 @@ ifndef CROSS_COMPILER
     ifeq ($(GST_TI_PLATFORM), dm6467)
         CROSS_COMPILER=MVL_5_0
     endif
+    ifeq ($(GST_TI_PLATFORM), dm6467t)
+        CROSS_COMPILER=CS_2009Q1
+    endif
     ifeq ($(GST_TI_PLATFORM), dm365)
         CROSS_COMPILER=MVL_5_0
     endif
@@ -168,6 +173,16 @@ ifeq ($(GST_TI_PLATFORM), dm6467)
     export XDC_PLATFORM = ti.platforms.evmDM6467
 endif
 
+ifeq ($(GST_TI_PLATFORM), dm6467t)
+    export XDC_TARGET    = gnu.targets.arm.GCArmv5T
+    export XDC_PLATFORM  = ti.platforms.evmDM6467
+    export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
+    export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
+    export MVTOOL_DIR    = $(CSTOOL_DIR)
+    export PLATFORM_XDC  = ${XDC_PLATFORM}
+    export CROSS_COMPILE = ${CSTOOL_PREFIX}
+endif
+
 ifeq ($(GST_TI_PLATFORM), omap3530)
     export XDC_TARGET    = gnu.targets.arm.GCArmv5T
     export XDC_PLATFORM  = ti.platforms.evm3530
@@ -210,6 +225,7 @@ CPPFLAGS_dm365     = -DMVL_LSP
 CPPFLAGS_dm365    += -I$(LINUXKERNEL_INSTALL_DIR)/include
 CPPFLAGS_dm6467    = -DMVL_LSP
 CPPFLAGS_dm6467   += -I$(LINUXKERNEL_INSTALL_DIR)/include
+CPPFLAGS_dm6467t   = -I$(LINUXLIBS_INSTALL_DIR)/include
 CPPFLAGS_omap3530  = -I$(LINUXLIBS_INSTALL_DIR)/include
 
 CFLAGS_all         = -O2
@@ -217,10 +233,12 @@ CFLAGS_dm355       = -march=armv5te -mtune=arm926ej-s
 CFLAGS_dm6446      = -march=armv5te -mtune=arm926ej-s
 CFLAGS_dm365       = -march=armv5te -mtune=arm926ej-s
 CFLAGS_dm6467      = -march=armv5te -mtune=arm926ej-s
+CFLAGS_dm6467t     = -march=armv5te -mtune=arm926ej-s
 CFLAGS_omap3530    = -march=armv7-a -mtune=cortex-a8
 CFLAGS_omap3530   += -mfpu=neon -mfloat-abi=softfp
 
 LDFLAGS_all        = -L$(TARGET_GSTREAMER_DIR)/lib
+LDFLAGS_dm6467t    = -L$(LINUXLIBS_INSTALL_DIR)/lib
 LDFLAGS_omap3530   = -L$(LINUXLIBS_INSTALL_DIR)/lib
 
 #------------------------------------------------------------------------------
