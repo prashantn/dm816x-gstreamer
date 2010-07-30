@@ -1,5 +1,5 @@
 /*
- * gstticodecs_dm6446.c
+ * gstticodecs_dm6467.c
  *
  * This file provides information for available codecs on the DM6446 platform.
  *
