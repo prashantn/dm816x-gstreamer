@@ -43,7 +43,7 @@ extern int gst_ti_flush_fifo;
 gint gst_ti_correct_display_bufSize (Buffer_Handle hDstBuf);
 
 /* Function to calculate the buffer size for a given colorspace */
-gint gst_ti_calc_buffer_size(gint width, gint height,
+gint gst_ti_calc_buffer_size(gint width, gint height, gint bytesPerLine,
                              ColorSpace_Type colorSpace);
 
 /* Function to read environment variable and return its boolean value */

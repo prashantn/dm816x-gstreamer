@@ -1490,7 +1490,7 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
             BufferGfx_getDimensions(inBuf, &dim);
 
             if (GST_BUFFER_SIZE(buf) > gst_ti_calc_buffer_size(dim.width,
-                dim.height, sink->dGfxAttrs.colorSpace)) {
+                dim.height, 0, sink->dGfxAttrs.colorSpace)) {
                 dim.lineLength = Dmai_roundUp(dim.lineLength, 32);
                 BufferGfx_setDimensions(inBuf, &dim);
             }
@@ -1849,7 +1849,7 @@ static gboolean gst_tidmaivideosink_alloc_display_buffers(
     #endif
 
     bufSize = gst_ti_calc_buffer_size(gfxAttrs.dim.width, gfxAttrs.dim.height,
-                  gfxAttrs.colorSpace);
+                  0, gfxAttrs.colorSpace);
 
     sink->hDispBufTab = BufTab_create(sink->dAttrs.numBufs, bufSize,
         BufferGfx_getBufferAttrs(&gfxAttrs));

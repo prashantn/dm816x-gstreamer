@@ -419,7 +419,7 @@ static gboolean gst_tividresize_get_unit_size (GstBaseTransform *trans,
 
     colorSpace = gst_tividresize_get_colorSpace(fourcc);
 
-    *size = gst_ti_calc_buffer_size(width, height, colorSpace);
+    *size = gst_ti_calc_buffer_size(width, height, 0, colorSpace);
 
     GST_LOG("setting unit_size = %d\n", *size);
  
@@ -523,7 +523,7 @@ static GstFlowReturn gst_tividresize_transform (GstBaseTransform *trans,
      */
     Buffer_setNumBytesUsed(hOutBuf,  
         gst_ti_calc_buffer_size(vidresize->dstWidth, vidresize->dstHeight, 
-        vidresize->dstColorSpace));
+        0, vidresize->dstColorSpace));
 
     ret = GST_FLOW_OK;
 
@@ -693,7 +693,7 @@ static gboolean gst_tividresize_set_caps (GstBaseTransform *trans,
 
     /* calculate output buffer size */
     outBufSize = gst_ti_calc_buffer_size(vidresize->dstWidth,
-        vidresize->dstHeight, vidresize->dstColorSpace);
+        vidresize->dstHeight, 0, vidresize->dstColorSpace);
 
     /* allocate output buffer */
     gfxAttrs.bAttrs.useMask = gst_tidmaibuffer_GST_FREE;

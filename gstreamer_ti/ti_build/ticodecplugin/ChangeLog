@@ -1,4 +1,9 @@
 2010-07-29: Don Darling, Texas Instruments, Inc.
+	* src/{gstticommonutils.{c,h}, gsttidmaivideosink.c, gsttividenc1.c,
+	gsttividresize.c}:
+	Add parameter to gst_ti_calc_buffer_size that specifies pitch.
+
+2010-07-29: Don Darling, Texas Instruments, Inc.
 	* src/gsttiauddec1.c:
 	Detect audio/mpeg, mpegversion=2 as AAC.
 

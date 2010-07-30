@@ -1006,7 +1006,7 @@ static Int gst_tividenc1_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
      * manage everything else.
      */
     if (GST_BUFFER_SIZE(src) < gst_ti_calc_buffer_size(videnc1->width,
-         videnc1->height, videnc1->colorSpace)) {
+         videnc1->height, 0, videnc1->colorSpace)) {
         memcpy(dst, GST_BUFFER_DATA(src), GST_BUFFER_SIZE(src));
         return GST_BUFFER_SIZE(src);
     }

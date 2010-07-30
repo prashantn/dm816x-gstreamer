@@ -96,25 +96,26 @@ gint gst_ti_correct_display_bufSize (Buffer_Handle hDstBuf)
  *     "BufferGfx_calcSize" function just calls it using the dimensions from
  *     the video standard.
  ******************************************************************************/
-gint gst_ti_calc_buffer_size(gint width, gint height,
+gint gst_ti_calc_buffer_size(gint width, gint height, gint bytesPerLine,
                              ColorSpace_Type colorSpace)
 {
-    Int32 lineLength, bufSize;
+    gint bufSize;
 
-    lineLength = BufferGfx_calcLineLength(width, colorSpace);
-
-    if (lineLength < 0) {
-        return lineLength;
+    if (bytesPerLine == 0) {
+        bytesPerLine = (gint)BufferGfx_calcLineLength(width, colorSpace);
+        if (bytesPerLine < 0) {
+            return -1;
+        }
     }
 
     if (colorSpace == ColorSpace_YUV422PSEMI) {
-        bufSize = (lineLength * height) << 1;
+        bufSize = (bytesPerLine * height) << 1;
     }
     else if (colorSpace == ColorSpace_YUV420PSEMI) {
-        bufSize = (lineLength * height * 3) >> 1;
+        bufSize = (bytesPerLine * height * 3) >> 1;
     }
     else {
-        bufSize = lineLength * height;
+        bufSize = bytesPerLine * height;
     }
 
     return bufSize;
