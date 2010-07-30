@@ -174,6 +174,37 @@ initialize the relevant kernel modules for your platform.
 Other scripts are also available in this directory that demonstrate how you can
 use the TI plugin via the gst-launch command, and are explained below.
 
+Special Notes:  DVSDK 2.00
+--------------------------
+DVSDK 2.00 comes with linuxutils version 2.23.01.  This version of linuxutils
+has a bug in the CMEM module that will cause CMEM to incorrectly throw an error
+at the end of playback that looks like this:
+    
+    CMEMK Error: FREE: Not a registered user of physical buffer 0x87968000
+    CMEM Error: free: failed to free 0x43316000
+    
+To resolve this issue, you must update your linuxutils component to version
+2.24.04.05.  Linuxutils 2.24.04.05 can be downloaded from this page:
+    
+http://software-dl.ti.com/dsps/dsps_public_sw/sdo_sb/targetcontent/linuxutils/index.html
+    
+Un-tar the updated version of linuxutils into your DVSDK 2.00 directory, and
+update the following line in your Rules.make:
+    
+Old setting:
+CMEM_INSTALL_DIR=$(DVSDK_INSTALL_DIR)/linuxutils_2_23_01
+    
+New setting:
+CMEM_INSTALL_DIR=$(DVSDK_INSTALL_DIR)/linuxutils_2_24_04_05
+    
+Then re-build the DVSDK components as follows:
+    
+1)  Change to the DVSDK directory
+2)  Double-check your Rules.make settings if needed to make sure all the
+    components point to valid component directories
+3)  Run "make linux"
+4)  Run "make clean; make"
+    
 Special Notes:  DVSDK 3.00
 --------------------------
 These additional set-up steps are required when using DVSDK 3.00 with an
