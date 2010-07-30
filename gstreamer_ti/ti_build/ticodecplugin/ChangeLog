@@ -1,5 +1,9 @@
 2010-07-29: Don Darling, Texas Instruments, Inc.
 	* src/gsttiauddec1.c:
+	Detect audio/mpeg, mpegversion=2 as AAC.
+
+2010-07-29: Don Darling, Texas Instruments, Inc.
+	* src/gsttiauddec1.c:
 	Add TIAuddec1 support for decoding AC3 audio streams.
 
 2010-07-29: Don Darling, Texas Instruments, Inc.

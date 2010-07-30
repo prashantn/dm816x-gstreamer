@@ -85,7 +85,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
     ("audio/mpeg, "
-        "mpegversion = (int) { 1, 4 };"
+        "mpegversion = (int) { 1, 2, 4 };"
      "audio/x-eac3")
 );
 
@@ -571,7 +571,7 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
         }
 
         /* Use AAC Decoder for MPEG4 */
-        else if (mpegversion == 4) { 
+        else if (mpegversion == 4 || mpegversion == 2) { 
             codec = gst_ticodec_get_codec("AAC Audio Decoder");
             auddec1->aac_header_data = gst_aac_header_create( 
                             auddec1->sampleRate, auddec1->channels);
