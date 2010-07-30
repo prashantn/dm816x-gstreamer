@@ -1,4 +1,8 @@
 2010-07-29: Don Darling, Texas Instruments, Inc.
+	* src/{gstticodecplugin_dm6467t.cfg, gstticodecs_dm6467t.c}:
+	Add support for DVSDK 3.10 OOB codec servers on DM6467T.
+
+2010-07-29: Don Darling, Texas Instruments, Inc.
 	* src/gsttidmaivideosink.c:
 	Specify explicit pitch when allocating user buffers in TIDmaiVideoSink.
 
