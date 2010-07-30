@@ -1257,7 +1257,7 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
             params.maxWidth          = VideoStd_720P_WIDTH;
             params.maxHeight         = VideoStd_720P_HEIGHT;
             colorSpace               = ColorSpace_YUV420PSEMI;
-            defaultNumBufs           = 5;
+            defaultNumBufs           = 4;
             break;
         #endif
         default:

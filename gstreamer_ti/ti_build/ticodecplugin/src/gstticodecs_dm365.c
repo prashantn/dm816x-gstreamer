@@ -22,8 +22,7 @@
 #include "gstticodecs.h"
 
 /* Declaration of the production engine and decoders shipped with the DVSDK */
-static Char decodeEngine[] = "decode";
-static Char encodeEngine[] = "encode";
+static Char codecServer[] = "codecServer";
 
 /* NULL terminated list of speech decoders in the engine to use in the demo */
 GstTICodec gst_ticodec_codecs[] = {
@@ -32,25 +31,64 @@ GstTICodec gst_ticodec_codecs[] = {
     {
         "MPEG4 Video Decoder",   /* String name of codec used by plugin      */
         "mpeg4dec",              /* String name of codec used by CE          */
-        decodeEngine             /* Engine that contains this codec          */
+        codecServer              /* Engine that contains this codec          */
+    },
+
+    {
+        "MPEG2 Video Decoder",   /* String name of codec used by plugin      */
+        "mpeg2dec",              /* String name of codec used by CE          */
+        codecServer              /* Engine that contains this codec          */
     },
 
     {
         "MPEG4 Video Encoder",   /* String name of codec used by plugin      */
         "mpeg4enc",              /* String name of codec used by CE          */
-        encodeEngine             /* Engine that contains this codec          */
+        codecServer             /* Engine that contains this codec          */
+    },
+
+    {
+        "MPEG2 Video Encoder",   /* String name of codec used by plugin      */
+        "mpeg2enc",              /* String name of codec used by CE          */
+        codecServer              /* Engine that contains this codec          */
     },
 
     {
         "H.264 Video Decoder",   /* String name of codec used by plugin      */
         "h264dec",               /* String name of codec used by CE          */
-        decodeEngine             /* Engine that contains this codec          */
+        codecServer             /* Engine that contains this codec          */
     },
 
     {
         "H.264 Video Encoder",   /* String name of codec used by plugin      */
         "h264enc",               /* String name of codec used by CE          */
-        encodeEngine             /* Engine that contains this codec          */
+        codecServer             /* Engine that contains this codec          */
+    },
+
+
+    /* Audio Codecs */
+    {
+        "AAC Audio Decoder",     /* String name of codec used by plugin      */
+        "aacdec",                /* String name of codec used by CE          */
+        codecServer              /* Engine that contains this codec          */
+    },
+
+    {
+        "AAC Audio Encoder",     /* String name of codec used by plugin      */
+        "aaclcenc",              /* String name of codec used by CE          */
+        codecServer              /* Engine that contains this codec          */
+    },
+
+    /* Imaging Codecs */
+    {
+        "JPEG Image Encoder",
+        "jpegenc",
+        codecServer 
+    },
+
+    {
+        "JPEG Image Decoder",
+        "jpegdec",
+        codecServer 
     },
 
     { NULL }

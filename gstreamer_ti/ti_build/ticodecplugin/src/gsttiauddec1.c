@@ -147,6 +147,8 @@ static void
     gst_tiauddec1_dispose(GObject * object);
 static gboolean 
     gst_tiauddec1_set_query_pad(GstPad * pad, GstQuery * query);
+static gboolean
+    gst_tiauddec1_codec_is_aac(GstTIAuddec1 *auddec1);
 
 /******************************************************************************
  * gst_tiauddec1_class_init_trampoline
@@ -1081,6 +1083,14 @@ static gboolean gst_tiauddec1_codec_start (GstTIAuddec1  *auddec1)
         return FALSE;
     }
 
+    if (gst_tiauddec1_codec_is_aac(auddec1)) {
+        #if defined (Platform_dm365)
+        params.dataEndianness = XDM_LE_16;
+        #else
+        ; /* do nothing */
+        #endif
+    }
+
     /* Initialize audio decoder */
     GST_LOG("opening audio decoder \"%s\"\n", auddec1->codecName);
     auddec1->hAd = Adec1_create(auddec1->hEngine, (Char*)auddec1->codecName,
@@ -1386,6 +1396,16 @@ static void gst_tiauddec1_drain_pipeline(GstTIAuddec1 *auddec1)
     /* Wait for the decoder to finish draining */
     Rendezvous_meet(auddec1->waitOnDecodeDrain);
 
+}
+
+/******************************************************************************
+ * gst_tiauddec1_codec_is_aac
+ *     Return TRUE if we are decoding an AAC stream
+ ******************************************************************************/
+static gboolean gst_tiauddec1_codec_is_aac(GstTIAuddec1 *auddec1)
+{
+    GstTICodec *codec = gst_ticodec_get_codec("AAC Audio Decoder");
+    return (codec && !strcmp(codec->CE_CodecName, auddec1->codecName));
 }
 
 
