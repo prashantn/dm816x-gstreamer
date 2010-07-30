@@ -1,4 +1,8 @@
 2010-07-29: Don Darling, Texas Instruments, Inc.
+	* src/{gstticodecplugin_dm355.cfg, gstticodecs_dm355.c}:
+	Add support for DVSDK 3.10 OOB codecs on DM355.
+
+2010-07-29: Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec1.c, gstticodecplugin_dm365.cfg, gstticodecs_dm365.c,
 	gsttividdec2.c}:
 	Add support for DVSDK 3.10 OOB codecs on DM365.
