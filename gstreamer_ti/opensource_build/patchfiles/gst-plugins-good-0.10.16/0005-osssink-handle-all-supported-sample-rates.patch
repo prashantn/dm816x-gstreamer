@@ -1,7 +1,7 @@
-From f36802f59c5c5f30a80908edca26a29bcf005c72 Mon Sep 17 00:00:00 2001
+From cdf85b321afe9eea5fe6d8e28365ed025bd1c5c1 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Thu, 11 Mar 2010 13:07:19 -0600
-Subject: [PATCH 04/13] osssink: handle all supported sample rates
+Subject: [PATCH 05/14] osssink: handle all supported sample rates
 
 Converted from plugins_good1_0_10_16.patch
 ---

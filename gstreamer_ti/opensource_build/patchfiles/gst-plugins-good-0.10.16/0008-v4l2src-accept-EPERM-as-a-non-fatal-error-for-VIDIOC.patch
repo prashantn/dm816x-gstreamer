@@ -1,7 +1,7 @@
-From c966dd8b8f166260640e182e610b54c0e7419faa Mon Sep 17 00:00:00 2001
+From 7d95dcefef5bd19d7a11f001a3fcf1c4f9686773 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Mon, 19 Apr 2010 15:22:45 -0500
-Subject: [PATCH 07/13] v4l2src: accept EPERM as a non-fatal error for VIDIOC_TRY_FMT and VIDIOC_S_FMT
+Subject: [PATCH 08/14] v4l2src: accept EPERM as a non-fatal error for VIDIOC_TRY_FMT and VIDIOC_S_FMT
 
 When setting the capture mode, the v4l2src will try interlaced mode first, and
 if the driver returns EINVAL it will try progressive mode.  Any other errno
@@ -16,7 +16,7 @@ mode instead of failing.
  1 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
-index 9d948a0..6bb456c 100644
+index d466c7d..82a3ae3 100644
 --- a/sys/v4l2/gstv4l2object.c
 +++ b/sys/v4l2/gstv4l2object.c
 @@ -1791,7 +1791,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,

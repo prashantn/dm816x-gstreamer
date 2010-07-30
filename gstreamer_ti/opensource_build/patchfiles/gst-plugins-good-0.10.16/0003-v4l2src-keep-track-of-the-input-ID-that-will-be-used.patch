@@ -1,7 +1,7 @@
-From 00ee3d664f0a6a341b0d0d5b21e09b434f95d5c9 Mon Sep 17 00:00:00 2001
+From 1379f0cd259c00cab29cd4201867a153e4e3141e Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Mon, 17 May 2010 11:12:21 -0500
-Subject: [PATCH 03/13] v4l2src: keep track of the input ID that will be used for capture
+Subject: [PATCH 03/14] v4l2src: keep track of the input ID that will be used for capture
 
 The default ID is set on a per-target basis to one that is reasonable.  This
 will typically be the same default as the DVSDK encode demo.

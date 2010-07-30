@@ -1,7 +1,7 @@
-From 0e56f8831aa35c32a593bc5667bcb8f56549d99c Mon Sep 17 00:00:00 2001
+From 6d4a4002fec51706d518e228bde923b77ad15418 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Mon, 12 Apr 2010 13:07:24 -0500
-Subject: [PATCH 05/13] v4l2src: add support for DaVinci platforms using MVL-based kernels
+Subject: [PATCH 06/14] v4l2src: add support for DaVinci platforms using MVL-based kernels
 
 The following files add support for device-specific hand-shaking with the
 capture drivers for DaVinci platforms that use MontaVista-based Linux kernels:
@@ -23,14 +23,14 @@ is defined by the TI GStreamer build system where appropriate.
  sys/v4l2/Makefile.in         |   10 ++
  sys/v4l2/gstv4l2bufferpool.c |    4 +
  sys/v4l2/gstv4l2bufferpool.h |    3 +
- sys/v4l2/gstv4l2object.c     |   39 +++++++-
+ sys/v4l2/gstv4l2object.c     |   33 ++++++-
  sys/v4l2/gstv4l2object.h     |    8 ++
  sys/v4l2/gstv4l2src.c        |   26 +++++
  sys/v4l2/v4l2_calls.c        |    4 +
  sys/v4l2/v4l2src_calls.c     |   14 +++
  sys/v4l2/v4l2src_mvl_lsp.c   |  234 ++++++++++++++++++++++++++++++++++++++++++
  sys/v4l2/v4l2src_mvl_lsp.h   |   52 +++++++++
- 11 files changed, 396 insertions(+), 2 deletions(-)
+ 11 files changed, 390 insertions(+), 2 deletions(-)
  create mode 100644 sys/v4l2/v4l2src_mvl_lsp.c
  create mode 100644 sys/v4l2/v4l2src_mvl_lsp.h
 
@@ -126,7 +126,7 @@ index 36a4220..975c3df 100644
  
  struct _GstV4l2Buffer {
 diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
-index f65c458..677ac70 100644
+index d7f0d6a..3fa3ae3 100644
 --- a/sys/v4l2/gstv4l2object.c
 +++ b/sys/v4l2/gstv4l2object.c
 @@ -41,6 +41,9 @@
@@ -171,22 +171,7 @@ index f65c458..677ac70 100644
          default:
            g_assert_not_reached ();
            break;
-@@ -1204,8 +1218,14 @@ gst_v4l2_object_get_caps_info (GstV4l2Object * v4l2object, GstCaps * caps,
-         break;
-       case GST_MAKE_FOURCC ('N', 'V', '1', '2'):
-         fourcc = V4L2_PIX_FMT_NV12;
-+#if defined(MVL_LSP) && defined(Platform_dm365)
-+        /* NV12 buffer on dm365 is 32-byte aligned */
-+        outsize = GST_ROUND_UP_32 (*w) * GST_ROUND_UP_2 (*h);
-+        outsize += (GST_ROUND_UP_32 (*w) * *h) / 2;
-+#else
-         outsize = GST_ROUND_UP_4 (*w) * GST_ROUND_UP_2 (*h);
-         outsize += (GST_ROUND_UP_4 (*w) * *h) / 2;
-+#endif
-         break;
-       case GST_MAKE_FOURCC ('N', 'V', '2', '1'):
-         fourcc = V4L2_PIX_FMT_NV21;
-@@ -1497,9 +1517,11 @@ sort_by_frame_size (GstStructure * s1, GstStructure * s2)
+@@ -1503,9 +1517,11 @@ sort_by_frame_size (GstStructure * s1, GstStructure * s2)
  }
  #endif
  
@@ -198,7 +183,7 @@ index f65c458..677ac70 100644
  
  GstCaps *
  gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
-@@ -1655,6 +1677,12 @@ default_frame_sizes:
+@@ -1661,6 +1677,12 @@ default_frame_sizes:
      gint min_w, max_w, min_h, max_h, fix_num = 0, fix_denom = 0;
  
      /* This code is for Linux < 2.6.19 */
@@ -211,7 +196,7 @@ index f65c458..677ac70 100644
      min_w = min_h = 1;
      max_w = max_h = GST_V4L2_MAX_SIZE;
      if (!gst_v4l2_object_get_nearest_size (v4l2object, pixelformat, &min_w,
-@@ -1669,7 +1697,8 @@ default_frame_sizes:
+@@ -1675,7 +1697,8 @@ default_frame_sizes:
            "Could not probe maximum capture size for pixelformat %"
            GST_FOURCC_FORMAT, GST_FOURCC_ARGS (pixelformat));
      }
@@ -221,7 +206,7 @@ index f65c458..677ac70 100644
      /* Since we can't get framerate directly, try to use the current norm */
      if (v4l2object->norm && v4l2object->norms) {
        GList *norms;
-@@ -1682,8 +1711,10 @@ default_frame_sizes:
+@@ -1688,8 +1711,10 @@ default_frame_sizes:
        }
        /* If it's possible, set framerate to that (discrete) value */
        if (norm) {
@@ -232,7 +217,7 @@ index f65c458..677ac70 100644
        }
      }
  
-@@ -1713,6 +1744,7 @@ default_frame_sizes:
+@@ -1719,6 +1744,7 @@ default_frame_sizes:
    }
  }
  
@@ -240,7 +225,7 @@ index f65c458..677ac70 100644
  static gboolean
  gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
      guint32 pixelformat, gint * width, gint * height)
-@@ -1787,6 +1819,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
+@@ -1793,6 +1819,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
  
    return TRUE;
  }
@@ -248,7 +233,7 @@ index f65c458..677ac70 100644
  
  
  gboolean
-@@ -1817,6 +1850,10 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
+@@ -1823,6 +1850,10 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
     *  combined, there are other modes for requesting fields individually) */
    format.fmt.pix.field = V4L2_FIELD_INTERLACED;
  

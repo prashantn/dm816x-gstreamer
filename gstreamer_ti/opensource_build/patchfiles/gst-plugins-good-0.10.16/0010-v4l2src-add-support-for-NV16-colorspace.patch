@@ -1,14 +1,14 @@
-From b065b0cbd7268d9143d073bde4e772492e4a18f4 Mon Sep 17 00:00:00 2001
+From e4f6d7682c39891785977a31e41f5d97c2aac9d0 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Thu, 11 Mar 2010 17:40:52 -0600
-Subject: [PATCH 09/13] v4l2src: add support for NV16 colorspace
+Subject: [PATCH 10/14] v4l2src: add support for NV16 colorspace
 
 ---
  sys/v4l2/gstv4l2object.c |   11 +++++++++++
  1 files changed, 11 insertions(+), 0 deletions(-)
 
 diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
-index 557a8fe..00b3bb3 100644
+index fc0bed9..bbf245a 100644
 --- a/sys/v4l2/gstv4l2object.c
 +++ b/sys/v4l2/gstv4l2object.c
 @@ -700,6 +700,9 @@ static const guint32 gst_v4l2_formats[] = {
