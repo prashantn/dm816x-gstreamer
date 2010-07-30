@@ -1239,7 +1239,13 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
     /* Set up codec parameters depending on device */
     switch(device) {
     case Cpu_Device_DM6467:
+	#if defined(Platform_dm6467t)
+        params.forceChromaFormat = XDM_YUV_420SP;
+        params.maxFrameRate      = 60000;
+        params.maxBitRate        = 30000000;
+        #else
         params.forceChromaFormat = XDM_YUV_420P;
+        #endif
         params.maxWidth          = VideoStd_1080I_WIDTH;
         params.maxHeight         = VideoStd_1080I_HEIGHT + 8;
         colorSpace               = ColorSpace_YUV420PSEMI;

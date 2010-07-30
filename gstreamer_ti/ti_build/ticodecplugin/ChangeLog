@@ -1,4 +1,9 @@
 2010-07-29: Don Darling, Texas Instruments, Inc.
+	* src/gsttividdec2.c:
+	Update DM6467T-specific Vdec2 parameters to match DVSDK demos for
+	DVSDK 3.10.
+
+2010-07-29: Don Darling, Texas Instruments, Inc.
 	* src/{gstticodecplugin_dm6467t.cfg, gstticodecs_dm6467t.c}:
 	Add support for DVSDK 3.10 OOB codec servers on DM6467T.
 
