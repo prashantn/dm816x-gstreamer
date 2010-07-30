@@ -1,3 +1,7 @@
+2010-07-29: Don Darling, Texas Instruments, Inc.
+	* src/gsttividenc1.c:
+	TIViddec1's resolution property should override caps settings.
+
 2010-07-01: Don Darling, Texas Instruments, Inc.
 	* src/{gsttiauddec1.c, gsttiaudenc1.c, gsttidmaibuffertransport.{c,h},
 	gsttiimgdec1.c, gsttiimgenc1.c, gsttividdec2.c, gsttividenc1.c,

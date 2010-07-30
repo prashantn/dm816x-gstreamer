@@ -684,11 +684,13 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
                     return FALSE;
             }
 
-            if (!gst_structure_get_int(capStruct, "width", &videnc1->width)) {
+            if (videnc1->width == 0 && 
+               !gst_structure_get_int(capStruct, "width", &videnc1->width)) {
                 videnc1->width = 0;
             }
 
-            if (!gst_structure_get_int(capStruct, "height", &videnc1->height)) {
+            if (videnc1->height == 0 &&
+               !gst_structure_get_int(capStruct, "height", &videnc1->height)) {
                 videnc1->height = 0;
             }
         }
