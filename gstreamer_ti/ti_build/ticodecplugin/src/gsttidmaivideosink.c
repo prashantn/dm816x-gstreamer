@@ -1849,7 +1849,7 @@ static gboolean gst_tidmaivideosink_alloc_display_buffers(
     #endif
 
     bufSize = gst_ti_calc_buffer_size(gfxAttrs.dim.width, gfxAttrs.dim.height,
-                  0, gfxAttrs.colorSpace);
+                  gfxAttrs.dim.lineLength, gfxAttrs.colorSpace);
 
     sink->hDispBufTab = BufTab_create(sink->dAttrs.numBufs, bufSize,
         BufferGfx_getBufferAttrs(&gfxAttrs));
