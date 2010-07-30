@@ -102,7 +102,7 @@ DM355       2.00.00.22
 DM6467      2.00.00.22
 DM6467T     3.10.00.19
 OMAP35xx    3.00.02.44
-DM365       2.10.01.18
+DM365       3.10.00.19
 
 Prerequisites
 =============
@@ -271,6 +271,20 @@ bootargs=console=ttyS0,115200n8 noinitrd rw ip=dhcp root=/dev/nfs
   vpif_display.ch2_numbuffers=0 vpif_display.ch3_numbuffers=0 mem=104M
   vpif_display.cont_bufsize=12582912 vpif_capture.cont_bufoffset=12582912
   vpif_capture.cont_bufsize=12582912 
+
+DM365:
+
+bootargs=mem=65M console=ttyS0,115200n8 root=/dev/nfs
+  nfsroot=<nfsserver_ip>:<path to root filesystem>,nolock ip=dhcp
+  video=davincifb:vid0=OFF:vid1=OFF:osd0=720x576x16,4050K
+  dm365_imp.oper_mode=0 davinci_capture.device_type=4
+  davinci_enc_mngr.ch0_mode=ntsc davinci_display.cont2_bufsize=6291456
+  vpfe_capture.cont_bufoffset=6291456 vpfe_capture.cont_bufsize=6291456 
+
+  Note:  Changing dm365_imp.oper_mode=0 to dm365_imp.oper_mode=1 above will
+  enable usage of the TIVidResize element, but only UYVY capture can be done
+  in this mode.  Do not use dm365_imp.oper_mode=1 if you are encoding video
+  as the codecs require NV12 capture input.
 
 Example GStreamer Usage
 =======================
