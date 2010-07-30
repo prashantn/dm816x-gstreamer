@@ -1505,7 +1505,11 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
             break;
 
         case Cpu_Device_DM6467:
+            #if defined(Platform_dm6467t)
+            params.inputChromaFormat = XDM_YUV_420SP;
+            #else
             params.inputChromaFormat = XDM_YUV_420P;
+            #endif
             params.reconChromaFormat = XDM_CHROMA_NA;
             break;
 

@@ -1,4 +1,9 @@
 2010-07-29: Don Darling, Texas Instruments, Inc.
+	* src/gsttividenc1.c:
+	Update DM6467T-specific Venc1 parameters to match DVSDK demos for
+	DVSDK 3.10.
+
+2010-07-29: Don Darling, Texas Instruments, Inc.
 	* src/gsttividdec2.c:
 	Update DM6467T-specific Vdec2 parameters to match DVSDK demos for
 	DVSDK 3.10.
