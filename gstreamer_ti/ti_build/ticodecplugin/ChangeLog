@@ -1,4 +1,8 @@
 2010-07-29: Don Darling, Texas Instruments, Inc.
+	* src/gsttiauddec1.c:
+	Add TIAuddec1 support for decoding AC3 audio streams.
+
+2010-07-29: Don Darling, Texas Instruments, Inc.
 	* src/gsttividenc1.c:
 	TIViddec1's resolution property should override caps settings.
 

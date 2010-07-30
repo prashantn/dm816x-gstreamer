@@ -85,7 +85,8 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
     ("audio/mpeg, "
-        "mpegversion = (int) { 1, 4 }")
+        "mpegversion = (int) { 1, 4 };"
+     "audio/x-eac3")
 );
 
 /* Define source (output) pad capabilities.  Currently, RAW is supported. */
@@ -583,6 +584,11 @@ static gboolean gst_tiauddec1_set_sink_caps(GstPad *pad, GstCaps *caps)
             gst_object_unref(auddec1);
             return FALSE;
         }
+    }
+
+    /* AC3 Audio */
+    else if (!strcmp(mime, "audio/x-eac3")) {
+        codec = gst_ticodec_get_codec("AC3 Audio Decoder");
     }
 
     /* Mime type not supported */
