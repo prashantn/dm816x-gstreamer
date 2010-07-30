@@ -174,9 +174,11 @@ initialize the relevant kernel modules for your platform.
 Other scripts are also available in this directory that demonstrate how you can
 use the TI plugin via the gst-launch command, and are explained below.
 
-Special Notes on OMAP35xx EVM Set-Up
-------------------------------------
-These additional set-up steps are required when using an OMAP35xx EVM.
+Special Notes:  DVSDK 3.00
+--------------------------
+These additional set-up steps are required when using DVSDK 3.00 with an
+OMAP35xx EVM.
+
 * Before running the loadmodules.sh script mentioned above, you must first run 
   /opt/dvsdk/omap3530/unloadmodules.sh on the EVM to ensure the kernel
   modules are configured properly for GStreamer.
