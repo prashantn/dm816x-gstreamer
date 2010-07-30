@@ -28,7 +28,6 @@
 #        Cross compiler being used.  A default is chosen based on the platform
 #        you are building for, but you can set it explicitly to one of these
 #        values:
-#            MVL_4_0_1:  MontaVista   v4.0.1
 #            MVL_5_0:    MontaVista   v5.0
 #            CS_2008Q1:  CodeSourcery v2008q1
 #    GST_TI_PLATFORM
@@ -141,10 +140,6 @@ endif
 #------------------------------------------------------------------------------
 export CROSS_COMPILE_PREFIX = $(TARGET_ROOT_DIR)
 
-ifeq ($(CROSS_COMPILER), MVL_4_0_1)
-    export CROSS_COMPILE_PREFIX = $(MVLTOOL_DIR)/target
-endif 
-     
 ifeq ($(CROSS_COMPILER), MVL_5_0)
     export CROSS_COMPILE_PREFIX = $(MVLTOOL_DIR)/target
 endif  
@@ -231,9 +226,6 @@ LDFLAGS_omap3530   = -L$(LINUXLIBS_INSTALL_DIR)/lib
 #------------------------------------------------------------------------------
 # Enable ALSA support based on the CROSS_COMPILER we're using
 #------------------------------------------------------------------------------
-ifeq ($(CROSS_COMPILER), MVL_4_0_1)
-    export	ALSA_SUPPORT = --disable-alsa
-endif  
 ifeq ($(CROSS_COMPILER), MVL_5_0)
     export	ALSA_SUPPORT = --enable-alsa
 endif 
