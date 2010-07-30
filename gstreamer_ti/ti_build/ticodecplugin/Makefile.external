@@ -43,8 +43,11 @@ export XDC_INSTALL_DIR
 export EDMA3_LLD_INSTALL_DIR
 
 ifeq ($(GST_TI_PLATFORM), dm355)
-    export XDC_TARGET   = gnu.targets.MVArm9
-    export XDC_PLATFORM = ti.platforms.evmDM355
+    export XDC_TARGET    = gnu.targets.arm.GCArmv5T
+    export XDC_PLATFORM  = ti.platforms.evmDM355
+    export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
+    export MVTOOL_DIR    = $(CSTOOL_DIR)
+    export PLATFORM_XDC  = ${XDC_PLATFORM}
 endif
 
 ifeq ($(GST_TI_PLATFORM), dm6446)

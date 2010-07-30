@@ -114,7 +114,7 @@ TARGET_GSTREAMER_DIR = $(TARGET_ROOT_DIR)/$(GSTREAMER_DIR)
 #------------------------------------------------------------------------------
 ifndef CROSS_COMPILER
     ifeq ($(GST_TI_PLATFORM), dm355)
-        CROSS_COMPILER=MVL_5_0
+        CROSS_COMPILER=CS_2009Q1
     endif
     ifeq ($(GST_TI_PLATFORM), dm6446)
         CROSS_COMPILER=MVL_5_0
@@ -154,8 +154,12 @@ endif
 # Set XDC target and platform based on PLATFORM variable
 #------------------------------------------------------------------------------
 ifeq ($(GST_TI_PLATFORM), dm355)
-    export XDC_TARGET   = gnu.targets.MVArm9
-    export XDC_PLATFORM = ti.platforms.evmDM355
+    export XDC_TARGET    = gnu.targets.arm.GCArmv5T
+    export XDC_PLATFORM  = ti.platforms.evmDM355
+    export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
+    export MVTOOL_DIR    = $(CSTOOL_DIR)
+    export PLATFORM_XDC  = ${XDC_PLATFORM}
+    export CROSS_COMPILE = ${CSTOOL_PREFIX}
 endif
 
 ifeq ($(GST_TI_PLATFORM), dm6446)
@@ -221,12 +225,11 @@ endif
 #------------------------------------------------------------------------------
 CPPFLAGS_all       = -DPlatform_$(GST_TI_PLATFORM)
 CPPFLAGS_all      += -I$(TARGET_GSTREAMER_DIR)/include
-CPPFLAGS_dm355     = -DMVL_LSP
-CPPFLAGS_dm355    += -I$(LINUXKERNEL_INSTALL_DIR)/include
 CPPFLAGS_dm6446    = -DMVL_LSP
 CPPFLAGS_dm6446   += -I$(LINUXKERNEL_INSTALL_DIR)/include
 CPPFLAGS_dm6467    = -DMVL_LSP
 CPPFLAGS_dm6467   += -I$(LINUXKERNEL_INSTALL_DIR)/include
+CPPFLAGS_dm355     = -I$(LINUXLIBS_INSTALL_DIR)/include
 CPPFLAGS_dm365     = -I$(LINUXLIBS_INSTALL_DIR)/include
 CPPFLAGS_dm365    += -I$(LINUXKERNEL_INSTALL_DIR)/include
 CPPFLAGS_dm6467t   = -I$(LINUXLIBS_INSTALL_DIR)/include
@@ -242,6 +245,7 @@ CFLAGS_omap3530    = -march=armv7-a -mtune=cortex-a8
 CFLAGS_omap3530   += -mfpu=neon -mfloat-abi=softfp
 
 LDFLAGS_all        = -L$(TARGET_GSTREAMER_DIR)/lib
+LDFLAGS_dm355      = -L$(LINUXLIBS_INSTALL_DIR)/lib
 LDFLAGS_dm365      = -L$(LINUXLIBS_INSTALL_DIR)/lib
 LDFLAGS_dm6467t    = -L$(LINUXLIBS_INSTALL_DIR)/lib
 LDFLAGS_omap3530   = -L$(LINUXLIBS_INSTALL_DIR)/lib

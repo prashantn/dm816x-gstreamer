@@ -98,7 +98,7 @@ This GStreamer plug-in has been built and tested on the following platforms:
 Platform    DVSDK Version
 --------    -------------
 DM6446      2.00.00.22
-DM355       2.00.00.22
+DM355       3.10.00.19
 DM6467      2.00.00.22
 DM6467T     3.10.00.19
 OMAP35xx    3.00.02.44
@@ -285,6 +285,13 @@ bootargs=mem=65M console=ttyS0,115200n8 root=/dev/nfs
   enable usage of the TIVidResize element, but only UYVY capture can be done
   in this mode.  Do not use dm365_imp.oper_mode=1 if you are encoding video
   as the codecs require NV12 capture input.
+
+DM355:
+
+bootargs=console=ttyS0,115200n8 root=/dev/nfs
+  nfsroot=<nfsserver_ip>:<path to root filesystem>,nolock ip=dhcp mem=93M
+  davinci_display.cont2_bufsize=3145728 vpfe_capture.cont_bufoffset=3145728
+  vpfe_capture.cont_bufsize=3145728
 
 Example GStreamer Usage
 =======================
