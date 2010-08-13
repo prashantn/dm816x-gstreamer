@@ -25,6 +25,8 @@
 #ifndef __GST_TIDMAIBUFTAB_H__
 #define __GST_TIDMAIBUFTAB_H__
 
+#include <pthread.h>
+
 #include <gst/gst.h>
 
 #include <ti/sdo/dmai/Dmai.h>
@@ -56,6 +58,8 @@ G_BEGIN_DECLS
     ((obj) ? GST_TIDMAIBUFTAB(obj)->hBufTab : NULL)
 #define GST_TIDMAIBUFTAB_BUFAVAIL_RV(obj) \
     ((obj) ? GST_TIDMAIBUFTAB(obj)->hBufAvailRv : NULL)
+#define GST_TIDMAIBUFTAB_GETBUF_MUTEX(obj) \
+    &(GST_TIDMAIBUFTAB(obj)->hGetBufMutex)
 
 typedef struct _GstTIDmaiBufTab      GstTIDmaiBufTab;
 typedef struct _GstTIDmaiBufTabClass GstTIDmaiBufTabClass;
@@ -65,6 +69,7 @@ struct _GstTIDmaiBufTab {
     GstMiniObject     parent_instance;
     BufTab_Handle     hBufTab;
     Rendezvous_Handle hBufAvailRv;
+    pthread_mutex_t   hGetBufMutex;
 };
 
 struct _GstTIDmaiBufTabClass {

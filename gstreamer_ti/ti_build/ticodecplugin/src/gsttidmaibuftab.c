@@ -120,6 +120,8 @@ static void gst_tidmaibuftab_finalize(GstTIDmaiBufTab *self)
         self->hBufAvailRv = NULL;
     }
 
+    pthread_mutex_destroy(&self->hGetBufMutex);
+
     /* Call GstMiniObject's finalize routine, so our base class can do its
      * cleanup as well.  If we don't do this, we could end up with a memory
      * leak that is very difficult to track down.
@@ -139,11 +141,22 @@ Buffer_Handle gst_tidmaibuftab_get_buf(GstTIDmaiBufTab *self)
     Buffer_Handle hFreeBuf = NULL;
 
     /* Get a free buffer from the BufTab */
+    pthread_mutex_lock(&self->hGetBufMutex);
     hFreeBuf = BufTab_getFreeBuf(self->hBufTab);
-    while (!hFreeBuf) {
-        Rendezvous_meet(self->hBufAvailRv);
-        hFreeBuf = BufTab_getFreeBuf(self->hBufTab);
+
+    if (!hFreeBuf) {
         Rendezvous_reset(self->hBufAvailRv);
+
+        pthread_mutex_unlock(&self->hGetBufMutex);
+        Rendezvous_meet(self->hBufAvailRv);
+        pthread_mutex_lock(&self->hGetBufMutex);
+
+        hFreeBuf = BufTab_getFreeBuf(self->hBufTab);
+    }
+    pthread_mutex_unlock(&self->hGetBufMutex);
+
+    if (!hFreeBuf) {
+        GST_ERROR("Failed to get a buffer from the GstTIDmaiBufTab object");
     }
 
     return hFreeBuf;
@@ -167,6 +180,8 @@ GstTIDmaiBufTab* gst_tidmaibuftab_new(gint num_bufs, gint32 size,
 
     self->hBufTab     = BufTab_create(num_bufs, size, attrs);
     self->hBufAvailRv = Rendezvous_create(Rendezvous_INFINITE, &rzvAttrs);
+
+    pthread_mutex_init(&self->hGetBufMutex, NULL);
 
     if (!self->hBufTab || !self->hBufAvailRv) {
         GST_ERROR("Failed to create a new GstTIDmaiBufTab object");

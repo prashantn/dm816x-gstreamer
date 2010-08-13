@@ -34,6 +34,7 @@
  */
 
 #include <stdlib.h>
+#include <pthread.h>
 
 #include <ti/sdo/dmai/Dmai.h>
 #include <ti/sdo/dmai/Buffer.h>
@@ -121,6 +122,15 @@ static void gst_tidmaibuffertransport_finalize(GstBuffer *gstbuffer)
 
     GST_LOG("begin finalize\n");
 
+    /* If we're part of a a GstTIDmaiBufTab object, we need to make sure that
+     * changing the useMask and calling Rendezvous_force is done as a single
+     * step, or the condition mutex that waits for an available buffer may
+     * not work properly.
+     */
+    if (self->owner) {
+        pthread_mutex_lock(GST_TIDMAIBUFTAB_GETBUF_MUTEX(self->owner));
+    }
+
     /* If the DMAI buffer is part of a BufTab, free it for re-use.  Otherwise,
      * destroy the buffer.
      */
@@ -138,6 +148,7 @@ static void gst_tidmaibuffertransport_finalize(GstBuffer *gstbuffer)
      */
     if (self->owner) {
         Rendezvous_force(GST_TIDMAIBUFTAB_BUFAVAIL_RV(self->owner));
+        pthread_mutex_unlock(GST_TIDMAIBUFTAB_GETBUF_MUTEX(self->owner));
     }
 
     /* Remove reference to the GstTIDmaiBufTab object that owns us, if any */
