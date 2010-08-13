@@ -54,8 +54,8 @@ G_BEGIN_DECLS
 /* Utility macros */
 #define GST_TIDMAIBUFTAB_BUFTAB(obj) \
     ((obj) ? GST_TIDMAIBUFTAB(obj)->hBufTab : NULL)
-#define GST_TIDMAIBUFTAB_MUTEX(obj) \
-    ((obj) ? GST_TIDMAIBUFTAB(obj)->hRv : NULL)
+#define GST_TIDMAIBUFTAB_BUFAVAIL_RV(obj) \
+    ((obj) ? GST_TIDMAIBUFTAB(obj)->hBufAvailRv : NULL)
 
 typedef struct _GstTIDmaiBufTab      GstTIDmaiBufTab;
 typedef struct _GstTIDmaiBufTabClass GstTIDmaiBufTabClass;
@@ -64,7 +64,7 @@ typedef struct _GstTIDmaiBufTabClass GstTIDmaiBufTabClass;
 struct _GstTIDmaiBufTab {
     GstMiniObject     parent_instance;
     BufTab_Handle     hBufTab;
-    Rendezvous_Handle hRv;
+    Rendezvous_Handle hBufAvailRv;
 };
 
 struct _GstTIDmaiBufTabClass {

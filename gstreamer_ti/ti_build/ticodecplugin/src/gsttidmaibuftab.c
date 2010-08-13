@@ -72,8 +72,8 @@ static void gst_tidmaibuftab_init(GstTIDmaiBufTab *self)
 {
     GST_LOG("begin init\n");
 
-    self->hBufTab = NULL;
-    self->hRv     = NULL;
+    self->hBufTab     = NULL;
+    self->hBufAvailRv = NULL;
 
     GST_LOG("end init\n");
 }
@@ -115,9 +115,9 @@ static void gst_tidmaibuftab_finalize(GstTIDmaiBufTab *self)
         self->hBufTab = NULL;
     }
 
-    if (self->hRv) {
-        Rendezvous_delete(self->hRv);
-        self->hRv = NULL;
+    if (self->hBufAvailRv) {
+        Rendezvous_delete(self->hBufAvailRv);
+        self->hBufAvailRv = NULL;
     }
 
     /* Call GstMiniObject's finalize routine, so our base class can do its
@@ -141,9 +141,9 @@ Buffer_Handle gst_tidmaibuftab_get_buf(GstTIDmaiBufTab *self)
     /* Get a free buffer from the BufTab */
     hFreeBuf = BufTab_getFreeBuf(self->hBufTab);
     while (!hFreeBuf) {
-        Rendezvous_meet(self->hRv);
+        Rendezvous_meet(self->hBufAvailRv);
         hFreeBuf = BufTab_getFreeBuf(self->hBufTab);
-        Rendezvous_reset(self->hRv);
+        Rendezvous_reset(self->hBufAvailRv);
     }
 
     return hFreeBuf;
@@ -165,10 +165,10 @@ GstTIDmaiBufTab* gst_tidmaibuftab_new(gint num_bufs, gint32 size,
     self = (GstTIDmaiBufTab*)gst_mini_object_new(GST_TYPE_TIDMAIBUFTAB);
     g_return_val_if_fail(self != NULL, NULL);
 
-    self->hBufTab = BufTab_create(num_bufs, size, attrs);
-    self->hRv     = Rendezvous_create(Rendezvous_INFINITE, &rzvAttrs);
+    self->hBufTab     = BufTab_create(num_bufs, size, attrs);
+    self->hBufAvailRv = Rendezvous_create(Rendezvous_INFINITE, &rzvAttrs);
 
-    if (!self->hBufTab || !self->hRv) {
+    if (!self->hBufTab || !self->hBufAvailRv) {
         GST_ERROR("Failed to create a new GstTIDmaiBufTab object");
         gst_mini_object_unref(GST_MINI_OBJECT(self));
         return NULL;

@@ -137,7 +137,7 @@ static void gst_tidmaibuffertransport_finalize(GstBuffer *gstbuffer)
      * wake it up.
      */
     if (self->owner) {
-        Rendezvous_force(GST_TIDMAIBUFTAB_MUTEX(self->owner));
+        Rendezvous_force(GST_TIDMAIBUFTAB_BUFAVAIL_RV(self->owner));
     }
 
     /* Remove reference to the GstTIDmaiBufTab object that owns us, if any */
