@@ -255,10 +255,10 @@ Special Notes:  DVSDK 3.10
 
 1) Linuxlibs Installation
 
-You need to make sure you download and install the "linuxlibs" component from
-the DVSDK download page, and specify it's location in the DVSDK's Rules.make.
-If you don't, the GStreamer build may fail to build against certain libraries
-that are pre-built on the target filesystem, such as "libz".
+You must download and install the "linuxlibs" component from the DVSDK download
+page, and set LINUXLIBS_INSTALL_DIR in the DVSDK's Rules.make to its location.
+If you don't, the GStreamer build may fail to find libraries that are pre-built
+on the target filesystem, such as "libz".
 
 2) Kernel Patches for MMAP Driver Buffers
 
