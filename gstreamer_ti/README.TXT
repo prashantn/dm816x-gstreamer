@@ -252,11 +252,21 @@ OMAP35xx EVM.
 
 Special Notes:  DVSDK 3.10
 --------------------------
+
+1) Linuxlibs Installation
+
+You need to make sure you download and install the "linuxlibs" component from
+the DVSDK download page, and specify it's location in the DVSDK's Rules.make.
+If you don't, the GStreamer build may fail to build against certain libraries
+that are pre-built on the target filesystem, such as "libz".
+
+2) Kernel Patches for MMAP Driver Buffers
+
 By default, GStreamer uses mmap buffer drivers for the capture and display.
-With the more recent kernels, there are no guarantees in the kernel that it
-will be able to allocate enough space for these buffers when requested.  For
-DVSDK 3.10, you need to use the additional patches available on this kernel
-staging branch in order to make mmap buffer use reliable:
+With the more recent kernels, there are no guarantees that it will be able to
+allocate enough space for these buffers when requested.  For DVSDK 3.10, you
+need to use additional patches available on this kernel staging branch in order
+to make mmap buffer usage reliable:
 
 http://arago-project.org/git/projects/?p=linux-davinci.git;a=shortlog;h=refs/heads/video-boot-time-mem-alloc
 
