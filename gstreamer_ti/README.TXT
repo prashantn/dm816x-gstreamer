@@ -265,10 +265,15 @@ on the target filesystem, such as "libz".
 By default, GStreamer uses mmap buffer drivers for the capture and display.
 With the more recent kernels, there are no guarantees that it will be able to
 allocate enough space for these buffers when requested.  For DVSDK 3.10, you
-need to use additional patches available on this kernel staging branch in order
-to make mmap buffer usage reliable:
+need to use seven additional patches available on this kernel staging branch in
+order to make mmap buffer usage reliable:
 
 http://arago-project.org/git/projects/?p=linux-davinci.git;a=shortlog;h=refs/heads/video-boot-time-mem-alloc
+
+When viewing this page, you can either click on the "snapshot" link to the
+right of the top-most commit to download a full version of the kernel source
+with these patches already applied, or you can download the patches separately
+and apply them to the kernel source provided with the DVSDK.
 
 With these kernel patches applied, you should be using the kernel boot
 arguments below to make sure space is allocated for mmap driver buffers.  Note
