@@ -1495,6 +1495,9 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
         #if defined(Platform_omap3530)
         case Cpu_Device_OMAP3530:
         #endif
+        #if defined(Platform_omapl138)
+        case Cpu_Device_OMAPL138:
+        #endif
         case Cpu_Device_DM6446:
             params.inputChromaFormat = XDM_YUV_422ILE;
             break;
