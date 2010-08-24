@@ -1,3 +1,7 @@
+2010-08-24: Brijesh Singh, Texas Instruments, Inc.
+	* src/{Makefile.external}:
+	Export CROSS_COMPILE/PLATFORM_XDC environment variables needed by cfg.
+	
 2010-07-29: Don Darling, Texas Instruments, Inc.
 	* src/{gstticodecplugin_dm355.cfg, gstticodecs_dm355.c}:
 	Add support for DVSDK 3.10 OOB codecs on DM355.
