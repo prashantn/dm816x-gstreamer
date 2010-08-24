@@ -1,4 +1,8 @@
 2010-08-24: Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttividdec2.c}:
+	Update OMAPL138-specific Vdec2 parameter to output I420 buffer.
+
+2010-08-24: Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividenc1.c}:
 	Update OMAPL138-specific Venc1 parameters.
 

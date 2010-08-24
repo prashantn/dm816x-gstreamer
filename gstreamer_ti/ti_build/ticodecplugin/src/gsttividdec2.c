@@ -119,7 +119,12 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
          "format=(fourcc)NV12, "
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
-         "height=(int)[ 1, MAX ]"
+         "height=(int)[ 1, MAX ];"
+    "video/x-raw-yuv, "                        /* I420 */
+         "format=(fourcc)I420, "
+         "framerate=(fraction)[ 0, MAX ], "
+         "width=(int)[ 1, MAX ], "
+         "height=(int)[ 1, MAX ];"
     )
 );
 
@@ -702,6 +707,9 @@ static gboolean gst_tividdec2_set_source_caps(
         case ColorSpace_YUV422PSEMI:
             gst_value_set_fourcc(&fourcc, GST_MAKE_FOURCC('N','V','1','6'));
             break;
+        case ColorSpace_YUV420P:
+            gst_value_set_fourcc(&fourcc, GST_MAKE_FOURCC('I','4','2','0'));
+            break;
         default:
             GST_ERROR("unsupported colorspace\n");
             return FALSE;
@@ -1258,6 +1266,15 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
             params.maxHeight         = VideoStd_720P_HEIGHT;
             colorSpace               = ColorSpace_YUV420PSEMI;
             defaultNumBufs           = 4;
+            break;
+        #endif
+        #if defined(Platform_omapl138)
+        case Cpu_Device_OMAPL138:
+            params.forceChromaFormat = XDM_YUV_420P;
+            params.maxWidth          = VideoStd_D1_WIDTH;
+            params.maxHeight         = VideoStd_D1_PAL_HEIGHT;
+            colorSpace               = ColorSpace_YUV420P;
+            defaultNumBufs           = 3;
             break;
         #endif
         default:
