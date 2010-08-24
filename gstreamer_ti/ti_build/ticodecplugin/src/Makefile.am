@@ -18,7 +18,7 @@ noinst_HEADERS = gsttiauddec1.h gsttividdec2.h gsttiimgenc1.h gsttiimgdec1.h gst
 # XDC Configuration
 CONFIGURO     = $(XDC_INSTALL_DIR)/xs xdc.tools.configuro
 BUILT_SOURCES = $(XDC_CONFIG_BASENAME)/compiler.opt $(XDC_CONFIG_BASENAME)/linker.cmd
-XDC_PATH      = .;$(XDC_INSTALL_DIR)/packages;$(LINK_XDC_ROOT);$(FC_INSTALL_DIR)/packages;$(CE_INSTALL_DIR)/packages;$(XDAIS_INSTALL_DIR)/packages;$(CODEC_INSTALL_DIR)/packages;$(CMEM_INSTALL_DIR)/packages;$(DMAI_INSTALL_DIR)/packages;$(LPM_INSTALL_DIR)/packages;$(XDC_USER_PATH);$(EDMA3_LLD_INSTALL_DIR)/packages;
+XDC_PATH      = .;$(XDC_INSTALL_DIR)/packages;$(LINK_XDC_ROOT);$(FC_INSTALL_DIR)/packages;$(CE_INSTALL_DIR)/packages;$(XDAIS_INSTALL_DIR)/packages;$(CODEC_INSTALL_DIR)/packages;$(CMEM_INSTALL_DIR)/packages;$(DMAI_INSTALL_DIR)/packages;$(LPM_INSTALL_DIR)/packages;$(XDC_USER_PATH);$(EDMA3_LLD_INSTALL_DIR)/packages;$(C6ACCEL_INSTALL_DIR)/soc/c6accelw;$(C6ACCEL_INSTALL_DIR)/soc/packages
 
 gstticodecs_platform.c :
 	ln -s $(srcdir)/gstticodecs_$(GST_TI_PLATFORM).c gstticodecs_platform.c

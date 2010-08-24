@@ -1,4 +1,9 @@
 2010-08-24: Brijesh Singh, Texas Instruments, Inc.
+	* src/{gstticodecplugin_omapl138.cfg, gstticodecs_omapl138.c, 
+          Makefile.am ,Makefile.external}:
+	Add support for OMAPL138 platform.
+
+2010-08-24: Brijesh Singh, Texas Instruments, Inc.
 	* src/{Makefile.external}:
 	Export CROSS_COMPILE/PLATFORM_XDC environment variables needed by cfg.
 	
