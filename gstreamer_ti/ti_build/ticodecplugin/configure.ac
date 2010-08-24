@@ -98,6 +98,22 @@ if test "x$HAVE_GSTPB_BASE" = "xno"; then
   AC_MSG_NOTICE(no GStreamer Plugins Base libraries found (gstreamer-plugins-base-$GST_MAJORMINOR))
 fi
 
+dnl check if we need to build c6accel elements
+AC_ARG_ENABLE([c6accel],
+	[  --enable-c6accel       Enable TIC6Accel based elements ],
+	[ case "${enableval}" in
+		yes) c6accel=true ;;
+		no)  c6accel=false ;;
+		*) AC_MSG_ERROR([bad value ${enableval} for --enable-c6accel]) ;;
+	  esac],
+	[c6accel=false]
+)
+AM_CONDITIONAL([HAVE_C6ACCEL], [test x$c6accel = xtrue])
+if test "x$c6accel" = "xtrue"; then
+	AC_MSG_NOTICE(Enabling c6accel elements)
+	AC_DEFINE([HAVE_C6ACCEL], [1], [C6Accel based elements])
+fi
+ 
 dnl make _CFLAGS and _LIBS available
 AC_SUBST(GSTPB_BASE_CFLAGS)
 AC_SUBST(GSTPB_BASE_LIBS)

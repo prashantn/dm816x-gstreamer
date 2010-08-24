@@ -1,4 +1,9 @@
 2010-08-24: Brijesh Singh, Texas Instruments, Inc.
+	* configure.ac, Makefile.external, 
+	src/{Makefile.am, gsttic6xcolorspace.{c,h}, gstticodecplugin.c}:
+	Add "TIC6xColorspace" element.
+
+2010-08-24: Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttividdec2.c}:
 	Update OMAPL138-specific Vdec2 parameter to output I420 buffer.
 

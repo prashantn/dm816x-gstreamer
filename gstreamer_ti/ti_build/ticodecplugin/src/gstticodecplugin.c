@@ -43,6 +43,10 @@
 #include "gsttividresize.h"
 #include "gsttidmaiperf.h"
 
+#ifdef HAVE_C6ACCEL
+    #include "gsttic6xcolorspace.h"
+#endif
+
 /* entry point to initialize the plug-in
  * initialize the plug-in itself
  * register the element factories and other features
@@ -120,6 +124,15 @@ TICodecPlugin_init (GstPlugin * TICodecPlugin)
         TICodecPlugin, "dmaiperf", GST_RANK_PRIMARY,
         GST_TYPE_DMAIPERF))
         return FALSE;
+
+#ifdef HAVE_C6ACCEL
+    env_value = getenv("GST_TI_TIC6xColorspace_DISABLE");
+
+    if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
+        TICodecPlugin, "TIC6xColorspace", GST_RANK_PRIMARY,
+        GST_TYPE_TIC6XCOLORSPACE))
+        return FALSE;
+#endif
 
     return TRUE;
 }

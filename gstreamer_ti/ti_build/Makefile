@@ -17,6 +17,13 @@
 include ../Makefile.common
 
 #------------------------------------------------------------------------------
+# Check if we need to enable C6Accel elements
+#------------------------------------------------------------------------------
+ifeq ($(ENABLE_C6ACCEL), true)
+ EXTRA_CONFIGURE_OPTS="--enable-c6accel"
+endif
+
+#------------------------------------------------------------------------------
 # TI_PLUGINS
 #     list of subdirectories containing TI plugins
 #------------------------------------------------------------------------------
@@ -33,7 +40,7 @@ all: $(TI_PLUGINS)
 $(TI_PLUGINS): 
 	@echo Building $@
 	$(CMD_PREFIX) cd $@; ./autogen.sh --noconfigure
-	$(CMD_PREFIX) cd $@; ./configure $(CONFIGURE_VERBOSE) $(CC_CONFIGURE_OPTS)
+	$(CMD_PREFIX) cd $@; ./configure $(CONFIGURE_VERBOSE) $(CC_CONFIGURE_OPTS) $(EXTRA_CONFIGURE_OPTS)
 	$(CMD_PREFIX) $(MAKE) $(MAKE_VERBOSE) -C $@ clean
 	$(CMD_PREFIX) $(MAKE) $(MAKE_VERBOSE) -C $@ $(BUILD_INSTALL)
 
