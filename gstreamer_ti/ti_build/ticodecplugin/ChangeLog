@@ -1,3 +1,7 @@
+2010-08-25: Brijesh Singh, Texas Instruments, Inc.
+	* src/{gsttividdec2.{c,h}}:
+	Add "RTCodecThread" property.
+
 2010-08-24: Brijesh Singh, Texas Instruments, Inc.
 	* configure.ac, Makefile.external, 
 	src/{Makefile.am, gsttic6xcolorspace.{c,h}, gstticodecplugin.c}:

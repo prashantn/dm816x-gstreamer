@@ -72,7 +72,8 @@ enum
   PROP_NUM_OUTPUT_BUFS, /* numOutputBufs  (int)     */
   PROP_FRAMERATE,       /* frameRate      (int)     */
   PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
-  PROP_GEN_TIMESTAMPS   /* genTimeStamps  (boolean) */
+  PROP_GEN_TIMESTAMPS,  /* genTimeStamps  (boolean) */
+  PROP_RTCODECTHREAD    /* rtCodecThread (boolean) */
 };
 
 /* Define sink (input) pad capabilities.  Currently, MPEG and H264 are 
@@ -313,6 +314,11 @@ static void gst_tividdec2_class_init(GstTIViddec2Class *klass)
             "Display circular buffer status while processing",
             FALSE, G_PARAM_WRITABLE));
 
+    g_object_class_install_property(gobject_class, PROP_RTCODECTHREAD,
+        g_param_spec_boolean("RTCodecThread", "Real time codec thread",
+            "Exectue codec calls in real-time thread",
+            TRUE, G_PARAM_WRITABLE));
+
     g_object_class_install_property(gobject_class, PROP_GEN_TIMESTAMPS,
         g_param_spec_boolean("genTimeStamps", "Generate Time Stamps",
             "Set timestamps on output buffers",
@@ -360,6 +366,13 @@ static void gst_tividdec2_init_env(GstTIViddec2 *viddec2)
         viddec2->framerateNum = 
             gst_ti_env_get_int("GST_TI_TIViddec2_frameRate");
         GST_LOG("Setting frameRate=%d\n", viddec2->framerateNum);
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIViddec2_RTCodecThread")) {
+        viddec2->rtCodecThread = 
+                gst_ti_env_get_boolean("GST_TI_TIViddec2_RTCodecThread");
+        GST_LOG("Setting RTCodecThread =%s\n", 
+                    viddec2->rtCodecThread ? "TRUE" : "FALSE");
     }
 
     GST_LOG("gst_tividdec2_init_env - end\n");
@@ -437,6 +450,8 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     viddec2->totalBytes         = 0;
 
     viddec2->mpeg4_quicktime_header = NULL;
+
+    viddec2->rtCodecThread      = TRUE;
 
     gst_tividdec2_init_env(viddec2);
 }
@@ -521,6 +536,11 @@ static void gst_tividdec2_set_property(GObject *object, guint prop_id,
             viddec2->genTimeStamps = g_value_get_boolean(value);
             GST_LOG("setting \"genTimeStamps\" to \"%s\"\n",
                 viddec2->genTimeStamps ? "TRUE" : "FALSE");
+            break;
+        case PROP_RTCODECTHREAD:
+            viddec2->rtCodecThread = g_value_get_boolean(value);
+            GST_LOG("setting \"RTCodecThread\" to \"%s\"\n",
+                viddec2->rtCodecThread ? "TRUE" : "FALSE");
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1015,8 +1035,8 @@ static gboolean gst_tividdec2_init_video(GstTIViddec2 *viddec2)
     }
 
     /* Create decoder thread */
-    if (pthread_create(&viddec2->decodeThread, &attr,
-            gst_tividdec2_decode_thread, (void*)viddec2)) {
+    if (pthread_create(&viddec2->decodeThread, viddec2->rtCodecThread ? 
+            &attr : NULL, gst_tividdec2_decode_thread, (void*)viddec2)) {
         GST_ELEMENT_ERROR(viddec2, RESOURCE, FAILED,
         ("failed to create decode thread\n"), (NULL));
         gst_tividdec2_exit_video(viddec2);

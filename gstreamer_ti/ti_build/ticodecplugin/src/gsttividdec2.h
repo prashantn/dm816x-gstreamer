@@ -69,6 +69,7 @@ struct _GstTIViddec2
   const gchar*   codecName;
   gboolean       displayBuffer;
   gboolean       genTimeStamps;
+  gboolean       rtCodecThread;
 
   /* Element state */
   Engine_Handle    hEngine;
