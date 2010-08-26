@@ -8,7 +8,7 @@
 # Copyright (C) 2009 Ridgerun 
 #
 
-.PHONY: default configure dm6446 omap3530 dm355 dm6467 dm365 omapl138
+.PHONY: default configure dm6446 omap3530 dm355 dm6467 dm365 omapl138 omap3530_dv400
 
 DVSDK_PATH=undefined
 DMAI_INSTALL_DIR=undefined
@@ -23,7 +23,7 @@ $(error You need to define the environment variable DMAI_INSTALL_DIR)
 endif
 
 default:
-	@echo "Please specify the target: dm6446, omap3530, dm355, dm6467, dm6467t, dm365 omapl138"
+	@echo "Please specify the target: dm6446, omap3530, dm355, dm6467, dm6467t, dm365 omapl138 omap3530_dv400"
 
 export GST_TI_PLATFORM=$(MAKECMDGOALS)
 export BIOS_INSTALL_DIR
@@ -101,6 +101,16 @@ ifeq ($(GST_TI_PLATFORM), omapl138)
     export ENABLE_C6ACCEL ="--enable-c6accel"
 endif
 
+ifeq ($(GST_TI_PLATFORM), omap3530_dv400)
+    export XDC_TARGET    = gnu.targets.arm.GCArmv5T
+    export XDC_PLATFORM  = ti.platforms.evm3530
+    export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
+    export MVTOOL_DIR    = $(CSTOOL_DIR)
+    export PLATFORM_XDC  = ${XDC_PLATFORM}
+    export CROSS_COMPILE = ${CSTOOL_PREFIX}
+    export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
+endif
+
 CPPFLAGS=-DPlatform_$(GST_TI_PLATFORM) 
 HOST=arm-none-linux-gnueabi
 
@@ -131,3 +141,5 @@ dm365: Makefile
 omapl138: Makefile
 	$(MAKE) -f Makefile
 
+omap3530_dv400: Makefile
+	$(MAKE) -f Makefile
