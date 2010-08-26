@@ -34,8 +34,8 @@
 #    GST_TI_PLATFORM
 #         In most cases this variable will be automatically set to be the same
 #         as the PLATFORM variable in the Rules.make for the DVSDK.  Currently
-#         the only time it must be set here is when building for dm6467 or
-#         dm6467t.
+#         the only time it must be set here is when building for dm6467, 
+#         dm6467t or omap3530_dv400.
 #
 # These paths must be specified or the build will fail.
 #------------------------------------------------------------------------------
@@ -134,6 +134,9 @@ ifndef CROSS_COMPILER
     ifeq ($(GST_TI_PLATFORM), omapl138)
         CROSS_COMPILER=CS_2009Q1
     endif
+    ifeq ($(GST_TI_PLATFORM), omap3530_dv400)
+        CROSS_COMPILER=CS_2009Q1
+    endif
 endif
 
 #------------------------------------------------------------------------------
@@ -203,6 +206,17 @@ ifeq ($(GST_TI_PLATFORM), omap3530)
     export CROSS_COMPILE = ${CSTOOL_PREFIX}
 endif
 
+ifeq ($(GST_TI_PLATFORM), omap3530_dv400)
+    export XDC_TARGET    = gnu.targets.arm.GCArmv5T
+    export XDC_PLATFORM  = ti.platforms.evm3530
+    export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
+    export MVTOOL_DIR    = $(CSTOOL_DIR)
+    export PLATFORM_XDC  = ${XDC_PLATFORM}
+    export CROSS_COMPILE = ${CSTOOL_PREFIX}
+    export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
+    export LIBTOOL_SYSROOT_PATH=$(LINUXLIBS_INSTALL_DIR)/..
+endif
+
 ifeq ($(GST_TI_PLATFORM), omapl138)
     export XDC_TARGET    = gnu.targets.arm.GCArmv5T
     export XDC_PLATFORM  = ti.platforms.evmOMAPL138
@@ -251,6 +265,7 @@ CPPFLAGS_dm365    += -I$(LINUXKERNEL_INSTALL_DIR)/include
 CPPFLAGS_dm6467t   = -I$(LINUXLIBS_INSTALL_DIR)/include
 CPPFLAGS_omap3530  = -I$(LINUXLIBS_INSTALL_DIR)/include
 CPPFLAGS_omapl138  = -I$(LINUXLIBS_INSTALL_DIR)/include
+CPPFLAGS_omap3530_dv400  = -I$(LINUXLIBS_INSTALL_DIR)/include
 
 CFLAGS_all         = -O2
 CFLAGS_dm355       = -march=armv5te -mtune=arm926ej-s
@@ -261,6 +276,7 @@ CFLAGS_dm6467t     = -march=armv5te -mtune=arm926ej-s
 CFLAGS_omapl138    = -march=armv5te -mtune=arm926ej-s
 CFLAGS_omap3530    = -march=armv7-a -mtune=cortex-a8
 CFLAGS_omap3530   += -mfpu=neon -mfloat-abi=softfp
+CFLAGS_omap3530_dv400   += -mfpu=neon -mfloat-abi=softfp
 
 LDFLAGS_all        = -L$(TARGET_GSTREAMER_DIR)/lib
 LDFLAGS_dm355      = -L$(LINUXLIBS_INSTALL_DIR)/lib
@@ -268,6 +284,7 @@ LDFLAGS_dm365      = -L$(LINUXLIBS_INSTALL_DIR)/lib
 LDFLAGS_dm6467t    = -L$(LINUXLIBS_INSTALL_DIR)/lib
 LDFLAGS_omap3530   = -L$(LINUXLIBS_INSTALL_DIR)/lib
 LDFLAGS_omapl138   = -L$(LINUXLIBS_INSTALL_DIR)/lib
+LDFLAGS_omap3530_dv400   = -L$(LINUXLIBS_INSTALL_DIR)/lib
 
 #------------------------------------------------------------------------------
 # Enable ALSA support based on the CROSS_COMPILER we're using
