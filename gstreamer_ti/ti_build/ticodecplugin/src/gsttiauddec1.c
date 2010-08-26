@@ -73,7 +73,8 @@ enum
   PROP_NUM_CHANNELS,    /* numChannels    (int)     */
   PROP_NUM_OUTPUT_BUFS, /* numOutputBufs  (int)     */
   PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
-  PROP_GEN_TIMESTAMPS   /* genTimeStamps  (boolean) */
+  PROP_GEN_TIMESTAMPS,  /* genTimeStamps  (boolean) */
+  PROP_RTCODECTHREAD    /* rtCodecThread  (boolean) */
 };
 
 /* Define sink (input) pad capabilities.  Currently, AAC and MP3 are
@@ -282,6 +283,11 @@ static void gst_tiauddec1_class_init(GstTIAuddec1Class *klass)
             "Display circular buffer status while processing",
             FALSE, G_PARAM_WRITABLE));
 
+    g_object_class_install_property(gobject_class, PROP_RTCODECTHREAD,
+        g_param_spec_boolean("RTCodecThread", "Real time codec thread",
+            "Exectue codec calls in real-time thread",
+            TRUE, G_PARAM_WRITABLE));
+
     g_object_class_install_property(gobject_class, PROP_GEN_TIMESTAMPS,
         g_param_spec_boolean("genTimeStamps", "Generate Time Stamps",
             "Set timestamps on output buffers",
@@ -324,6 +330,13 @@ static void gst_tiauddec1_init_env(GstTIAuddec1 *auddec1)
                 gst_ti_env_get_boolean("GST_TI_TIAuddec1_genTimeStamps");
         GST_LOG("Setting genTimeStamps =%s\n", 
                     auddec1->genTimeStamps ? "TRUE" : "FALSE");
+    }
+
+    if (gst_ti_env_is_defined("GST_TI_TIAuddec1_RTCodecThread")) {
+        auddec1->rtCodecThread = 
+                gst_ti_env_get_boolean("GST_TI_TIAuddec1_RTCodecThread");
+        GST_LOG("Setting RTCodecThread =%s\n", 
+                    auddec1->rtCodecThread ? "TRUE" : "FALSE");
     }
 
     GST_LOG("gst_tiauddec1_init_env - end");
@@ -395,6 +408,8 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
     auddec1->totalDuration      = 0;
     auddec1->totalBytes         = 0;
     auddec1->sampleRate         = 0;
+
+    auddec1->rtCodecThread      = TRUE;
 
     gst_tiauddec1_init_env(auddec1);
 }
@@ -468,6 +483,11 @@ static void gst_tiauddec1_set_property(GObject *object, guint prop_id,
             auddec1->genTimeStamps = g_value_get_boolean(value);
             GST_LOG("setting \"genTimeStamps\" to \"%s\"\n",
                 auddec1->genTimeStamps ? "TRUE" : "FALSE");
+            break;
+        case PROP_RTCODECTHREAD:
+            auddec1->rtCodecThread = g_value_get_boolean(value);
+            GST_LOG("setting \"RTCodecThread\" to \"%s\"\n",
+                auddec1->rtCodecThread ? "TRUE" : "FALSE");
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -883,8 +903,8 @@ static gboolean gst_tiauddec1_init_audio(GstTIAuddec1 * auddec1)
     }
 
     /* Create decoder thread */
-    if (pthread_create(&auddec1->decodeThread, &attr,
-            gst_tiauddec1_decode_thread, (void*)auddec1)) {
+    if (pthread_create(&auddec1->decodeThread, auddec1->rtCodecThread ? 
+        &attr : NULL, gst_tiauddec1_decode_thread, (void*)auddec1)) {
         GST_ELEMENT_ERROR(auddec1, RESOURCE, FAILED,
         ("failed to create decode thread\n"), (NULL));
         gst_tiauddec1_exit_audio(auddec1);

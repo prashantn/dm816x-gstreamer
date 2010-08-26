@@ -69,6 +69,7 @@ struct _GstTIAuddec1
   gboolean       displayBuffer;
   gboolean       genTimeStamps;
   gint           sampleRate;
+  gboolean       rtCodecThread;
 
   /* Element state */
   Engine_Handle    hEngine;
