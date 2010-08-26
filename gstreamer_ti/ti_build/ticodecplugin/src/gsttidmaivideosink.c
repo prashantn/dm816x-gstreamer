@@ -709,11 +709,9 @@ static int gst_tidmaivideosink_videostd_get_attrs(VideoStd_Type videoStd,
             vattrs->framerate = 60;
             break;
 
-        #if defined(Platform_omap3530)
         case VideoStd_VGA:
             vattrs->framerate = 60;
             break;
-        #endif
 
         default:
             GST_ERROR("Unknown videoStd entered (VideoStd = %d)\n", videoStd);
@@ -765,10 +763,8 @@ static int gst_tidmaivideosink_videostd_get_refresh_latency(
         #endif
             return 16667;
 
-        #if defined(Platform_omap3530)
         case VideoStd_VGA:
             return 16667;
-        #endif
 
         default:
             break;
@@ -1001,10 +997,8 @@ static int gst_tidmaivideosink_convert_attrs(int attr,
             else if (!strcmp(sink->videoStd, "1080P_60"))
                 return VideoStd_1080P_60;
             #endif
-            #if defined(Platform_omap3530)
             else if (!strcmp(sink->videoStd, "VGA"))
                 return VideoStd_VGA;
-            #endif
             else {
                 GST_ERROR("Invalid videoStd entered (%s).  "
                 "Please choose from:\n"
@@ -1024,12 +1018,10 @@ static int gst_tidmaivideosink_convert_attrs(int attr,
                 return Display_Output_COMPOSITE;
             else if (!strcmp(sink->videoOutput, "COMPONENT"))
                 return Display_Output_COMPONENT;
-            #if defined(Platform_omap3530)
             else if (!strcmp(sink->videoOutput, "DVI"))
                 return Display_Output_DVI;
             else if (!strcmp(sink->videoOutput, "LCD"))
                 return Display_Output_LCD;
-            #endif
             else {
                 GST_ERROR("Invalid videoOutput entered (%s)."
                     "Please choose from:\n"
@@ -1076,11 +1068,9 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink,
         case Cpu_Device_DM6467:
             sink->dAttrs = Display_Attrs_DM6467_VID_DEFAULT;
             break;
-        #if defined(Platform_omap3530)
         case Cpu_Device_OMAP3530:
             sink->dAttrs = Display_Attrs_O3530_VID_DEFAULT;
             break;
-        #endif
         #if defined(Platform_dm365)
         case Cpu_Device_DM365:
             sink->dAttrs = Display_Attrs_DM365_VID_DEFAULT;
@@ -1115,12 +1105,10 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink,
         sink->dAttrs.displayDevice : sink->displayDevice;
 
     /* Set rotation on OMAP35xx */
-    #if defined(Platform_omap3530)
     if (sink->cpu_dev == Cpu_Device_OMAP3530) {
         sink->dAttrs.rotation = sink->rotation == -1 ?
             sink->dAttrs.rotation : sink->rotation;
     }
-    #endif
 
     /* Validate that the inputs the user gave are correct. */
     if (sink->dAttrs.displayStd == -1) {

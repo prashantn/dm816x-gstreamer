@@ -1492,9 +1492,7 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
 
     /* setup codec parameters depending on device */
     switch(videnc1->device) {
-        #if defined(Platform_omap3530)
         case Cpu_Device_OMAP3530:
-        #endif
         #if defined(Platform_omapl138)
         case Cpu_Device_OMAPL138:
         #endif
