@@ -260,6 +260,7 @@ gboolean gst_ticircbuffer_copy_config (GstTICircBuffer *circBuf,
 gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
 {
     gboolean result = TRUE;
+    Int32    writeSpace;
 
     /* If the circular buffer doesn't exist, do nothing */
     if (circBuf == NULL) {
@@ -281,7 +282,8 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
      * window.  If the consumer isn't done with the first window yet, we need
      * to block until it is.
      */
-    while (gst_ticircbuffer_write_space(circBuf) < GST_BUFFER_SIZE(buf)) {
+    while ((writeSpace = gst_ticircbuffer_write_space(circBuf)) <
+            GST_BUFFER_SIZE(buf)) {
 
         /* If the write pointer is ahead of the read pointer, check to see if
          * the first window is free.  If it is, we may be able to shift the
@@ -304,24 +306,23 @@ gboolean gst_ticircbuffer_queue_data(GstTICircBuffer *circBuf, GstBuffer *buf)
          * buffer before blocking, which is critical for the write pointer to
          * be reset properly.
          */
-        if (gst_ticircbuffer_write_space(circBuf) > 0) {
+        if (writeSpace > 0) {
 
-            Int32      bytesAvail = gst_ticircbuffer_write_space(circBuf);
             GstBuffer* subBuf;
             gboolean   tmpResult;
 
             GST_LOG("splitting input buffer of size %u into two pieces of "
-                "sizes %lu and %lu\n",  GST_BUFFER_SIZE(buf), bytesAvail,
-                GST_BUFFER_SIZE(buf) - bytesAvail);
+                "sizes %lu and %lu\n",  GST_BUFFER_SIZE(buf), writeSpace,
+                GST_BUFFER_SIZE(buf) - writeSpace);
 
-            subBuf = gst_buffer_create_sub(buf, 0, bytesAvail);
+            subBuf = gst_buffer_create_sub(buf, 0, writeSpace);
             tmpResult = gst_ticircbuffer_queue_data(circBuf, subBuf);
             gst_buffer_unref(subBuf);
 
             if (!tmpResult) { goto exit_fail; }
 
-            subBuf = gst_buffer_create_sub(buf, bytesAvail,
-                         GST_BUFFER_SIZE(buf) - bytesAvail);
+            subBuf = gst_buffer_create_sub(buf, writeSpace,
+                         GST_BUFFER_SIZE(buf) - writeSpace);
             tmpResult = gst_ticircbuffer_queue_data(circBuf, subBuf);
             gst_buffer_unref(subBuf);
 
