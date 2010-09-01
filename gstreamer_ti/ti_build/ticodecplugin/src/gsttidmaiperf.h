@@ -66,6 +66,7 @@ struct _GstDmaiperf
 
   /* Element property */
   GstClockTime      lastLoadstamp;
+  int               lastWorkload;
   guint32           fps;
   guint32           bps;
   gboolean          printArmLoad;

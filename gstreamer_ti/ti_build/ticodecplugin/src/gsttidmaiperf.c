@@ -114,6 +114,7 @@ static gboolean gst_dmaiperf_start (GstBaseTransform * trans);
 static gboolean gst_dmaiperf_stop (GstBaseTransform * trans);
 static void gst_dmaiperf_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec);
+static void gst_dmaiperf_cpu_perf (GstClockTime factor_d, GstClockTime factor_n, GstDmaiperf *dmaiperf ,Int * load);
 
 /******************************************************************************
  * gst_dmaiperf_init
@@ -126,6 +127,7 @@ gst_dmaiperf_init (GstDmaiperf * dmaiperf, GstDmaiperfClass * gclass)
   dmaiperf->hDsp = NULL;
   dmaiperf->hEngine = NULL;
   dmaiperf->lastLoadstamp = GST_CLOCK_TIME_NONE;
+  dmaiperf->lastWorkload = 0;
   dmaiperf->fps = 0;
   dmaiperf->bps = 0;
   dmaiperf->engineName = NULL;
@@ -368,7 +370,7 @@ gst_dmaiperf_transform_ip (GstBaseTransform * trans, GstBuffer * buf)
 
       if (dmaiperf->hCpu){
           Int load;
-          Cpu_getLoad(dmaiperf->hCpu, &load);
+          gst_dmaiperf_cpu_perf(factor_d, factor_n, dmaiperf, &load);
           idx += g_snprintf (&info[idx], GST_TIME_FORMAT_MAX_SIZE - idx,
               "CPU: %d; ",load);
       }
@@ -407,4 +409,38 @@ gst_dmaiperf_transform_ip (GstBaseTransform * trans, GstBuffer * buf)
   dmaiperf->bps+= GST_BUFFER_SIZE(buf);
 
   return GST_FLOW_OK;;
+}
+
+/****************************************************************************
+* gst_dmaiperf_cpu_perf
+*    Returns the cpu's workload
+*****************************************************************************/
+static void
+gst_dmaiperf_cpu_perf (GstClockTime factor_d, GstClockTime factor_n,
+                        GstDmaiperf *dmaiperf, Int * load)
+{
+    FILE * pStat;
+
+    char str[4];
+    int workload[7];
+    int totalWorkload;
+
+    pStat = fopen ("/proc/stat", "r");
+    if ( fscanf (pStat,"%s%d%d%d%d%d%d%d", &str[0], &workload[0], &workload[1],
+                 &workload[2], &workload[3], &workload[4], &workload[5],
+                 &workload[6]) != 8){
+        GST_ELEMENT_WARNING (dmaiperf, STREAM, ENCODE, (NULL),
+              ("can't read /proc/stat\n"));
+        dmaiperf->lastWorkload = 0;
+        *load = 0;
+    } else {
+        totalWorkload =  workload[0] + workload[1] + workload[2] + workload[5] + workload[6];
+        if (dmaiperf->lastWorkload != 0){
+            *load = (totalWorkload - dmaiperf->lastWorkload) * factor_d / factor_n;
+        } else {
+            *load = 0;
+        }
+        dmaiperf->lastWorkload = totalWorkload;
+    }
+    fclose (pStat);
 }
