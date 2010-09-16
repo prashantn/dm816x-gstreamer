@@ -1,4 +1,8 @@
 2010-09-10: Don Darling, Texas Instruments, Inc.
+	* src/gsttividdec2.{c,h}:
+	Fix handling of framerate values in TIViddec2.
+
+2010-09-10: Don Darling, Texas Instruments, Inc.
 	* src/gsttidmaivideosink.c:
 	Make framerate property override caps information for TIDmaiVideoSink.
 

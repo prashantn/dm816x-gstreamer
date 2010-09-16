@@ -70,7 +70,7 @@ enum
   PROP_ENGINE_NAME,     /* engineName     (string)  */
   PROP_CODEC_NAME,      /* codecName      (string)  */
   PROP_NUM_OUTPUT_BUFS, /* numOutputBufs  (int)     */
-  PROP_FRAMERATE,       /* frameRate      (int)     */
+  PROP_FRAMERATE,       /* framerate      (GstFraction) */
   PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
   PROP_GEN_TIMESTAMPS,  /* genTimeStamps  (boolean) */
   PROP_RTCODECTHREAD    /* rtCodecThread (boolean) */
@@ -302,12 +302,10 @@ static void gst_tividdec2_class_init(GstTIViddec2Class *klass)
             2, G_MAXINT32, 3, G_PARAM_WRITABLE));
 
     g_object_class_install_property(gobject_class, PROP_FRAMERATE,
-        g_param_spec_int("frameRate",
-            "Frame rate to play output",
-            "Communicate this framerate to downstream elements.  The frame "
-            "rate specified should be an integer.  If 29.97fps is desired, "
-            "specify 30 for this setting",
-            1, G_MAXINT32, 30, G_PARAM_WRITABLE));
+        gst_param_spec_fraction("framerate", "frame rate of video",
+            "Frame rate of the video expressed as a fraction.  A value "
+            "of 0/1 indicates the framerate is not specified", 0, 1,
+            G_MAXINT, 1, 0, 1, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_DISPLAY_BUFFER,
         g_param_spec_boolean("displayBuffer", "Display Buffer",
@@ -362,10 +360,21 @@ static void gst_tividdec2_init_env(GstTIViddec2 *viddec2)
                     viddec2->genTimeStamps ? "TRUE" : "FALSE");
     }
 
-    if (gst_ti_env_is_defined("GST_TI_TIViddec2_frameRate")) {
-        viddec2->framerateNum = 
-            gst_ti_env_get_int("GST_TI_TIViddec2_frameRate");
-        GST_LOG("Setting frameRate=%d\n", viddec2->framerateNum);
+    if (gst_ti_env_is_defined("GST_TI_TIViddec2_framerateNum") &&
+        gst_ti_env_is_defined("GST_TI_TIViddec2_framerateDen")) {
+        gst_value_set_fraction(&viddec2->framerate, 
+            gst_ti_env_get_int("GST_TI_TIViddec2_framerateNum"),
+            gst_ti_env_get_int("GST_TI_TIViddec2_framerateDen"));
+        GST_LOG("Setting framerate=%d/%d\n", 
+            gst_value_get_fraction_numerator(&viddec2->framerate),
+            gst_value_get_fraction_denominator(&viddec2->framerate));
+    }
+    else if (gst_ti_env_is_defined("GST_TI_TIViddec2_frameRate")) {
+        gst_value_set_fraction(&viddec2->framerate, 
+            gst_ti_env_get_int("GST_TI_TIViddec2_frameRate"), 1);
+        GST_LOG("Setting framerate=%d/%d\n", 
+            gst_value_get_fraction_numerator(&viddec2->framerate),
+            gst_value_get_fraction_denominator(&viddec2->framerate));
     }
 
     if (gst_ti_env_is_defined("GST_TI_TIViddec2_RTCodecThread")) {
@@ -434,9 +443,6 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     viddec2->waitOnDecodeThread = NULL;
     viddec2->waitOnDecodeDrain  = NULL;
 
-    viddec2->framerateNum       = -1;
-    viddec2->framerateDen       = -1;
-
     viddec2->numOutputBufs      = 0UL;
     viddec2->hOutBufTab         = NULL;
     viddec2->circBuf            = NULL;
@@ -452,6 +458,12 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     viddec2->mpeg4_quicktime_header = NULL;
 
     viddec2->rtCodecThread      = TRUE;
+
+    /* Initialize GValue members */
+    memset(&viddec2->framerate, 0, sizeof(GValue));
+    g_value_init(&viddec2->framerate, GST_TYPE_FRACTION);
+    g_assert(GST_VALUE_HOLDS_FRACTION(&viddec2->framerate));
+    gst_value_set_fraction(&viddec2->framerate, 0, 1);
 
     gst_tividdec2_init_env(viddec2);
 }
@@ -513,18 +525,10 @@ static void gst_tividdec2_set_property(GObject *object, guint prop_id,
             break;
         case PROP_FRAMERATE:
         {
-            viddec2->framerateNum = g_value_get_int(value);
-            viddec2->framerateDen = 1;
-
-            /* If 30fps was specified, use 29.97 */
-            if (viddec2->framerateNum == 30) {
-                viddec2->framerateNum = 30000;
-                viddec2->framerateDen = 1001;
-            }
-
-            GST_LOG("setting \"frameRate\" to \"%2.2lf\"\n",
-                (gdouble)viddec2->framerateNum /
-                (gdouble)viddec2->framerateDen);
+            g_value_copy(value, &viddec2->framerate);
+            GST_LOG("Setting framerate=%d/%d\n", 
+                gst_value_get_fraction_numerator(&viddec2->framerate),
+                gst_value_get_fraction_denominator(&viddec2->framerate));
             break;
         }
         case PROP_DISPLAY_BUFFER:
@@ -601,9 +605,9 @@ static gboolean gst_tividdec2_set_sink_caps(GstPad *pad, GstCaps *caps)
 
         if (gst_structure_get_fraction(capStruct, "framerate", &framerateNum,
                 &framerateDen)) {
-            if (viddec2->framerateNum == -1) {
-                viddec2->framerateNum = framerateNum;
-                viddec2->framerateDen = framerateDen;
+            if (gst_value_get_fraction_numerator(&viddec2->framerate) == 0) {
+                gst_value_set_fraction(&viddec2->framerate, framerateNum,
+                    framerateDen);
             }
         }
     }
@@ -739,8 +743,9 @@ static gboolean gst_tividdec2_set_source_caps(
     caps =
         gst_caps_new_simple("video/x-raw-yuv",
             "format",    GST_TYPE_FOURCC,   gst_value_get_fourcc(&fourcc),
-            "framerate", GST_TYPE_FRACTION, viddec2->framerateNum,
-                                            viddec2->framerateDen,
+            "framerate", GST_TYPE_FRACTION,
+                gst_value_get_fraction_numerator(&viddec2->framerate),
+                gst_value_get_fraction_denominator(&viddec2->framerate),
             "width",     G_TYPE_INT,        dim.width,
             "height",    G_TYPE_INT,        dim.height,
             NULL);
@@ -1207,8 +1212,7 @@ static gboolean gst_tividdec2_codec_stop (GstTIViddec2  *viddec2)
 
         circBuf               = viddec2->circBuf;
         viddec2->circBuf      = NULL;
-        viddec2->framerateNum = 0;
-        viddec2->framerateDen = 0;
+        gst_value_set_fraction(&viddec2->framerate, 0, 1);
         gst_ticircbuffer_unref(circBuf);
     }
 
@@ -1674,15 +1678,16 @@ static void gst_tividdec2_drain_pipeline(GstTIViddec2 *viddec2)
 static GstClockTime gst_tividdec2_frame_duration(GstTIViddec2 *viddec2)
 {
     /* Default to 29.97 if the frame rate was not specified */
-    if (viddec2->framerateNum == -1) {
+    if (gst_value_get_fraction_numerator(&viddec2->framerate) == 0) {
         GST_WARNING("framerate not specified; using 29.97fps");
-        viddec2->framerateNum = 30000;
-        viddec2->framerateDen = 1001;
+        gst_value_set_fraction(&viddec2->framerate, 30000,
+            1001);
     }
 
-    return (GstClockTime)
-        ((1 / ((gdouble)viddec2->framerateNum/(gdouble)viddec2->framerateDen))
-         * GST_SECOND);
+    return
+     ((GstClockTime) gst_value_get_fraction_denominator(&viddec2->framerate)) *
+     GST_SECOND /
+     ((GstClockTime) gst_value_get_fraction_numerator(&viddec2->framerate));
 }
 
 

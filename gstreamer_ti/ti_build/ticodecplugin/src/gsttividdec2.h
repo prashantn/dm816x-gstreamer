@@ -84,9 +84,8 @@ struct _GstTIViddec2
   Rendezvous_Handle  waitOnDecodeThread;
   Rendezvous_Handle  waitOnDecodeDrain;
 
-  /* Framerate (Num/Den) */
-  gint               framerateNum;
-  gint               framerateDen;
+  /* Framerate */
+  GValue             framerate;
 
   /* Buffer management */
   UInt32           numOutputBufs;
