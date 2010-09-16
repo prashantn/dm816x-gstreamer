@@ -925,7 +925,8 @@ static void gst_tidmaivideosink_check_set_framerate(GstTIDmaiVideoSink * sink)
 {
     GST_DEBUG("Begin\n");
 
-    /* Check if the framerate was set by the user on the command line */
+    /* Check if the framerate was set either by a property of by
+     * caps information */
     if (gst_value_get_fraction_numerator(&sink->framerate) > 0) {
         g_value_copy(&sink->framerate, &sink->iattrs.framerate);
         return;
@@ -1295,12 +1296,16 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
     sink->iattrs.width  = sink->dGfxAttrs.dim.width;
     sink->iattrs.height = sink->dGfxAttrs.dim.height;
 
-    /* Set the input frame rate. */
-    g_value_copy(&sink->dCapsFramerate, &sink->framerate);
+    /* If the framerate property wasn't specified, set the frame rate to what
+     * we found in the caps information.
+     */
+    if (gst_value_get_fraction_numerator(&sink->framerate) == 0) {
+        g_value_copy(&sink->dCapsFramerate, &sink->framerate);
+    }
 
     GST_DEBUG("Frame rate = %d/%d\n",
-        gst_value_get_fraction_numerator(&sink->dCapsFramerate),
-        gst_value_get_fraction_denominator(&sink->dCapsFramerate));
+        gst_value_get_fraction_numerator(&sink->framerate),
+        gst_value_get_fraction_denominator(&sink->framerate));
 
     /* This loop will exit if one of the following conditions occurs:
      * 1.  The display was created
