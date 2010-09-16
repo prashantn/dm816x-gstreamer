@@ -444,6 +444,8 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     dmaisink->useUserptrBufs      = FALSE;
     dmaisink->hideOSD             = FALSE;
     dmaisink->hDispBufTab         = NULL;
+    dmaisink->dFramerateNum       = 0;
+    dmaisink->dFramerateDen       = 1;
 
     dmaisink->signal_handoffs = DEFAULT_SIGNAL_HANDOFFS;
 

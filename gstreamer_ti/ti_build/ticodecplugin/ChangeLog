@@ -1,3 +1,7 @@
+2010-09-10: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaivideosink.c:
+	Properly initialize dFramerateNum and dFramerateDen
+
 2010-08-25: Brijesh Singh, Texas Instruments, Inc.
 	* src/{gsttiauddec1.{c,h}}:
 	Add "RTCodecThread" property.
