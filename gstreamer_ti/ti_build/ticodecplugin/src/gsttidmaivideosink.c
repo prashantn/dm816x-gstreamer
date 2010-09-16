@@ -173,7 +173,8 @@ static void
 static int
     gst_tidmaivideosink_videostd_get_refresh_latency(VideoStd_Type videoStd);
 static gboolean
-    gst_tidmaivideosink_alloc_display_buffers(GstTIDmaiVideoSink * sink);
+    gst_tidmaivideosink_alloc_display_buffers(GstTIDmaiVideoSink * sink,
+        Int32 bufSize);
 static gboolean
     gst_tidmaivideosink_open_osd(GstTIDmaiVideoSink * sink);
 static gboolean
@@ -1320,7 +1321,7 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
 
         /* Allocate user-allocated display buffers, if requested */
         if (!sink->hDispBufTab && sink->useUserptrBufs) {
-            if (!gst_tidmaivideosink_alloc_display_buffers(sink)) {
+            if (!gst_tidmaivideosink_alloc_display_buffers(sink, 0)) {
                 GST_ERROR("Failed to allocate display buffers");
                 return FALSE;
             }
@@ -1848,10 +1849,9 @@ static gboolean gst_tidmaivideosink_set_caps(GstBaseSink * bsink,
  * Allocate display buffers.
  ******************************************************************************/
 static gboolean gst_tidmaivideosink_alloc_display_buffers(
-                    GstTIDmaiVideoSink * sink)
+                    GstTIDmaiVideoSink * sink, Int32 bufSize)
 {
     BufferGfx_Attrs gfxAttrs = BufferGfx_Attrs_DEFAULT;
-    Int32           bufSize; 
 
     if (sink->dAttrs.displayStd != Display_Std_V4L2) {
         GST_ERROR("useUserptrBufs=TRUE can only be used with V4L2 displays\n");
@@ -1889,8 +1889,10 @@ static gboolean gst_tidmaivideosink_alloc_display_buffers(
         gfxAttrs.dim.lineLength = Dmai_roundUp(gfxAttrs.dim.lineLength, 32);
     #endif
 
-    bufSize = gst_ti_calc_buffer_size(gfxAttrs.dim.width, gfxAttrs.dim.height,
-                  gfxAttrs.dim.lineLength, gfxAttrs.colorSpace);
+    if (bufSize <= 0) {
+        bufSize = gst_ti_calc_buffer_size(gfxAttrs.dim.width,
+            gfxAttrs.dim.height, gfxAttrs.dim.lineLength, gfxAttrs.colorSpace);
+    }
 
     sink->hDispBufTab = gst_tidmaibuftab_new(sink->dAttrs.numBufs, bufSize,
         BufferGfx_getBufferAttrs(&gfxAttrs));
