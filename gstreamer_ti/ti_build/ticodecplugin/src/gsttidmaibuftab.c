@@ -74,6 +74,7 @@ static void gst_tidmaibuftab_init(GstTIDmaiBufTab *self)
 
     self->hBufTab     = NULL;
     self->hBufAvailRv = NULL;
+    self->blocking    = TRUE;
 
     GST_LOG("end init\n");
 }
@@ -144,7 +145,10 @@ Buffer_Handle gst_tidmaibuftab_get_buf(GstTIDmaiBufTab *self)
     pthread_mutex_lock(&self->hGetBufMutex);
     hFreeBuf = BufTab_getFreeBuf(self->hBufTab);
 
-    if (!hFreeBuf) {
+    /* If we are configured to block until we have a buffer, wait until a
+     * buffer is available
+     */
+    if (self->blocking && !hFreeBuf) {
         Rendezvous_reset(self->hBufAvailRv);
 
         pthread_mutex_unlock(&self->hGetBufMutex);
@@ -155,11 +159,20 @@ Buffer_Handle gst_tidmaibuftab_get_buf(GstTIDmaiBufTab *self)
     }
     pthread_mutex_unlock(&self->hGetBufMutex);
 
-    if (!hFreeBuf) {
+    if (self->blocking && !hFreeBuf) {
         GST_ERROR("Failed to get a buffer from the GstTIDmaiBufTab object");
     }
 
     return hFreeBuf;
+}
+
+
+/******************************************************************************
+ * gst_tidmaibuftab_set_blocking
+ ******************************************************************************/
+void gst_tidmaibuftab_set_blocking(GstTIDmaiBufTab *self, gboolean blocking)
+{
+   self->blocking = blocking;
 }
 
 

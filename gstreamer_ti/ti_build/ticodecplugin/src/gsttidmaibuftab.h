@@ -70,6 +70,7 @@ struct _GstTIDmaiBufTab {
     BufTab_Handle     hBufTab;
     Rendezvous_Handle hBufAvailRv;
     pthread_mutex_t   hGetBufMutex;
+    gboolean          blocking;
 };
 
 struct _GstTIDmaiBufTabClass {
@@ -81,6 +82,8 @@ GType            gst_tidmaibuftab_get_type(void);
 GstTIDmaiBufTab* gst_tidmaibuftab_new(gint num_bufs, gint32 size,
                      Buffer_Attrs *attrs);
 Buffer_Handle    gst_tidmaibuftab_get_buf(GstTIDmaiBufTab *self);
+void             gst_tidmaibuftab_set_blocking(GstTIDmaiBufTab *self,
+                     gboolean blocking);
 void             gst_tidmaibuftab_ref(GstTIDmaiBufTab *self);
 void             gst_tidmaibuftab_unref(GstTIDmaiBufTab *self);
 

@@ -1,4 +1,8 @@
 2010-09-13: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaibuftab.{c,h}:
+	Add gst_tidmaibuftab_set_blocking() function.
+
+2010-09-13: Don Darling, Texas Instruments, Inc.
 	* src/gsttividdec2.c:
 	Create gst_tividdec2_set_source_caps_base() function.
 
