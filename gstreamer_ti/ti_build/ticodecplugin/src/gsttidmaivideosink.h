@@ -89,8 +89,7 @@ struct _GstTIDmaiVideoSink {
   Display_Handle    hDisplay;
   Display_Attrs     dAttrs;
   BufferGfx_Attrs   dGfxAttrs;
-  gint              dFramerateNum;
-  gint              dFramerateDen;
+  GValue            dCapsFramerate;
 
   /* OSD Attributes */
   gboolean          hideOSD;

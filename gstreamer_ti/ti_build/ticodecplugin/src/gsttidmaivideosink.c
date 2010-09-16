@@ -449,8 +449,6 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     dmaisink->useUserptrBufs      = FALSE;
     dmaisink->hideOSD             = FALSE;
     dmaisink->hDispBufTab         = NULL;
-    dmaisink->dFramerateNum       = 0;
-    dmaisink->dFramerateDen       = 1;
 
     dmaisink->signal_handoffs = DEFAULT_SIGNAL_HANDOFFS;
 
@@ -459,6 +457,11 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     g_value_init(&dmaisink->framerate, GST_TYPE_FRACTION);
     g_assert(GST_VALUE_HOLDS_FRACTION(&dmaisink->framerate));
     gst_value_set_fraction(&dmaisink->framerate, 0, 1);
+
+    memset(&dmaisink->dCapsFramerate, 0, sizeof(GValue));
+    g_value_init(&dmaisink->dCapsFramerate, GST_TYPE_FRACTION);
+    g_assert(GST_VALUE_HOLDS_FRACTION(&dmaisink->dCapsFramerate));
+    gst_value_set_fraction(&dmaisink->dCapsFramerate, 0, 1);
 
     memset(&dmaisink->iattrs.framerate, 0, sizeof(GValue));
     g_value_init(&dmaisink->iattrs.framerate, GST_TYPE_FRACTION);
@@ -1293,11 +1296,11 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
     sink->iattrs.height = sink->dGfxAttrs.dim.height;
 
     /* Set the input frame rate. */
-    gst_value_set_fraction(&sink->framerate, sink->dFramerateNum,
-        sink->dFramerateDen);
+    g_value_copy(&sink->dCapsFramerate, &sink->framerate);
 
-    GST_DEBUG("Frame rate = %d/%d\n", sink->dFramerateNum,
-        sink->dFramerateDen);
+    GST_DEBUG("Frame rate = %d/%d\n",
+        gst_value_get_fraction_numerator(&sink->dCapsFramerate),
+        gst_value_get_fraction_denominator(&sink->dCapsFramerate));
 
     /* This loop will exit if one of the following conditions occurs:
      * 1.  The display was created
@@ -1453,8 +1456,9 @@ static gboolean gst_tidmaivideosink_process_caps(GstBaseSink * bsink,
     dmaisink->dGfxAttrs.dim.lineLength   = BufferGfx_calcLineLength(width, 
                                                inBufColorSpace);
     dmaisink->dGfxAttrs.colorSpace       = inBufColorSpace;
-    dmaisink->dFramerateNum              = framerateNum;
-    dmaisink->dFramerateDen              = framerateDen;
+
+    gst_value_set_fraction(&dmaisink->dCapsFramerate, framerateNum,
+        framerateDen);
         
     return TRUE;
 }
