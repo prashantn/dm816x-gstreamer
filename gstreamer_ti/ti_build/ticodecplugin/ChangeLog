@@ -1,4 +1,9 @@
 2010-09-13: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaibuffertransport.h:
+	Return NULL from GST_TIDMAIBUFFERTRANSPORT_DMAIBUF if passed a NULL
+	argument.
+
+2010-09-13: Don Darling, Texas Instruments, Inc.
 	* src/gsttidmaivideosink.c:
 	Allow size to be specified to gst_tidmaivideosink_alloc_display_buffers
 

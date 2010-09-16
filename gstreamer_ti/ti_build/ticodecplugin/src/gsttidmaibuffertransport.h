@@ -60,7 +60,7 @@ typedef struct _GstTIDmaiBufferTransportClass GstTIDmaiBufferTransportClass;
 
 /* Utility macros for GST_TYPE_TIDMAIBUFFERTRANSPORT */
 #define GST_TIDMAIBUFFERTRANSPORT_DMAIBUF(obj) \
-    (GST_TIDMAIBUFFERTRANSPORT(obj)->dmaiBuffer)
+    ((obj) ? GST_TIDMAIBUFFERTRANSPORT(obj)->dmaiBuffer : NULL)
 
 /* _GstTIDmaiBufferTransport object */
 struct _GstTIDmaiBufferTransport {
