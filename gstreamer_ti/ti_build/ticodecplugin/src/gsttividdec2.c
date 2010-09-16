@@ -150,6 +150,9 @@ static gboolean
 static gboolean
  gst_tividdec2_set_source_caps(GstTIViddec2 *viddec2, Buffer_Handle hBuf);
 static gboolean
+ gst_tividdec2_set_source_caps_base(GstTIViddec2 *viddec2, Int32 width,
+     Int32 height, ColorSpace_Type colorSpace);
+static gboolean
  gst_tividdec2_sink_event(GstPad *pad, GstEvent *event);
 static GstFlowReturn
  gst_tividdec2_chain(GstPad *pad, GstBuffer *buf);
@@ -703,6 +706,27 @@ static gboolean gst_tividdec2_set_source_caps(
 {
     BufferGfx_Dimensions  dim;
     BufferGfx_Attrs       gfxAttrs = BufferGfx_Attrs_DEFAULT;
+
+    /* Create a caps object using the dimensions from the given buffer */
+    BufferGfx_getDimensions(hBuf, &dim);
+
+    /* Retrieve the graphics attribute so we know the colorspace */
+    Buffer_getAttrs(hBuf, BufferGfx_getBufferAttrs(&gfxAttrs));
+
+    /* Call the base function with the buffer metadata */
+    return gst_tividdec2_set_source_caps_base(viddec2, dim.width, dim.height,
+        gfxAttrs.colorSpace);
+}
+
+
+/******************************************************************************
+ * gst_tividdec2_set_source_caps_base
+ *     Negotiate our source pad capabilities.
+ ******************************************************************************/
+static gboolean gst_tividdec2_set_source_caps_base(
+                    GstTIViddec2 *viddec2, Int32 width, Int32 height,
+                    ColorSpace_Type colorSpace)
+{
     GstCaps              *caps;
     GValue                fourcc = {0};
     gboolean              ret;
@@ -711,17 +735,11 @@ static gboolean gst_tividdec2_set_source_caps(
 
     pad = viddec2->srcpad;
 
-    /* Create a caps object using the dimensions from the given buffer */
-    BufferGfx_getDimensions(hBuf, &dim);
-
-    /* Retrieve the graphics attribute so we know the colorspace */
-    Buffer_getAttrs(hBuf, BufferGfx_getBufferAttrs(&gfxAttrs));
-
     /* Determine the fourcc from the colorspace */
     g_value_init(&fourcc, GST_TYPE_FOURCC);
     g_assert(GST_VALUE_HOLDS_FOURCC(&fourcc));
 
-    switch (gfxAttrs.colorSpace) {
+    switch (colorSpace) {
         case ColorSpace_UYVY:
             gst_value_set_fourcc(&fourcc, GST_MAKE_FOURCC('U','Y','V','Y'));
             break;
@@ -746,8 +764,8 @@ static gboolean gst_tividdec2_set_source_caps(
             "framerate", GST_TYPE_FRACTION,
                 gst_value_get_fraction_numerator(&viddec2->framerate),
                 gst_value_get_fraction_denominator(&viddec2->framerate),
-            "width",     G_TYPE_INT,        dim.width,
-            "height",    G_TYPE_INT,        dim.height,
+            "width",     G_TYPE_INT,        width,
+            "height",    G_TYPE_INT,        height,
             NULL);
 
     /* Set the source pad caps */

@@ -1,3 +1,7 @@
+2010-09-13: Don Darling, Texas Instruments, Inc.
+	* src/gsttividdec2.c:
+	Create gst_tividdec2_set_source_caps_base() function.
+
 2010-09-10: Don Darling, Texas Instruments, Inc.
 	* src/gsttividdec2.{c,h}:
 	Fix handling of framerate values in TIViddec2.
