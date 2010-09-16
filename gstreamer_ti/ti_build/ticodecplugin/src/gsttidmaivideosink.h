@@ -59,7 +59,7 @@ struct _VideoStd_Attrs {
   VideoStd_Type     videostd;
   Int32             width;
   Int32             height;
-  int               framerate;
+  GValue            framerate;
 };
 
 typedef struct _GstTIDmaiVideoSink GstTIDmaiVideoSink;
@@ -78,7 +78,7 @@ struct _GstTIDmaiVideoSink {
   gchar         *displayDevice;
   gchar         *videoStd;
   gchar         *videoOutput;
-  gint          framerate;
+  GValue        framerate;
   gint          numBufs;
   gint          rotation;
   gboolean      resizer;

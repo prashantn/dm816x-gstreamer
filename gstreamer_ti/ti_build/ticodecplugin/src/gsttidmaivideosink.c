@@ -178,6 +178,11 @@ static gboolean
     gst_tidmaivideosink_open_osd(GstTIDmaiVideoSink * sink);
 static gboolean
     gst_tidmaivideosink_close_osd(GstTIDmaiVideoSink * sink);
+static gboolean
+    gst_tidmaivideosink_fraction_is_multiple(GValue *, GValue *);
+static gboolean
+    gst_tidmaivideosink_fraction_divide(GValue *dividend, GValue *frac1,
+        GValue *frac2);
 
 static guint gst_tidmaivideosink_signals[LAST_SIGNAL] = { 0 };
 
@@ -265,9 +270,10 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
             "(OMAP3530 only)", -1, G_MAXINT, -1, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_FRAMERATE,
-        g_param_spec_int("framerate", "frame rate of video",
-            "Frame rate of the video expressed as an integer", -1, G_MAXINT,
-            -1, G_PARAM_READWRITE));
+        gst_param_spec_fraction("framerate", "frame rate of video",
+            "Frame rate of the video expressed as a fraction.  A value "
+            "of 0/1 indicates the framerate is not specified", 0, 1,
+            G_MAXINT, 1, 0, 1, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_ACCEL_FRAME_COPY,
         g_param_spec_boolean("accelFrameCopy", "Accel frame copy",
@@ -433,7 +439,6 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     dmaisink->videoStd            = NULL;
     dmaisink->videoOutput         = NULL;
     dmaisink->numBufs             = -1;
-    dmaisink->framerate           = -1;
     dmaisink->framerepeat         = 0;
     dmaisink->repeat_with_refresh = FALSE;
     dmaisink->rotation            = -1;
@@ -448,6 +453,22 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     dmaisink->dFramerateDen       = 1;
 
     dmaisink->signal_handoffs = DEFAULT_SIGNAL_HANDOFFS;
+
+    /* Initialize GValue members */
+    memset(&dmaisink->framerate, 0, sizeof(GValue));
+    g_value_init(&dmaisink->framerate, GST_TYPE_FRACTION);
+    g_assert(GST_VALUE_HOLDS_FRACTION(&dmaisink->framerate));
+    gst_value_set_fraction(&dmaisink->framerate, 0, 1);
+
+    memset(&dmaisink->iattrs.framerate, 0, sizeof(GValue));
+    g_value_init(&dmaisink->iattrs.framerate, GST_TYPE_FRACTION);
+    g_assert(GST_VALUE_HOLDS_FRACTION(&dmaisink->iattrs.framerate));
+    gst_value_set_fraction(&dmaisink->iattrs.framerate, 0, 1);
+
+    memset(&dmaisink->oattrs.framerate, 0, sizeof(GValue));
+    g_value_init(&dmaisink->oattrs.framerate, GST_TYPE_FRACTION);
+    g_assert(GST_VALUE_HOLDS_FRACTION(&dmaisink->oattrs.framerate));
+    gst_value_set_fraction(&dmaisink->oattrs.framerate, 0, 1);
 
     /* On DM365, we don't have the bandwidth to copy a frame multiple times to
      * display them more than once.  We must put a frame to the display once
@@ -516,7 +537,7 @@ static void gst_tidmaivideosink_set_property(GObject * object, guint prop_id,
             sink->rotation = g_value_get_int(value);
             break;
         case PROP_FRAMERATE:
-            sink->framerate = g_value_get_int(value);
+            g_value_copy(value, &sink->framerate);
             break;
         case PROP_ACCEL_FRAME_COPY:
             sink->accelFrameCopy = g_value_get_boolean(value);
@@ -587,7 +608,7 @@ static void gst_tidmaivideosink_get_property(GObject * object, guint prop_id,
             g_value_set_int(value, sink->numBufs);
             break;
         case PROP_FRAMERATE:
-            g_value_set_int(value, sink->framerate);
+            g_value_copy(&sink->framerate, value);
             break;
         case PROP_SYNC:
             g_value_set_boolean(value, GST_BASE_SINK(sink)->sync);
@@ -682,37 +703,41 @@ static int gst_tidmaivideosink_videostd_get_attrs(VideoStd_Type videoStd,
 {
     GST_DEBUG("Begin\n");
 
+    /* Initialize the framerate GValue */
+    memset(&vattrs->framerate, 0, sizeof(GValue));
+    g_value_init(&vattrs->framerate, GST_TYPE_FRACTION);
+    g_assert(GST_VALUE_HOLDS_FRACTION(&vattrs->framerate));
+
     switch (videoStd) {
         case VideoStd_1080P_24:
-            vattrs->framerate = 24;
+            gst_value_set_fraction(&vattrs->framerate, 24, 1);
             break;
         case VideoStd_SIF_PAL:
         case VideoStd_D1_PAL:
         case VideoStd_1080P_25:
         case VideoStd_1080I_25:
-            vattrs->framerate = 25;
+            gst_value_set_fraction(&vattrs->framerate, 25, 1);
             break;
         case VideoStd_CIF:
         case VideoStd_SIF_NTSC:
         case VideoStd_D1_NTSC:
+            gst_value_set_fraction(&vattrs->framerate, 30000, 1001);
+            break;
         case VideoStd_1080I_30:
         case VideoStd_1080P_30:
-            vattrs->framerate = 30;
+            gst_value_set_fraction(&vattrs->framerate, 30, 1);
             break;
         case VideoStd_576P:
         case VideoStd_720P_50:
-            vattrs->framerate = 50;
+            gst_value_set_fraction(&vattrs->framerate, 50, 1);
             break;
         case VideoStd_480P:
         case VideoStd_720P_60:
         #if defined(Platform_dm6467t)
         case VideoStd_1080P_60:
         #endif
-            vattrs->framerate = 60;
-            break;
-
         case VideoStd_VGA:
-            vattrs->framerate = 60;
+            gst_value_set_fraction(&vattrs->framerate, 60, 1);
             break;
 
         default:
@@ -833,27 +858,33 @@ static VideoStd_Type gst_tidmaivideosink_find_videostd(
         GST_DEBUG("\nInput Attributes:\n"
                   "\tsink input attrs width = %ld\n"
                   "\tsink input attrs height = %ld\n"
-                  "\tsink input attrs framerate = %d\n\n"
+                  "\tsink input attrs framerate = %d/%d\n\n"
                   "Display Attributes:\n"
                   "\tdisplay width = %d\n"
                   "\tdisplay height = %d\n\n"
                   "Proposed Standard (%d) Attributes:\n"
                   "\tstandard width = %ld\n"
                   "\tstandard height = %ld\n"
-                  "\tstandard framerate = %d\n",
+                  "\tstandard framerate = %d/%d\n",
                   sink->iattrs.width, sink->iattrs.height,
-                  sink->iattrs.framerate, dwidth, dheight, i,
-                  tattrs.width, tattrs.height, tattrs.framerate);
+                  gst_value_get_fraction_numerator(&sink->iattrs.framerate),
+                  gst_value_get_fraction_denominator(&sink->iattrs.framerate),
+                  dwidth, dheight, i, tattrs.width, tattrs.height,
+                  gst_value_get_fraction_numerator(&tattrs.framerate),
+                  gst_value_get_fraction_denominator(&tattrs.framerate));
 
         if (((tattrs.width - sink->iattrs.width) <= dwidth) &&
             ((tattrs.height - sink->iattrs.height) <= dheight)) {
             /* Check if the frame rate is an exact match, if not check if
-             * it is a multiple of the input frame rate.  If neither case
-             * is true then this is not a compatable videostd.
+             * the input frame rate is a multiple of the display frame rate.
+             * If neither case is true then this is not a compatable videostd.
              */
-            if (sink->iattrs.framerate == tattrs.framerate)
+            if (gst_value_compare(&sink->iattrs.framerate, &tattrs.framerate)
+                   == GST_VALUE_EQUAL) {
                 bestmatch = i;
-            else if (!(tattrs.framerate % sink->iattrs.framerate)) {
+            }
+            else if (!gst_tidmaivideosink_fraction_is_multiple(
+                         &sink->iattrs.framerate, &tattrs.framerate)) {
                 okmatch = i;
             } else {
                 continue;
@@ -892,16 +923,15 @@ static void gst_tidmaivideosink_check_set_framerate(GstTIDmaiVideoSink * sink)
     GST_DEBUG("Begin\n");
 
     /* Check if the framerate was set by the user on the command line */
-    if (sink->framerate != -1) {
-        sink->iattrs.framerate = sink->framerate;
+    if (gst_value_get_fraction_numerator(&sink->framerate) > 0) {
+        g_value_copy(&sink->framerate, &sink->iattrs.framerate);
         return;
     }
 
-    /* Was the frame rate set to a positive non-zero value based on the stream
-     * attributes?  If not set to 30fps as a default.
-     */
-    if (sink->iattrs.framerate <= 0)
-        sink->iattrs.framerate = 30;
+    /* Default to 29.97fps if there is no framerate information available */
+    if (gst_value_get_fraction_numerator(&sink->iattrs.framerate) == 0) {
+        gst_value_set_fraction(&sink->iattrs.framerate, 30000, 1001);
+    }
 
     GST_DEBUG("Finish\n");
     return;
@@ -920,17 +950,27 @@ static void gst_tidmaivideosink_check_set_framerate(GstTIDmaiVideoSink * sink)
  ******************************************************************************/
 static int gst_tidmaivideosink_get_framerepeat(GstTIDmaiVideoSink * sink)
 {
-    int num_repeat;
+    GValue num_repeat = {0, };
 
     GST_DEBUG("Begin\n");
 
-    if ((sink->oattrs.framerate % sink->iattrs.framerate) != 0)
-        num_repeat = 1;
-    else
-        num_repeat = sink->oattrs.framerate / sink->iattrs.framerate;
+    /* Divide the native framerate by the desired framerate.  If the result
+     * is a whole number, return it.  Otherwise return 1 -- we don't support
+     * fractional repeat rates. */
+    g_value_init(&num_repeat, GST_TYPE_FRACTION);
+    g_assert(GST_VALUE_HOLDS_FRACTION(&num_repeat));
+
+    if (!gst_tidmaivideosink_fraction_divide(&num_repeat,
+             &sink->oattrs.framerate, &sink->iattrs.framerate)) {
+        return 1;
+    }
+
+    if (gst_value_get_fraction_denominator(&num_repeat) != 1) {
+        return 1;
+    }
 
     GST_DEBUG("Finish\n");
-    return num_repeat;
+    return gst_value_get_fraction_numerator(&num_repeat);
 }
 
 
@@ -1155,9 +1195,11 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink,
               "\tvideostd = %d\n"
               "\twidth = %ld\n"
               "\theight = %ld\n"
-              "\tframerate = %d\n",
+              "\tframerate = %d/%d\n",
               sink->oattrs.videostd, sink->oattrs.width,
-              sink->oattrs.height, sink->oattrs.framerate);
+              sink->oattrs.height,
+              gst_value_get_fraction_numerator(&sink->oattrs.framerate),
+              gst_value_get_fraction_denominator(&sink->oattrs.framerate));
 
     GST_DEBUG("Finish\n");
 
@@ -1250,13 +1292,12 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
     sink->iattrs.width  = sink->dGfxAttrs.dim.width;
     sink->iattrs.height = sink->dGfxAttrs.dim.height;
 
-    /* Set the input frame rate.  Round to the nearest integer */
-    sink->iattrs.framerate =
-        (int)(((gdouble) sink->dFramerateNum / sink->dFramerateDen) + .5);
+    /* Set the input frame rate. */
+    gst_value_set_fraction(&sink->framerate, sink->dFramerateNum,
+        sink->dFramerateDen);
 
-    GST_DEBUG("Frame rate numerator = %d\n", sink->dFramerateNum);
-    GST_DEBUG("Frame rate denominator = %d\n", sink->dFramerateDen);
-    GST_DEBUG("Frame rate rounded = %d\n", sink->iattrs.framerate);
+    GST_DEBUG("Frame rate = %d/%d\n", sink->dFramerateNum,
+        sink->dFramerateDen);
 
     /* This loop will exit if one of the following conditions occurs:
      * 1.  The display was created
@@ -1939,6 +1980,59 @@ static gboolean gst_tidmaivideosink_close_osd(GstTIDmaiVideoSink * sink)
     }
 
     return TRUE;
+}
+
+/******************************************************************************
+ * gst_tidmaivideosink_fraction_is_multiple
+ *     Return TRUE if frac1 is a multiple of frac2.
+ ******************************************************************************/
+static gboolean gst_tidmaivideosink_fraction_is_multiple(
+                    GValue *frac1, GValue *frac2)
+{
+    GValue dividend = {0, };
+
+    g_assert(GST_VALUE_HOLDS_FRACTION(frac1));
+    g_assert(GST_VALUE_HOLDS_FRACTION(frac2));
+
+    g_value_init(&dividend, GST_TYPE_FRACTION);
+    g_assert(GST_VALUE_HOLDS_FRACTION(&dividend));
+
+    /* Divide frac2 by frac1, and see if the result is a whole number */
+    gst_tidmaivideosink_fraction_divide(&dividend, frac2, frac1);
+
+    /* The divide function normalizes the result, so we know if the
+     * denominator is 1, then frac1 evenly divides frac2
+     */
+    return gst_value_get_fraction_denominator(&dividend) == 1;
+}
+
+/******************************************************************************
+ * gst_tidmaivideosink_fraction_divide
+ *     Divide frac1 by frac2, and return the result in dividend.
+ ******************************************************************************/
+static gboolean gst_tidmaivideosink_fraction_divide(
+                    GValue *dividend, GValue *frac1, GValue *frac2)
+{
+    GValue recip_frac2 = {0, };
+
+    g_assert(GST_VALUE_HOLDS_FRACTION(frac1));
+    g_assert(GST_VALUE_HOLDS_FRACTION(frac2));
+
+    g_value_init(&recip_frac2, GST_TYPE_FRACTION);
+    g_assert(GST_VALUE_HOLDS_FRACTION(&recip_frac2));
+
+    /* Division by zero is not allowed */
+    if (gst_value_get_fraction_numerator(frac2) == 0) {
+        return FALSE;
+    }
+
+    /* Get the reciprical of frac1 */
+    gst_value_set_fraction(&recip_frac2,
+        gst_value_get_fraction_denominator(frac2),
+        gst_value_get_fraction_numerator(frac2));
+    
+    /* Divide frac1 by frac2 */
+    return gst_value_fraction_multiply(dividend, frac1, &recip_frac2);
 }
 
 /******************************************************************************
