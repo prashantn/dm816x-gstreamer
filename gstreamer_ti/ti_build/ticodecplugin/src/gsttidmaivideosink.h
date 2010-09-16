@@ -35,6 +35,7 @@
 #include <ti/sdo/dmai/Framecopy.h>
 #include <ti/sdo/dmai/Resize.h>
 
+#include "gsttidmaibuftab.h"
 #include "gsttidmaibuffertransport.h"
 
 G_BEGIN_DECLS
@@ -98,7 +99,7 @@ struct _GstTIDmaiVideoSink {
 
   /* User-allocated Display Buffers */
   gboolean          useUserptrBufs;
-  BufTab_Handle     hDispBufTab;
+  GstTIDmaiBufTab  *hDispBufTab;
 
   /* Attributes for hardware-accelerated frame-copies */
   Framecopy_Handle  hFc;

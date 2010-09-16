@@ -1,4 +1,9 @@
 2010-09-13: Don Darling, Texas Instruments, Inc.
+	* src/gsttidmaivideosink.{c,h}:
+	Use GstTIDmaiBufTab object to manage user-allocated buffers in
+	TIDmaiVideoSink.
+
+2010-09-13: Don Darling, Texas Instruments, Inc.
 	* src/gsttidmaibuftab.{c,h}:
 	Add gst_tidmaibuftab_set_blocking() function.
 

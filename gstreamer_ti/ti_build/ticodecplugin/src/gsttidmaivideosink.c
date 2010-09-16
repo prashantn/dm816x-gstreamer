@@ -1248,7 +1248,7 @@ static gboolean gst_tidmaivideosink_exit_display(GstTIDmaiVideoSink * sink)
 
     if (sink->hDispBufTab) {
         GST_DEBUG("freeing display buffers\n");
-        BufTab_delete(sink->hDispBufTab);
+        gst_tidmaibuftab_unref(sink->hDispBufTab);
         sink->hDispBufTab = NULL;
     }
 
@@ -1335,7 +1335,8 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
         }
 
         /* Create the display device using the attributes set above */
-        sink->hDisplay = Display_create(sink->hDispBufTab, &sink->dAttrs);
+        sink->hDisplay = Display_create(GST_TIDMAIBUFTAB_BUFTAB(
+            sink->hDispBufTab), &sink->dAttrs);
 
         if ((sink->hDisplay == NULL) && (sink->autoselect == TRUE)) {
             GST_DEBUG("Could not create display with videoStd %d.  Searching for next valid standard.\n", 
@@ -1891,7 +1892,7 @@ static gboolean gst_tidmaivideosink_alloc_display_buffers(
     bufSize = gst_ti_calc_buffer_size(gfxAttrs.dim.width, gfxAttrs.dim.height,
                   gfxAttrs.dim.lineLength, gfxAttrs.colorSpace);
 
-    sink->hDispBufTab = BufTab_create(sink->dAttrs.numBufs, bufSize,
+    sink->hDispBufTab = gst_tidmaibuftab_new(sink->dAttrs.numBufs, bufSize,
         BufferGfx_getBufferAttrs(&gfxAttrs));
 
     return TRUE;
