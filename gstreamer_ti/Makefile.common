@@ -276,6 +276,7 @@ CFLAGS_dm6467t     = -march=armv5te -mtune=arm926ej-s
 CFLAGS_omapl138    = -march=armv5te -mtune=arm926ej-s
 CFLAGS_omap3530    = -march=armv7-a -mtune=cortex-a8
 CFLAGS_omap3530   += -mfpu=neon -mfloat-abi=softfp
+CFLAGS_omap3530_dv400    = -march=armv7-a -mtune=cortex-a8
 CFLAGS_omap3530_dv400   += -mfpu=neon -mfloat-abi=softfp
 
 LDFLAGS_all        = -L$(TARGET_GSTREAMER_DIR)/lib
