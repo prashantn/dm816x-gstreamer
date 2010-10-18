@@ -1572,6 +1572,14 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
      */
     for (i = 0; i < sink->framerepeat; i++) {
 
+        /* Disable framerepeat for buffers that have timestamps - the base sink
+         * has already introduced a delay to throttle output to the proper
+         * frame rate.
+         */
+        if (GST_CLOCK_TIME_IS_VALID(GST_BUFFER_TIMESTAMP(buf))) {
+            i = sink->framerepeat - 1;
+        }
+
         /* Get a buffer from the display driver */
         if (Display_get(sink->hDisplay, &hDispBuf) < 0) {
             GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
