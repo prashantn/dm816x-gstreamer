@@ -56,7 +56,7 @@ check-0.9.8
 libid3tag-0.15.1b
     Description:   ID3 tag manipulation library
     Project Page:  http://www.underbit.com/products/mad
-    Download URL:  ftp://ftp.mars.org/pub/mpeg
+    Download URL:  http://sourceforge.net/projects/mad/files
 
 libmad-0.15.1b
     Description:   MPEG audio decoder library
