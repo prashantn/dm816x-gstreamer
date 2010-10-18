@@ -1,7 +1,7 @@
-From 2c3b5258b5d0207c09cc6d02a8d22de8529b0265 Mon Sep 17 00:00:00 2001
+From c52826c7c3765020d807a32c5ea4d414d79395f6 Mon Sep 17 00:00:00 2001
 From: Don Darling <ddarling@ti.com>
 Date: Tue, 12 Oct 2010 15:45:55 -0500
-Subject: [PATCH 10/15] v4l2src: set bytesperline and sizeimage before calling the VIDIOC_S_FMT ioctl
+Subject: [PATCH 10/16] v4l2src: set bytesperline and sizeimage before calling the VIDIOC_S_FMT ioctl
 
 The V4L2 capture driver expects the application to set these fields prior
 to calling VIDIOC_TRY_FMT or VIDIOC_S_FMT:

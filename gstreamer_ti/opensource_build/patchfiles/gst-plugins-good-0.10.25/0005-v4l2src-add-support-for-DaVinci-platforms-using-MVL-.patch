@@ -1,7 +1,7 @@
-From 6b1610c52692cfea7ebd8c0c9c948cf679297b6a Mon Sep 17 00:00:00 2001
+From 1b7a7a8259dc12951d28a56fe686f6b4ac8465d3 Mon Sep 17 00:00:00 2001
 From: Don Darling <ddarling@ti.com>
 Date: Tue, 12 Oct 2010 15:33:30 -0500
-Subject: [PATCH 05/15] v4l2src: add support for DaVinci platforms using MVL-based kernels
+Subject: [PATCH 05/16] v4l2src: add support for DaVinci platforms using MVL-based kernels
 
 The following files add support for device-specific hand-shaking with the
 capture drivers for DaVinci platforms that use MontaVista-based Linux kernels:

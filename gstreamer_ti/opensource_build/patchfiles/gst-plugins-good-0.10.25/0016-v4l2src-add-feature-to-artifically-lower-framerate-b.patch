@@ -1,0 +1,189 @@
+From 86097267c27f9160f51847aa1c57f5f82225c947 Mon Sep 17 00:00:00 2001
+From: Don Darling <ddarling@ti.com>
+Date: Thu, 14 Oct 2010 11:19:04 -0500
+Subject: [PATCH 16/16] v4l2src: add feature to artifically lower framerate by dropping frames.
+
+Some capture devices do not let you set the framerate.  In these cases, even
+if you specify a frame rate of 30/1, you may still get 60/1.  With this change,
+if you specify 30/1 and the framerate is really 60/1, every other capture
+frame will be dropped and only half of them will be pushed downstream to
+simulate 30fps.
+
+The implementation is generic enough to handle any framerate.  It automatically
+calculates how many and how often frames need to be dropped.
+
+Unfortuately, there is no way to query the "default" fps that will be used
+on platforms that do not support setting the frame rate, and target-specific
+code must be introduced to make this work.  Initially, this feature will only
+kick-in for DM6467 and DM6467T.
+---
+ sys/v4l2/gstv4l2object.c |    4 +++
+ sys/v4l2/gstv4l2object.h |    5 +++
+ sys/v4l2/gstv4l2src.c    |   15 ++++++++++
+ sys/v4l2/v4l2src_calls.c |   66 +++++++++++++++++++++++++++++++++++++++++++++-
+ 4 files changed, 89 insertions(+), 1 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index e63a762..fdcd0d1 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -377,6 +377,10 @@ gst_v4l2_object_new (GstElement * element,
+   v4l2object->davinci_previewer_fd  = -1;
+   #endif
+ 
++  v4l2object->pushed_frame_count_1000x = 0UL;
++  v4l2object->push_rate_1000x          = 0UL;
++  v4l2object->next_pushed_frame_1000x  = 0UL;
++
+   return v4l2object;
+ }
+ 
+diff --git a/sys/v4l2/gstv4l2object.h b/sys/v4l2/gstv4l2object.h
+index 640f948..d4eb8a8 100644
+--- a/sys/v4l2/gstv4l2object.h
++++ b/sys/v4l2/gstv4l2object.h
+@@ -98,6 +98,11 @@ struct _GstV4l2Object {
+   gint  davinci_previewer_fd;
+   #endif
+ 
++  /* how many capture frames to drop for each frame pushed */
++  guint32 pushed_frame_count_1000x;
++  guint32 push_rate_1000x;
++  guint32 next_pushed_frame_1000x;
++
+   /* the video buffer (mmap()'ed) */
+   guint8 **buffer;
+ 
+diff --git a/sys/v4l2/gstv4l2src.c b/sys/v4l2/gstv4l2src.c
+index 9c4c5c3..dd6c65c 100644
+--- a/sys/v4l2/gstv4l2src.c
++++ b/sys/v4l2/gstv4l2src.c
+@@ -919,6 +919,21 @@ again:
+   if (G_UNLIKELY (ret != GST_FLOW_OK))
+     goto done;
+ 
++  /* Skip frames if needed to artificially lower the frame rate */
++  if (v4l2src->v4l2object->push_rate_1000x > 0) {
++    if (v4l2src->v4l2object->pushed_frame_count_1000x <
++         v4l2src->v4l2object->next_pushed_frame_1000x) {
++      gst_buffer_unref (temp);
++      goto again;
++    } else {
++      v4l2src->v4l2object->next_pushed_frame_1000x =
++          v4l2src->v4l2object->next_pushed_frame_1000x  -
++          v4l2src->v4l2object->pushed_frame_count_1000x +
++          v4l2src->v4l2object->push_rate_1000x;
++      v4l2src->v4l2object->pushed_frame_count_1000x = 0;
++    }
++  }
++
+   if (v4l2src->frame_byte_size > 0) {
+     size = GST_BUFFER_SIZE (temp);
+ 
+diff --git a/sys/v4l2/v4l2src_calls.c b/sys/v4l2/v4l2src_calls.c
+index b069920..a9853fd 100644
+--- a/sys/v4l2/v4l2src_calls.c
++++ b/sys/v4l2/v4l2src_calls.c
+@@ -90,6 +90,25 @@ queue_failed:
+   }
+ }
+ 
++/* Greatest common divisor */
++static guint32
++gst_v4l2src_gcd(guint32 a, guint32 b)
++{
++    guint32 r;
++
++    if (a < b) {
++        guint32 t = a;
++        a = b;
++        b = t;
++    }
++    while ((r = a % b) != 0) {
++        a = b;
++        b = r;
++    }
++    return b;
++}
++
++
+ /******************************************************
+  * gst_v4l2src_grab_frame ():
+  *   grab a frame for capturing
+@@ -135,8 +154,10 @@ gst_v4l2src_grab_frame (GstV4l2Src * v4l2src, GstBuffer ** buf)
+     }
+ 
+     pool_buffer = GST_BUFFER (gst_v4l2_buffer_pool_dqbuf (pool));
+-    if (pool_buffer)
++    if (pool_buffer) {
++      v4l2src->v4l2object->pushed_frame_count_1000x += 1000;
+       break;
++    }
+ 
+     GST_WARNING_OBJECT (pool->v4l2elem, "trials=%d", trials);
+ 
+@@ -248,6 +269,8 @@ gst_v4l2src_set_capture (GstV4l2Src * v4l2src, guint32 pixelformat,
+     goto done;
+   }
+ 
++  /* We can't trust the frame rate reported by DM6467[T] driver */
++  #if !defined(Platform_dm6467) && !defined(Platform_dm6467t)
+   /* Note: V4L2 provides the frame interval, we have the frame rate */
+   if (fractions_are_equal (stream.parm.capture.timeperframe.numerator,
+           stream.parm.capture.timeperframe.denominator, fps_d, fps_n)) {
+@@ -256,11 +279,52 @@ gst_v4l2src_set_capture (GstV4l2Src * v4l2src, guint32 pixelformat,
+     v4l2src->fps_d = fps_d;
+     goto done;
+   }
++  #endif
+ 
+   /* We want to change the frame rate, so check whether we can. Some cheap USB
+    * cameras don't have the capability */
+   if ((stream.parm.capture.capability & V4L2_CAP_TIMEPERFRAME) == 0) {
++    guint default_n = 0;
++    guint default_d = 0;
++
+     GST_DEBUG_OBJECT (v4l2src, "Not setting framerate (not supported)");
++
++    /* If we know the default framerate for this device, we can throw away
++     * frames to artifically lower the framerate to the one desired.  */
++    #if defined(Platform_dm6467) || defined(Platform_dm6467t)
++    {
++      const guint component_input_id = 1;
++      gint  current_input_id;
++
++      gst_v4l2_get_input(v4l2src->v4l2object, &current_input_id);
++      if (current_input_id == component_input_id) {
++        default_n = 60;
++        default_d = 1;
++      }
++    }
++    #endif
++
++    if (default_n > 0) {
++      guint32 div_n   = default_n * fps_d;
++      guint32 div_d   = default_d * fps_n;
++      guint32 div_gcd = gst_v4l2src_gcd(div_n, div_d);
++      guint32 push_rate_1000x;
++
++      div_n /= div_gcd;
++      div_d /= div_gcd;
++
++      push_rate_1000x = (div_n * 1000) / div_d;
++
++      /* For every push_rate frames captured, push 1 downstream */
++      if (push_rate_1000x > 1000) {
++          GST_LOG_OBJECT (v4l2src, "A frame rate of %u/%u will be simulated "
++            "by only pushing 1 of every %2.4lf captured frames downstream",
++            fps_n, fps_d, push_rate_1000x / ((gdouble)1000));
++          v4l2src->v4l2object->push_rate_1000x         = push_rate_1000x;
++          v4l2src->v4l2object->next_pushed_frame_1000x = push_rate_1000x;
++      }
++    }
++
+     goto done;
+   }
+ 
+-- 
+1.7.0.4
+

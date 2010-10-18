@@ -1,7 +1,7 @@
-From a09d42a00cc4af4ccb868fb832cef325922dafdb Mon Sep 17 00:00:00 2001
+From a5b586a3a6a244725d8cf6e92388c10fd4b70c55 Mon Sep 17 00:00:00 2001
 From: Don Darling <ddarling@ti.com>
 Date: Wed, 13 Oct 2010 18:20:08 -0500
-Subject: [PATCH 15/15] v4l2src: Remove short-circuit of VIDIOC_S_FMT call
+Subject: [PATCH 15/16] v4l2src: Remove short-circuit of VIDIOC_S_FMT call
 
 If VIDIOC_G_FMT returns the format we need, v4l2src will skip the call to
 VIDIOC_S_FMT because it is not needed.  However, on DM365 a call to

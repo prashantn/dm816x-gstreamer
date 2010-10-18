@@ -1,7 +1,7 @@
-From 9736a4ee68dee16464b6a48bb78a9475d7dc886c Mon Sep 17 00:00:00 2001
+From fbd033f0617863e8f1a9133dc167b2f49449bf22 Mon Sep 17 00:00:00 2001
 From: Don Darling <ddarling@ti.com>
 Date: Tue, 12 Oct 2010 15:44:40 -0500
-Subject: [PATCH 09/15] v4l2src: add support for NV16 colorspace
+Subject: [PATCH 09/16] v4l2src: add support for NV16 colorspace
 
 ---
  sys/v4l2/gstv4l2object.c |   11 +++++++++++

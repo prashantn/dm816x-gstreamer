@@ -1,7 +1,7 @@
-From 17201f916482eaf601f6e3509a9c35b2c7e1922a Mon Sep 17 00:00:00 2001
+From b7e6a2081623045dfad1a871b5cef92c359e95f8 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Wed, 24 Mar 2010 11:15:29 -0500
-Subject: [PATCH 13/15] v4l2src: disable video device polling by default on DM6467T
+Subject: [PATCH 13/16] v4l2src: disable video device polling by default on DM6467T
 
 It blocks forever if used.
 ---

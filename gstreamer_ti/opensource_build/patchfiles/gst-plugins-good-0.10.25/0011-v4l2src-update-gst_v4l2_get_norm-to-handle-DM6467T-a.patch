@@ -1,7 +1,7 @@
-From 04f4bd2e0f1125e672c5c4b15e878525b4d7a291 Mon Sep 17 00:00:00 2001
+From 3df09db04f83a2483033de599c19754c74cef140 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Tue, 16 Mar 2010 15:16:00 -0500
-Subject: [PATCH 11/15] v4l2src: update gst_v4l2_get_norm to handle DM6467T and DM365 properly
+Subject: [PATCH 11/16] v4l2src: update gst_v4l2_get_norm to handle DM6467T and DM365 properly
 
 DM6467T and DM365 use the QUERYSTD ioctl to detect the standard in use by the
 connected component.

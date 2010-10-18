@@ -1,7 +1,7 @@
-From cac834adc5b3e507bd14add052fc9ae949f32089 Mon Sep 17 00:00:00 2001
+From ab6f158233d0056efd404cf69fc0168aca337237 Mon Sep 17 00:00:00 2001
 From: Don Darling <ddarling@ti.com>
 Date: Tue, 12 Oct 2010 15:36:01 -0500
-Subject: [PATCH 06/15] v4l2src: support NV12 capture on DM365 using the IPIPE in on-the-fly mode
+Subject: [PATCH 06/16] v4l2src: support NV12 capture on DM365 using the IPIPE in on-the-fly mode
 
 ---
  sys/v4l2/Makefile.am        |    2 +
