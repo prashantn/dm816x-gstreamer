@@ -1,0 +1,31 @@
+From 5181d86f3c199c9aa79700868b39bcb0f5589214 Mon Sep 17 00:00:00 2001
+From: Don Darling <ddarling@ti.com>
+Date: Thu, 16 Sep 2010 17:47:48 -0500
+Subject: [PATCH] Disable last buffer feature by default.
+
+We need CMEM buffers to be released as soon as possible.
+
+We probably don't need to patch the gstreamer library anymore to disable this
+feature.  We should look to see if there is a way to override the default
+behavior in the derived class (TIDmaiVideoSink).  In previous releases, this
+feature couldn't be disabled with a property, so we needed to patch the code.
+---
+ libs/gst/base/gstbasesink.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/libs/gst/base/gstbasesink.c b/libs/gst/base/gstbasesink.c
+index 13e4944..27ee474 100644
+--- a/libs/gst/base/gstbasesink.c
++++ b/libs/gst/base/gstbasesink.c
+@@ -282,7 +282,7 @@ struct _GstBaseSinkPrivate
+ #define DEFAULT_TS_OFFSET           0
+ #define DEFAULT_BLOCKSIZE           4096
+ #define DEFAULT_RENDER_DELAY        0
+-#define DEFAULT_ENABLE_LAST_BUFFER  TRUE
++#define DEFAULT_ENABLE_LAST_BUFFER  FALSE
+ 
+ enum
+ {
+-- 
+1.7.0.4
+
