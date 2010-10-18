@@ -1,0 +1,51 @@
+From 942ab53abc15df2fa46be8d5acbf29e77431991b Mon Sep 17 00:00:00 2001
+From: Don Darling <ddarling@ti.com>
+Date: Tue, 12 Oct 2010 15:38:02 -0500
+Subject: [PATCH 07/15] v4l2src: accept EPERM as a non-fatal error for VIDIOC_TRY
+
+When setting the capture mode, the v4l2src will try interlaced mode first, and
+if the driver returns EINVAL it will try progressive mode.  Any other errno
+value will result in failure.
+
+On TI device drivers, the driver may also return EPERM when trying to set
+interlaced mode on a capture input that doesn't support it.  This change
+now treats EPERM the same was as EINVAL, and tries again with progressive
+mode instead of failing.
+---
+ sys/v4l2/gstv4l2object.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 4b50009..4321a9e 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -1868,7 +1868,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
+   fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
+ 
+   r = v4l2_ioctl (fd, VIDIOC_TRY_FMT, &fmt);
+-  if (r < 0 && errno == EINVAL) {
++  if (r < 0 && (errno == EINVAL || errno == EPERM)) {
+     /* try again with progressive video */
+     fmt.fmt.pix.width = *width;
+     fmt.fmt.pix.height = *height;
+@@ -1895,7 +1895,7 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
+     fmt.fmt.pix.height = *height;
+ 
+     r = v4l2_ioctl (fd, VIDIOC_S_FMT, &fmt);
+-    if (r < 0 && errno == EINVAL) {
++    if (r < 0 && (errno == EINVAL || errno == EPERM)) {
+       /* try again with progressive video */
+       fmt.fmt.pix.width = *width;
+       fmt.fmt.pix.height = *height;
+@@ -1972,7 +1972,7 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
+ 
+   if (v4l2_ioctl (fd, VIDIOC_S_FMT, &format) < 0) {
+     /* we might also get EBUSY here */
+-    if (errno != EINVAL)
++    if (errno != EINVAL && errno != EPERM)
+       goto set_fmt_failed;
+ 
+     GST_DEBUG_OBJECT (v4l2object->element, "trying again...");
+-- 
+1.7.0.4
+

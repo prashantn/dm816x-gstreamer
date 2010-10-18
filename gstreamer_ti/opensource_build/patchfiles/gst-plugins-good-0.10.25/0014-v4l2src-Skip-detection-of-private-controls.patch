@@ -1,0 +1,44 @@
+From 4b55859586a6dc5df50e25371ccbcd507884d27b Mon Sep 17 00:00:00 2001
+From: Don Darling <ddarling@ti.com>
+Date: Wed, 13 Oct 2010 14:16:09 -0500
+Subject: [PATCH 14/15] v4l2src: Skip detection of private controls.
+
+Control information reported by the capture driver on DM365 (and possibly
+others) reports a large number of controls outside the recognized ranges,
+causing a very long delay while this code fails to detect any of them.  At this
+point, we haven't determined if the driver isn't V4L2 compliant here, reporting
+garbage values, or if there is some other issue.
+
+Previous versions of gst-plugins-good didn't support handling private controls,
+and for now we're re-instating that behavior until the issue can be
+root-caused.
+---
+ sys/v4l2/v4l2_calls.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/sys/v4l2/v4l2_calls.c b/sys/v4l2/v4l2_calls.c
+index 1bf1e4e..af64efe 100644
+--- a/sys/v4l2/v4l2_calls.c
++++ b/sys/v4l2/v4l2_calls.c
+@@ -296,6 +296,18 @@ gst_v4l2_fill_lists (GstV4l2Object * v4l2object)
+     if (n == V4L2_CID_LASTP1) {
+       GST_DEBUG_OBJECT (e, "checking private CIDs");
+       n = V4L2_CID_PRIVATE_BASE;
++      /* Skip detection of private controls.  Control information reported by
++       * the capture driver on DM365 (and possibly others) reports a large
++       * number of controls outside the recognized ranges, causing a very long
++       * delay while this code fails to detect any of them.  At this point, we
++       * haven't determined if the driver isn't V4L2 compliant here, reporting
++       * garbage values, or if there is some other issue.
++       *
++       * Previous versions of gst-plugins-good didn't support handling private
++       * controls, and for now we're re-instating that behavior here until the
++       * issue can be root-caused.
++       */
++       break;
+     }
+     GST_DEBUG_OBJECT (e, "checking control %08x", n);
+ 
+-- 
+1.7.0.4
+

@@ -1,0 +1,62 @@
+From 2c3b5258b5d0207c09cc6d02a8d22de8529b0265 Mon Sep 17 00:00:00 2001
+From: Don Darling <ddarling@ti.com>
+Date: Tue, 12 Oct 2010 15:45:55 -0500
+Subject: [PATCH 10/15] v4l2src: set bytesperline and sizeimage before calling the VIDIOC_S_FMT ioctl
+
+The V4L2 capture driver expects the application to set these fields prior
+to calling VIDIOC_TRY_FMT or VIDIOC_S_FMT:
+
+fmt.fmt.pix.bytesperline
+fmt.fmt.pix.sizeimage
+
+An inquiry has been sent to explain why this is needed, as other V4L2 catpure
+drivers tend to provide this information, rather than expecting applications
+to provide it.
+---
+ sys/v4l2/gstv4l2object.c |   23 +++++++++++++++++++++++
+ 1 files changed, 23 insertions(+), 0 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index b03c86e..2d79b0b 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -1902,6 +1902,17 @@ gst_v4l2_object_get_nearest_size (GstV4l2Object * v4l2object,
+     }
+   }
+ 
++#if defined(V4L2_PIX_FMT_NV16)
++  /* Set the bytesperline and sizeimage fields when using the NV16 colorspace.
++   * Some drivers, such as the DM6467T component capture driver expects these
++   * fields to be set.
++   */
++  if (pixelformat == V4L2_PIX_FMT_NV16) {
++    fmt.fmt.pix.bytesperline = (*width); 
++    fmt.fmt.pix.sizeimage    = (fmt.fmt.pix.bytesperline * (*height)) << 1;
++  }
++#endif
++
+   r = v4l2_ioctl (fd, VIDIOC_TRY_FMT, &fmt);
+   if (r < 0 && (errno == EINVAL || errno == EPERM)) {
+     /* try again with progressive video */
+@@ -2029,6 +2040,18 @@ gst_v4l2_object_set_format (GstV4l2Object * v4l2object, guint32 pixelformat,
+     v4l2object->bytesused = format.fmt.pix.sizeimage;
+   #endif
+ 
++  /* Set the bytesperline and sizeimage fields when using the NV16 colorspace.
++   * Some drivers, such as the DM6467T component capture driver expects these
++   * fields to be set.
++   */
++  #if defined(V4L2_PIX_FMT_NV16)
++    if (pixelformat == V4L2_PIX_FMT_NV16) {
++      format.fmt.pix.bytesperline = width; 
++      format.fmt.pix.sizeimage    =
++        (format.fmt.pix.bytesperline * height) << 1;
++    }
++  #endif
++
+   if (v4l2_ioctl (fd, VIDIOC_S_FMT, &format) < 0) {
+     /* we might also get EBUSY here */
+     if (errno != EINVAL && errno != EPERM)
+-- 
+1.7.0.4
+

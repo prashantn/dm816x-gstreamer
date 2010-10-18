@@ -29,8 +29,8 @@ gst-plugins-base-0.10.30
     Project Page:  http://gstreamer.freedesktop.org/
     Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-base/
 
-gst-plugins-good-0.10.16
-    Description:   Select plugins from gStreamer good-plugins (avi, oss)
+gst-plugins-good-0.10.25
+    Description:   Select plugins from gst-plugins-good
     Project Page:  http://gstreamer.freedesktop.org/
     Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-good/
 

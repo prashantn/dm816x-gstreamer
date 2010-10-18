@@ -1,0 +1,33 @@
+From c023d310c86068ba8ffe0dd3150954053ac1a150 Mon Sep 17 00:00:00 2001
+From: Don Darling <don.osc2@gmail.com>
+Date: Tue, 13 Jul 2010 19:30:51 -0500
+Subject: [PATCH 03/15] v4l2src: make sure capture buffer size is aligned on DM365.
+
+On DM365, capture buffers use a pitch that is aligned to a 32-byte boundary.
+We need to comprehend this when calculated the expected capture buffer size.
+---
+ sys/v4l2/gstv4l2object.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+index 9ad0803..34bc103 100644
+--- a/sys/v4l2/gstv4l2object.c
++++ b/sys/v4l2/gstv4l2object.c
+@@ -1277,8 +1277,14 @@ gst_v4l2_object_get_caps_info (GstV4l2Object * v4l2object, GstCaps * caps,
+         break;
+       case GST_MAKE_FOURCC ('N', 'V', '1', '2'):
+         fourcc = V4L2_PIX_FMT_NV12;
++#if defined(Platform_dm365)
++        /* NV12 buffer on dm365 is 32-byte aligned */
++        outsize = GST_ROUND_UP_32 (*w) * GST_ROUND_UP_2 (*h);
++        outsize += (GST_ROUND_UP_32 (*w) * *h) / 2;
++#else
+         outsize = GST_ROUND_UP_4 (*w) * GST_ROUND_UP_2 (*h);
+         outsize += (GST_ROUND_UP_4 (*w) * *h) / 2;
++#endif
+         break;
+       case GST_MAKE_FOURCC ('N', 'V', '2', '1'):
+         fourcc = V4L2_PIX_FMT_NV21;
+-- 
+1.7.0.4
+
