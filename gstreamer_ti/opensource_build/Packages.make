@@ -53,19 +53,6 @@ PACKAGE_gstreamer_DESCRIPTION        = GStreamer library
 BASE_PACKAGES += $(PACKAGE_gstreamer_BUILD_TARGET)
 
 #------------------------------------------------------------------------------
-# Package liboil
-#------------------------------------------------------------------------------
-PACKAGE_liboil_BUILD_TARGET       = liboil
-PACKAGE_liboil_ARCHIVE_BASENAME   = liboil-0.3.16
-PACKAGE_liboil_PRECONFIG_PATCHES  = \
-    0001-Fix-liboil-preprocessor-checks.patch
-PACKAGE_liboil_CONFIGURE_OPTS     =
-PACKAGE_liboil_POSTCONFIG_PATCHES =
-PACKAGE_liboil_BUILD_DIRS         =
-PACKAGE_liboil_DESCRIPTION        = Liboil library
-BASE_PACKAGES += $(PACKAGE_liboil_BUILD_TARGET)
-
-#------------------------------------------------------------------------------
 # Package libid3tag
 #------------------------------------------------------------------------------
 PACKAGE_id3tag_BUILD_TARGET        = id3tag

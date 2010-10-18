@@ -53,11 +53,6 @@ check-0.9.8
     Description:   Check: a unit test framework for C
     Project Page:  http://sourceforge.net/projects/check/
 
-liboil-0.3.16
-    Description:   Liboil library
-    Project Page:  http://liboil.freedesktop.org/wiki/
-    Download URL:  http://liboil.freedesktop.org/download/
-
 libid3tag-0.15.1b
     Description:   ID3 tag manipulation library
     Project Page:  http://www.underbit.com/products/mad

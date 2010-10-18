@@ -47,7 +47,6 @@ base:
 	$(CMD_PREFIX) $(MAKE) glib         $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) check        $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) gstreamer    $(BUILD_INSTALL)
-	$(CMD_PREFIX) $(MAKE) liboil       $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) id3tag       $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) mad          $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) lame         $(BUILD_INSTALL)
