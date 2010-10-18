@@ -61,7 +61,7 @@ libid3tag-0.15.1b
 libmad-0.15.1b
     Description:   MPEG audio decoder library
     Project Page:  http://www.underbit.com/products/mad
-    Download URL:  ftp://ftp.mars.org/pub/mpeg
+    Download URL:  http://sourceforge.net/projects/mad/files
 
 lame-398-2
     Description:   MPEG Audio Layer III (MP3) encoder
