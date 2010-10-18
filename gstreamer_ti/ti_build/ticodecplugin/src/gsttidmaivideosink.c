@@ -170,8 +170,6 @@ static gboolean
  gst_tidmaivideosink_event(GstBaseSink * bsink, GstEvent * event);
 static void 
     gst_tidmaivideosink_init_env(GstTIDmaiVideoSink *sink);
-static int
-    gst_tidmaivideosink_videostd_get_refresh_latency(VideoStd_Type videoStd);
 static gboolean
     gst_tidmaivideosink_alloc_display_buffers(GstTIDmaiVideoSink * sink,
         Int32 bufSize);
@@ -440,8 +438,6 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     dmaisink->videoStd            = NULL;
     dmaisink->videoOutput         = NULL;
     dmaisink->numBufs             = -1;
-    dmaisink->framerepeat         = 0;
-    dmaisink->repeat_with_refresh = FALSE;
     dmaisink->rotation            = -1;
     dmaisink->tempDmaiBuf         = NULL;
     dmaisink->accelFrameCopy      = TRUE;
@@ -473,14 +469,6 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     g_value_init(&dmaisink->oattrs.framerate, GST_TYPE_FRACTION);
     g_assert(GST_VALUE_HOLDS_FRACTION(&dmaisink->oattrs.framerate));
     gst_value_set_fraction(&dmaisink->oattrs.framerate, 0, 1);
-
-    /* On DM365, we don't have the bandwidth to copy a frame multiple times to
-     * display them more than once.  We must put a frame to the display once
-     * and let it be refreshed multiple times.
-     */
-    #if defined(Platform_dm365)
-    dmaisink->repeat_with_refresh = TRUE;
-    #endif
 
     gst_tidmaivideosink_init_env(dmaisink);
 }
@@ -757,55 +745,6 @@ static int gst_tidmaivideosink_videostd_get_attrs(VideoStd_Type videoStd,
 
 
 /*******************************************************************************
- * gst_tidmaivideosink_videostd_get_refresh_latency
- *
- *    Return the refresh latency in us for the given display standard.
-*******************************************************************************/
-static int gst_tidmaivideosink_videostd_get_refresh_latency(
-               VideoStd_Type videoStd)
-{
-    switch (videoStd) {
-        case VideoStd_1080P_24:
-            return 41667;
-
-        case VideoStd_SIF_PAL:
-        case VideoStd_D1_PAL:
-        case VideoStd_1080P_25:
-        case VideoStd_1080I_25:
-            return 40000;
-
-        case VideoStd_CIF:
-        case VideoStd_SIF_NTSC:
-        case VideoStd_D1_NTSC:
-            return 33367;
-            
-        case VideoStd_1080I_30:
-        case VideoStd_1080P_30:
-            return 33333;
-
-        case VideoStd_576P:
-        case VideoStd_720P_50:
-            return 20000;
-
-        case VideoStd_480P:
-        case VideoStd_720P_60:
-        #if defined(Platform_dm6467t)
-        case VideoStd_1080P_60:
-        #endif
-            return 16667;
-
-        case VideoStd_VGA:
-            return 16667;
-
-        default:
-            break;
-    }
-    GST_ERROR("Unknown videoStd entered (VideoStd = %d)\n", videoStd);
-    return 0;
-}
-
-
-/*******************************************************************************
  * gst_tidmaivideosink_find_videostd
  *
  *    This function will take in a VideoStd_Attrs structure and find the
@@ -918,8 +857,7 @@ static VideoStd_Type gst_tidmaivideosink_find_videostd(
  *    This function will first check if the user set a frame rate on the
  *    command line.  If not then it will check if the frame rate of the
  *    input stream is known.  Lastly as a final resort it will default to
- *    an input frame rate of 30fps.  This is to help determine later based
- *    on the output standard whether to repeat frames or not.
+ *    an input frame rate of 30fps.
  *
  ******************************************************************************/
 static void gst_tidmaivideosink_check_set_framerate(GstTIDmaiVideoSink * sink)
@@ -940,42 +878,6 @@ static void gst_tidmaivideosink_check_set_framerate(GstTIDmaiVideoSink * sink)
 
     GST_DEBUG("Finish\n");
     return;
-}
-
-
-/******************************************************************************
- * gst_tidmaivideosink_get_framerepeat
- *
- *    This function will look at the output display frame rate and the
- *    input frame rate and determine how many times a frame should be
- *    repeated.  If the output is not an integer multiple of the input
- *    then 1 is returned to indicate that there will be no frame
- *    repeating.
- *
- ******************************************************************************/
-static int gst_tidmaivideosink_get_framerepeat(GstTIDmaiVideoSink * sink)
-{
-    GValue num_repeat = {0, };
-
-    GST_DEBUG("Begin\n");
-
-    /* Divide the native framerate by the desired framerate.  If the result
-     * is a whole number, return it.  Otherwise return 1 -- we don't support
-     * fractional repeat rates. */
-    g_value_init(&num_repeat, GST_TYPE_FRACTION);
-    g_assert(GST_VALUE_HOLDS_FRACTION(&num_repeat));
-
-    if (!gst_tidmaivideosink_fraction_divide(&num_repeat,
-             &sink->oattrs.framerate, &sink->iattrs.framerate)) {
-        return 1;
-    }
-
-    if (gst_value_get_fraction_denominator(&num_repeat) != 1) {
-        return 1;
-    }
-
-    GST_DEBUG("Finish\n");
-    return gst_value_get_fraction_numerator(&num_repeat);
 }
 
 
@@ -1397,11 +1299,6 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
         GST_DEBUG("Frame Copy Device Created\n");
     }
 
-    /* Calculate the required framerepeat now that we have initialized
-     * the display and know the output frame rate.
-     */
-    sink->framerepeat = gst_tidmaivideosink_get_framerepeat(sink);
-
     GST_DEBUG("Finish\n");
     return TRUE;
 }
@@ -1490,7 +1387,6 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
     gchar                 ts_str[64];
     gfloat                heightper;
     gfloat                widthper;
-    gint                  i;
     gint                  origHeight;
     gint                  origWidth;
 
@@ -1563,161 +1459,133 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         }
     }
 
-    /* Display the frame as many times as specified by framerepeat.  By
-     * default, the input buffer is copied to a display buffer for each time
-     * it is to be repeated.  However, if repeat_with_refresh is TRUE, then
-     * the platform doesn't have the bandwidth for multiple copies.  In this
-     * case we copy and display the input buffer only once, but let it refresh
-     * multiple times.
-     */
-    for (i = 0; i < sink->framerepeat; i++) {
+    /* Get a buffer from the display driver */
+    if (Display_get(sink->hDisplay, &hDispBuf) < 0) {
+        GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+        ("Failed to get display buffer\n"), (NULL));
+        goto cleanup;
+    }
 
-        /* Disable framerepeat for buffers that have timestamps - the base sink
-         * has already introduced a delay to throttle output to the proper
-         * frame rate.
-         */
-        if (GST_CLOCK_TIME_IS_VALID(GST_BUFFER_TIMESTAMP(buf))) {
-            i = sink->framerepeat - 1;
-        }
+    /* Retrieve the dimensions of the display buffer */
+    BufferGfx_getDimensions(hDispBuf, &dim);
+    GST_LOG("Display size %dx%d pitch %d\n",
+            (Int) dim.width, (Int) dim.height, (Int) dim.lineLength);
 
-        /* Get a buffer from the display driver */
-        if (Display_get(sink->hDisplay, &hDispBuf) < 0) {
-            GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
-            ("Failed to get display buffer\n"), (NULL));
-            goto cleanup;
-        }
 
-        /* If repeat_with_refresh was specified, wait for the display to
-         * refresh framerepeat-1 times to make sure it has finished displaying
-         * this buffer before we write new data into it.
-         */
-        while (sink->repeat_with_refresh && i < (sink->framerepeat-1)) {
-            usleep(gst_tidmaivideosink_videostd_get_refresh_latency(
-                sink->dAttrs.videoStd) + 1);
-            i++;
-        }
+    if (sink->resizer) {
 
-        /* Retrieve the dimensions of the display buffer */
+        /* resize video image while maintaining the aspect ratio */
         BufferGfx_getDimensions(hDispBuf, &dim);
-        GST_LOG("Display size %dx%d pitch %d\n",
-                (Int) dim.width, (Int) dim.height, (Int) dim.lineLength);
+        if (sink->dGfxAttrs.dim.width > sink->dGfxAttrs.dim.height) {
 
+            origHeight = dim.height;
+            widthper   = (float)dim.width / sink->dGfxAttrs.dim.width;
+            dim.height = sink->dGfxAttrs.dim.height * widthper;
 
-        if (sink->resizer) {
-
-            /* resize video image while maintaining the aspect ratio */
-            BufferGfx_getDimensions(hDispBuf, &dim);
-            if (sink->dGfxAttrs.dim.width > sink->dGfxAttrs.dim.height) {
-
-                origHeight = dim.height;
-                widthper   = (float)dim.width / sink->dGfxAttrs.dim.width;
-                dim.height = sink->dGfxAttrs.dim.height * widthper;
-
-                if (dim.height > origHeight)
-                    dim.height = origHeight;
-                else
-                    dim.y = (origHeight - dim.height) / 2;
-
-            } else {
-
-                origWidth = dim.width;
-                heightper = (float)dim.height / sink->dGfxAttrs.dim.height;
-                dim.width = sink->dGfxAttrs.dim.width * heightper;
-
-                if (dim.width > origWidth)
-                    dim.width = origWidth;
-                else
-                    dim.x = (origWidth - dim.width) / 2;
-            }
-            BufferGfx_setDimensions(hDispBuf, &dim);
-
-            /* Configure resizer */
-            if (Resize_config(sink->hResize, inBuf, hDispBuf) < 0) {
-                GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
-                ("Failed to configure resizer\n"), (NULL));
-                goto cleanup;
-            }
-
-            if (Resize_execute(sink->hResize, inBuf, hDispBuf) < 0) {
-                GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
-                ("Failed to execute resizer\n"), (NULL));
-                goto cleanup;
-            }
+            if (dim.height > origHeight)
+                dim.height = origHeight;
+            else
+                dim.y = (origHeight - dim.height) / 2;
 
         } else {
-            /* Check that the input buffer sizer are not too large for the 
-             * display buffers.  This is because the display buffers are 
-             * pre-allocated by the driver and are not increased at run time 
-             * (for fbdev devices, for v4l2  devices these can grow at run time)
-             * .However, since we don't expect the size of the clip to increase
-             * in the middle of playing we will not resize the window, even for
-             * v4l2 after the initial setup.  Instead we will only display the
-             * portion of the video that fits on the screen.  If the video is 
-             * smaller than the display center it in the screen.
-             * TODO: later add an option to resize the video.
-             */
-            if (sink->dGfxAttrs.dim.width > dim.width) {
-                GST_INFO("Input image width (%ld) greater than display width"
-                         " (%ld)\n Image cropped to fit screen\n",
-                         sink->dGfxAttrs.dim.width, dim.width);
-                dim.x = 0;
-            } else {
-                dim.x     = ((dim.width - sink->dGfxAttrs.dim.width) / 2) & ~1;
-                dim.width = sink->dGfxAttrs.dim.width;
-            }
 
-            if (sink->dGfxAttrs.dim.height > dim.height) {
-                GST_INFO("Input image height (%ld) greater than display height"
-                         " (%ld)\n Image cropped to fit screen\n",
-                         sink->dGfxAttrs.dim.height, dim.height);
-                dim.y = 0;
-            } else {
-                dim.y      = (dim.height - sink->dGfxAttrs.dim.height) / 2;
-                dim.height = sink->dGfxAttrs.dim.height;
-            }
-            BufferGfx_setDimensions(hDispBuf, &dim);
+            origWidth = dim.width;
+            heightper = (float)dim.height / sink->dGfxAttrs.dim.height;
+            dim.width = sink->dGfxAttrs.dim.width * heightper;
 
-            /* DM6467 Only: Color convert the 420Psemi decoded buffer from
-             * the video thread to the 422Psemi display.
-             */
-            if (sink->cpu_dev == Cpu_Device_DM6467 && 
-                    sink->dGfxAttrs.colorSpace != ColorSpace_YUV422PSEMI) {
-
-                /* Configure the 420->422 color conversion job */
-                if (Ccv_config(sink->hCcv, inBuf, hDispBuf) < 0) {
-                    GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
-                    ("Failed to configure CCV job\n"), (NULL));
-                    goto cleanup;
-                }
-
-                if (Ccv_execute(sink->hCcv, inBuf, hDispBuf) < 0) {
-                    GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
-                    ("Failed to execute CCV job\n"), (NULL));
-                    goto cleanup;
-                }
-            } else {
-                if (Framecopy_config(sink->hFc, inBuf, hDispBuf) < 0) {
-                    GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
-                    ("Failed to configure framecopy\n"), (NULL));
-                    goto cleanup;
-                }
-
-                if (Framecopy_execute(sink->hFc, inBuf, hDispBuf) < 0) {
-                    GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
-                    ("Failed to execute framecopy\n"), (NULL));
-                    goto cleanup;
-                }
-            }
+            if (dim.width > origWidth)
+                dim.width = origWidth;
+            else
+                dim.x = (origWidth - dim.width) / 2;
         }
+        BufferGfx_setDimensions(hDispBuf, &dim);
 
-        BufferGfx_resetDimensions(hDispBuf);
-
-        /* Send filled buffer to display device driver to be displayed */
-        if (Display_put(sink->hDisplay, hDispBuf) < 0) {
+        /* Configure resizer */
+        if (Resize_config(sink->hResize, inBuf, hDispBuf) < 0) {
             GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
-            ("Failed to put display buffer\n"), (NULL));
+            ("Failed to configure resizer\n"), (NULL));
             goto cleanup;
         }
+
+        if (Resize_execute(sink->hResize, inBuf, hDispBuf) < 0) {
+            GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+            ("Failed to execute resizer\n"), (NULL));
+            goto cleanup;
+        }
+
+    } else {
+        /* Check that the input buffer sizer are not too large for the 
+         * display buffers.  This is because the display buffers are 
+         * pre-allocated by the driver and are not increased at run time 
+         * (for fbdev devices, for v4l2  devices these can grow at run time)
+         * .However, since we don't expect the size of the clip to increase
+         * in the middle of playing we will not resize the window, even for
+         * v4l2 after the initial setup.  Instead we will only display the
+         * portion of the video that fits on the screen.  If the video is 
+         * smaller than the display center it in the screen.
+         * TODO: later add an option to resize the video.
+         */
+        if (sink->dGfxAttrs.dim.width > dim.width) {
+            GST_INFO("Input image width (%ld) greater than display width"
+                     " (%ld)\n Image cropped to fit screen\n",
+                     sink->dGfxAttrs.dim.width, dim.width);
+            dim.x = 0;
+        } else {
+            dim.x     = ((dim.width - sink->dGfxAttrs.dim.width) / 2) & ~1;
+            dim.width = sink->dGfxAttrs.dim.width;
+        }
+
+        if (sink->dGfxAttrs.dim.height > dim.height) {
+            GST_INFO("Input image height (%ld) greater than display height"
+                     " (%ld)\n Image cropped to fit screen\n",
+                     sink->dGfxAttrs.dim.height, dim.height);
+            dim.y = 0;
+        } else {
+            dim.y      = (dim.height - sink->dGfxAttrs.dim.height) / 2;
+            dim.height = sink->dGfxAttrs.dim.height;
+        }
+        BufferGfx_setDimensions(hDispBuf, &dim);
+
+        /* DM6467 Only: Color convert the 420Psemi decoded buffer from
+         * the video thread to the 422Psemi display.
+         */
+        if (sink->cpu_dev == Cpu_Device_DM6467 && 
+                sink->dGfxAttrs.colorSpace != ColorSpace_YUV422PSEMI) {
+
+            /* Configure the 420->422 color conversion job */
+            if (Ccv_config(sink->hCcv, inBuf, hDispBuf) < 0) {
+                GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+                ("Failed to configure CCV job\n"), (NULL));
+                goto cleanup;
+            }
+
+            if (Ccv_execute(sink->hCcv, inBuf, hDispBuf) < 0) {
+                GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+                ("Failed to execute CCV job\n"), (NULL));
+                goto cleanup;
+            }
+        } else {
+            if (Framecopy_config(sink->hFc, inBuf, hDispBuf) < 0) {
+                GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+                ("Failed to configure framecopy\n"), (NULL));
+                goto cleanup;
+            }
+
+            if (Framecopy_execute(sink->hFc, inBuf, hDispBuf) < 0) {
+                GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+                ("Failed to execute framecopy\n"), (NULL));
+                goto cleanup;
+            }
+        }
+    }
+
+    BufferGfx_resetDimensions(hDispBuf);
+
+    /* Send filled buffer to display device driver to be displayed */
+    if (Display_put(sink->hDisplay, hDispBuf) < 0) {
+        GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+        ("Failed to put display buffer\n"), (NULL));
+        goto cleanup;
     }
 
     if (GST_BUFFER_TIMESTAMP(buf) != GST_CLOCK_TIME_NONE) {

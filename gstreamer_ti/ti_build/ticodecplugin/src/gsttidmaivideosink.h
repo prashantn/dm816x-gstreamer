@@ -119,11 +119,7 @@ struct _GstTIDmaiVideoSink {
    */
   VideoStd_Attrs    iattrs;
   VideoStd_Attrs    oattrs;
-  /* The framerepeat variable indicates how many times a frame
-   * should be repeated to match the display output frame rate.
-   */
-  int           framerepeat;
-  gboolean      repeat_with_refresh;
+
   gboolean      signal_handoffs;
 
   /* Hardware accelerated copy */
