@@ -142,11 +142,11 @@ PLUGIN_PACKAGES += $(PACKAGE_plugins_bad_BUILD_TARGET)
 # Package plugins_ugly
 #-------------------------------------------------------------------------------
 PACKAGE_plugins_ugly_BUILD_TARGET       = plugins_ugly
-PACKAGE_plugins_ugly_ARCHIVE_BASENAME   = gst-plugins-ugly-0.10.13
+PACKAGE_plugins_ugly_ARCHIVE_BASENAME   = gst-plugins-ugly-0.10.16
 PACKAGE_plugins_ugly_PRECONFIG_PATCHES  = 
 ifeq ($(ALSA_SUPPORT), --disable-alsa)
     PACKAGE_plugins_ugly_PRECONFIG_PATCHES += \
-        0001-Converted-from-plugins_ugly1_0_10_13.patch.patch
+        0001-Optimize-the-mad-element-to-output-16-bit-samples-in.patch
 endif
 PACKAGE_plugins_ugly_CONFIGURE_OPTS     = --enable-lame
 PACKAGE_plugins_ugly_POSTCONFIG_PATCHES =

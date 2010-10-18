@@ -39,8 +39,8 @@ gst-plugins-bad-0.10.20
     Project Page:  http://gstreamer.freedesktop.org/
     Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-bad/
 
-gst-plugins-ugly-0.10.13
-    Description:   Select plugins from gStreamer ugly-plugins (mad)
+gst-plugins-ugly-0.10.16
+    Description:   Select plugins from gst-plugins-ugly
     Project Page:  http://gstreamer.freedesktop.org
     Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-ugly
 

@@ -1,14 +1,18 @@
-From 20d6d3acb5b734486821d82f375c14c6883f2a26 Mon Sep 17 00:00:00 2001
-From: Don Darling <don.osc2@gmail.com>
-Date: Thu, 11 Mar 2010 13:56:20 -0600
-Subject: [PATCH] Converted from plugins_ugly1_0_10_13.patch
+From 5a59f493be6ada7d7ef1bff54b30c9272d4635ba Mon Sep 17 00:00:00 2001
+From: Don Darling <ddarling@ti.com>
+Date: Tue, 12 Oct 2010 18:51:05 -0500
+Subject: [PATCH] Optimize the mad element to output 16-bit samples instead of 32.
 
+Doing this with audiocovert causes too much overhead, so we're doing this
+in the mad plugin itself.  This patch is only needed when the driver doesn't
+support 32-bit audio (oss), and it is only applied by the build when ALSA
+support is disabled.
 ---
- ext/mad/gstmad.c |   57 +++++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 files changed, 54 insertions(+), 3 deletions(-)
+ ext/mad/gstmad.c |   55 +++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 54 insertions(+), 1 deletions(-)
 
 diff --git a/ext/mad/gstmad.c b/ext/mad/gstmad.c
-index 92b825d..55ee7e8 100644
+index ec41369..c7ba2b4 100644
 --- a/ext/mad/gstmad.c
 +++ b/ext/mad/gstmad.c
 @@ -40,6 +40,8 @@
@@ -17,38 +21,36 @@ index 92b825d..55ee7e8 100644
  
 +#define ENABLE_16BIT_SUPPORT
 +
- 
- /* elementfactory information */
- static const GstElementDetails gst_mad_details =
-@@ -66,8 +68,13 @@ GST_STATIC_PAD_TEMPLATE ("src",
+ enum
+ {
+   ARG_0,
+@@ -57,8 +59,13 @@ GST_STATIC_PAD_TEMPLATE ("src",
      GST_STATIC_CAPS ("audio/x-raw-int, "
          "endianness = (int) " G_STRINGIFY (G_BYTE_ORDER) ", "
          "signed = (boolean) true, "
 +#ifdef ENABLE_16BIT_SUPPORT
 +        "width = (int) 16, "
 +        "depth = (int) 16, "
-+#else
++#else  
          "width = (int) 32, "
          "depth = (int) 32, "
 +#endif
          "rate = (int) { 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000 }, "
          "channels = (int) [ 1, 2 ]")
      );
-@@ -403,9 +410,11 @@ gst_mad_convert_src (GstPad * pad, GstFormat src_format, gint64 src_value,
-   }
+@@ -394,7 +401,11 @@ gst_mad_convert_src (GstPad * pad, GstFormat src_format, gint64 src_value,
  
    mad = GST_MAD (GST_PAD_PARENT (pad));
--
+ 
 +#ifdef ENABLE_16BIT_SUPPORT
 +  bytes_per_sample = mad->channels * 2;
 +#else
    bytes_per_sample = mad->channels * 4;
--
 +#endif
+ 
    switch (src_format) {
      case GST_FORMAT_BYTES:
-       switch (*dest_format) {
-@@ -829,6 +838,19 @@ gst_mad_src_event (GstPad * pad, GstEvent * event)
+@@ -819,6 +830,19 @@ gst_mad_src_event (GstPad * pad, GstEvent * event)
  static inline gint32
  scale (mad_fixed_t sample)
  {
@@ -68,7 +70,7 @@ index 92b825d..55ee7e8 100644
  #if MAD_F_FRACBITS < 28
    /* round */
    sample += (1L << (28 - MAD_F_FRACBITS - 1));
-@@ -847,6 +869,7 @@ scale (mad_fixed_t sample)
+@@ -837,6 +861,7 @@ scale (mad_fixed_t sample)
  
    /* convert from 29 bits to 32 bits */
    return (gint32) (sample << 3);
@@ -76,7 +78,7 @@ index 92b825d..55ee7e8 100644
  }
  
  /* do we need this function? */
-@@ -1253,8 +1276,13 @@ gst_mad_check_caps_reset (GstMad * mad)
+@@ -1243,8 +1268,13 @@ gst_mad_check_caps_reset (GstMad * mad)
      caps = gst_caps_new_simple ("audio/x-raw-int",
          "endianness", G_TYPE_INT, G_BYTE_ORDER,
          "signed", G_TYPE_BOOLEAN, TRUE,
@@ -90,7 +92,7 @@ index 92b825d..55ee7e8 100644
          "rate", G_TYPE_INT, rate, "channels", G_TYPE_INT, nchannels, NULL);
  
      gst_pad_set_caps (mad->srcpad, caps);
-@@ -1575,7 +1603,11 @@ gst_mad_chain (GstPad * pad, GstBuffer * buffer)
+@@ -1565,7 +1595,11 @@ gst_mad_chain (GstPad * pad, GstBuffer * buffer)
             to skip and send the remaining pcm samples */
  
          GstBuffer *outbuffer = NULL;
@@ -102,7 +104,7 @@ index 92b825d..55ee7e8 100644
          mad_fixed_t const *left_ch, *right_ch;
  
          if (mad->need_newsegment) {
-@@ -1604,10 +1636,17 @@ gst_mad_chain (GstPad * pad, GstBuffer * buffer)
+@@ -1594,10 +1628,17 @@ gst_mad_chain (GstPad * pad, GstBuffer * buffer)
          }
  
          /* will attach the caps to the buffer */
@@ -120,7 +122,7 @@ index 92b825d..55ee7e8 100644
          if (result != GST_FLOW_OK) {
            /* Head for the exit, dropping samples as we go */
            GST_LOG ("Skipping frame synthesis due to pad_alloc return value");
-@@ -1618,8 +1657,11 @@ gst_mad_chain (GstPad * pad, GstBuffer * buffer)
+@@ -1608,8 +1649,11 @@ gst_mad_chain (GstPad * pad, GstBuffer * buffer)
          mad_synth_frame (&mad->synth, &mad->frame);
          left_ch = mad->synth.pcm.samples[0];
          right_ch = mad->synth.pcm.samples[1];
@@ -133,7 +135,7 @@ index 92b825d..55ee7e8 100644
  
          GST_DEBUG ("mad out timestamp %" GST_TIME_FORMAT " dur: %"
              GST_TIME_FORMAT, GST_TIME_ARGS (time_offset),
-@@ -1635,14 +1677,23 @@ gst_mad_chain (GstPad * pad, GstBuffer * buffer)
+@@ -1625,14 +1669,23 @@ gst_mad_chain (GstPad * pad, GstBuffer * buffer)
            gint count = nsamples;
  
            while (count--) {
@@ -158,5 +160,5 @@ index 92b825d..55ee7e8 100644
          }
  
 -- 
-1.6.3.3
+1.7.0.4
 
