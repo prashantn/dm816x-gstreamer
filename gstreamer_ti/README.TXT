@@ -24,7 +24,7 @@ gstreamer-0.10.30
     Project Page:  http://gstreamer.freedesktop.org/
     Download URL:  http://gstreamer.freedesktop.org/src/gstreamer/
 
-gst-plugins-base-0.10.25
+gst-plugins-base-0.10.30
     Description:   GStreamer plugins base library
     Project Page:  http://gstreamer.freedesktop.org/
     Download URL:  http://gstreamer.freedesktop.org/src/gst-plugins-base/

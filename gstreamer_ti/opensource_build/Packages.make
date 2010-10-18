@@ -80,10 +80,9 @@ BASE_PACKAGES += $(PACKAGE_mad_BUILD_TARGET)
 # Package plugins_base
 #------------------------------------------------------------------------------
 PACKAGE_plugins_base_BUILD_TARGET       = plugins_base
-PACKAGE_plugins_base_ARCHIVE_BASENAME   = gst-plugins-base-0.10.25
-PACKAGE_plugins_base_PRECONFIG_PATCHES  = \
-    0001-Fix-for-playbin2.patch
-PACKAGE_plugins_base_CONFIGURE_OPTS     = --disable-tests --disable-examples --disable-x --disable-ogg --disable-vorbis --disable-pango $(ALSA_SUPPORT)
+PACKAGE_plugins_base_ARCHIVE_BASENAME   = gst-plugins-base-0.10.30
+PACKAGE_plugins_base_PRECONFIG_PATCHES  =
+PACKAGE_plugins_base_CONFIGURE_OPTS     = --disable-examples --disable-x --disable-ogg --disable-vorbis --disable-pango $(ALSA_SUPPORT)
 PACKAGE_plugins_base_POSTCONFIG_PATCHES =
 PACKAGE_plugins_base_BUILD_DIRS         =
 PACKAGE_plugins_base_DESCRIPTION        = GStreamer plugins base library
