@@ -575,6 +575,9 @@ static void gst_tividdec2_get_property(GObject *object, guint prop_id,
         case PROP_CODEC_NAME:
             g_value_set_string(value, viddec2->codecName);
             break;
+        case PROP_FRAMERATE:
+            g_value_copy(&viddec2->framerate, value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
             break;
