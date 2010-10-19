@@ -96,12 +96,9 @@ DM6446              2.00.00.22
 DM355               3.10.00.19
 DM6467              2.00.00.22
 DM6467T             3.10.00.19
-OMAP35xx            3.00.02.44
 DM365               3.10.00.19
 OMAPL138            4.00.00.17
-*DM37x/OMAP3530     4.00.00.17
-
-*preliminary support
+DM37x/OMAP3530      4.00.00.22
 
 Prerequisites
 =============
@@ -176,13 +173,6 @@ build:
     Makefile.common:72: *** when building for dm6467 or dm6467t, the platform
     type must be specified explicity at the top of Makefile.commom with
     GST_TI_PLATFORM=dm6467 or GST_TI_PLATFORM=dm6467t.  Stop.
-
-Special Notes on building OMAP3530 and DM3730 using DVSDK 4.0 beta
--------------------------------------------------------------------
-When building for OMAP3530 or DM3730 using DVSDK 4.0 beta you must edit the Makefile.common file and set GST_TI_PLATFORM.
-
-e.g when using DVSDK 4.00.00.17 example:
-    GST_TI_PLATFORM = omap3530_dv400
 
 Board Set-Up
 ============

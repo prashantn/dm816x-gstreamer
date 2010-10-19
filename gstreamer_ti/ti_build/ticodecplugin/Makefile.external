@@ -23,7 +23,7 @@ $(error You need to define the environment variable DMAI_INSTALL_DIR)
 endif
 
 default:
-	@echo "Please specify the target: dm6446, omap3530, dm355, dm6467, dm6467t, dm365 omapl138 omap3530_dv400"
+	@echo "Please specify the target: dm6446, omap3530, dm355, dm6467, dm6467t, dm365 omapl138"
 
 export GST_TI_PLATFORM=$(MAKECMDGOALS)
 export BIOS_INSTALL_DIR
@@ -80,15 +80,6 @@ ifeq ($(GST_TI_PLATFORM), dm365)
     export CROSS_COMPILE = ${CSTOOL_PREFIX}
 endif
 
-ifeq ($(GST_TI_PLATFORM), omap3530)
-    export XDC_TARGET    = gnu.targets.arm.GCArmv5T
-    export XDC_PLATFORM  = ti.platforms.evm3530
-    export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
-    export MVTOOL_DIR    = $(CSTOOL_DIR)
-    export PLATFORM_XDC  = ${XDC_PLATFORM}
-    export CROSS_COMPILE = ${CSTOOL_PREFIX}
-endif
-
 ifeq ($(GST_TI_PLATFORM), omapl138)
     export XDC_TARGET    = gnu.targets.arm.GCArmv5T
     export XDC_PLATFORM  = ti.platforms.evmOMAPL138
@@ -101,7 +92,7 @@ ifeq ($(GST_TI_PLATFORM), omapl138)
     export ENABLE_C6ACCEL ="--enable-c6accel"
 endif
 
-ifeq ($(GST_TI_PLATFORM), omap3530_dv400)
+ifeq ($(GST_TI_PLATFORM), omap3530)
     export XDC_TARGET    = gnu.targets.arm.GCArmv5T
     export XDC_PLATFORM  = ti.platforms.evm3530
     export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
@@ -109,6 +100,8 @@ ifeq ($(GST_TI_PLATFORM), omap3530_dv400)
     export PLATFORM_XDC  = ${XDC_PLATFORM}
     export CROSS_COMPILE = ${CSTOOL_PREFIX}
     export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
+    export C6ACCEL_INSTALL_DIR
+    export ENABLE_C6ACCEL ="--enable-c6accel"
 endif
 
 CPPFLAGS=-DPlatform_$(GST_TI_PLATFORM) 
@@ -141,5 +134,3 @@ dm365: Makefile
 omapl138: Makefile
 	$(MAKE) -f Makefile
 
-omap3530_dv400: Makefile
-	$(MAKE) -f Makefile
