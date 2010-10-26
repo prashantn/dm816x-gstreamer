@@ -1,6 +1,129 @@
-Release 1.01
+Release 1.02
 ============
 
+
+New Features
+------------
+  DM365 Support:
+  - Tracker 976 - Support for the video/x-xvid mime type
+
+  DVSDK Support:
+
+  General:
+  - Tracker 966  - Update open-source base components
+  - Tracker 997  - Add "encodingPreset" property in encoder elements
+  - Tracker 1009 - Add support for MPEG-4 video inside quicktime container
+  - Tracker 1012 - videnc: add support for generating packetized/byte stream
+  - Tracker 1031 - Resolve build issues when using the CodeSourcery 2009q1
+                   toolset
+  - Tracker 1055 - Add support for DVSDK 3.10
+  - Tracker 1070 - Add support for new DSPLink directory structure
+  - Tracker 1087 - Add support for new DSPLink directory structure in
+                   Makefile.external
+  - Tracker 1089 - Build all components with -O2 by default
+  - Tracker 1094 - Add v4l2src support for the latest GIT kernels in
+                   gst-plugins-g ood-0.10.16
+  - Tracker 1096 - Add support for the NV16 colorspace in TIVidenc1
+  - Tracker 1097 - Add support for the NV16 colorspace in TIDmaiVideoSink
+  - Tracker 1098 - Add support for the NV16 colorspace in TIVidResize
+  - Tracker 1099 - Add support for the 1080P_60 video standard in
+                   TIDmaiVideoSink
+  - Tracker 1120 - Remove DM357 support
+  - Tracker 1126 - Create and integrate a new "TIDmaiBufTab" buffer table
+                   object
+  - Tracker 1127 - Remove support for xDM 0.9-based codecs
+  - Tracker 1128 - Add support for user-allocated buffers in TIDmaiVideoSink
+  - Tracker 1139 - Add a property to hide the OSD on DM365/DM6446/DM355
+                   during video playback.
+  - Tracker 1160 - Add TIAuddec1 support for decoding AC3 audio streams
+  - Tracker 1163 - Add parameter to gst_ti_calc_buffer_size that specifies
+                   pitch (bytes per line)
+  - Tracker 1165 - Remove MontaVista 4.0.1 configuration from Makefile.common
+  - Tracker 1167 - DVSDK 3.10 Support for DM6467T
+  - Tracker 1168 - DVSDK 3.10 Support for DM365
+  - Tracker 1169 - DVSDK 3.10 Support for DM355
+
+
+Fixed Issues
+------------
+  - Tracker 962  - DM355 JPEG corruption in the lower right corner
+  - Tracker 970  - dmai-perf inaccuracy in fps and bps calculation
+  - Tracker 1001 - Handle the case when audio decoder outputs zero byte
+  - Tracker 1010 - rtph264pay may cause alignment trap signal
+  - Tracker 1015 - Do not abort the decoder thread when codec reports an
+                   error or bit error
+  - Tracker 1016 - playbin2 fixes
+  - Tracker 1018 - dmaivideosink: enable the resizer support
+  - Tracker 1020 - dmaivideosink: use GST_ELEMENT_ERROR instead of GST_ERROR
+  - Tracker 1067 - Fix liboil preprocessor checks
+  - Tracker 1068 - Change format of patches for dependent components to match
+                   review process
+  - Tracker 1073 - Always return NULL for the base sink's last-buffer property
+  - Tracker 1088 - Remove --force-mem option when building libmad with -O2
+  - Tracker 1090 - Add clean_dev and clean_docs makefile targets
+  - Tracker 1091 - Fix typos in error messages
+  - Tracker 1092 - Fix assertion failure in TIImgenc1
+  - Tracker 1093 - Don't error out if DMAI_INSTALL_DIR is set by Rules.make.
+  - Tracker 1095 - Correct size metadata imgdec1->hInBuf prior to calling the
+                   code c
+  - Tracker 1100 - Remove DM365 guard for NV12 fourcc check
+  - Tracker 1101 - Create source caps information for MPEG-2 streams in
+                   TIVidenc1
+  - Tracker 1102 - Add support for the DivX and XviD mime types in TIViddec2
+  - Tracker 1103 - Add GST_TI_PLATFORM variable to replace previous usage of
+                   PLATFORM
+  - Tracker 1113 - Corrected TI Copyright notices (replaced $year with proper
+                   years)
+  - Tracker 1114 - DM365: Leave the IPIPE open during UYVY capture
+  - Tracker 1115 - Force the TIViddec2 frameRate property to override
+                   upstream caps
+  - Tracker 1116 - Fix duration query in TIAuddec1
+  - Tracker 1121 - Remove v4l2 patch that resets bytesperline to 0
+  - Tracker 1122 - Correct the way source caps information is generated in
+                   TIViddec2
+  - Tracker 1123 - Add static declaration for gst_tidmaivideosink_process_caps
+  - Tracker 1124 - Remove GST_TIDMAIVIDEOSINK_CAST macro
+  - Tracker 1125 - Push all display initialization code into
+                   gst_tidmaivideosink_init_display
+  - Tracker 1140 - Fix assertion failures when generating debug log
+                   information
+  - Tracker 1141 - Declare all useMask _FREE flags in 
+                   gsttidmaibuffertransport.h
+  - Tracker 1159 - TIViddec1's resolution property should override caps
+                   settings
+  - Tracker 1161 - Detect audio/mpeg, mpegversion=2 as AAC
+  - Tracker 1162 - Make sure capture buffer size is aligned on DM365
+  - Tracker 1165 - Specify explicit pitch when allocating user buffers in
+                   TIDmaiVideoSink
+  - Tracker 1172 - Fix race condition in GstTIDmaiBufTab
+  - Tracker 1189 - Use DMAI_INSTALL_DIR defined in DVSDK Rules.make
+  - Tracker 1190 - Export CROSS_COMPILE/PLATFORM_XDC environment variables
+                   needed by cfg
+  - Tracker 1203 - Fix intermittent assertion failure in circular buffer
+
+
+Known Issues
+------------
+
+Release 1.02:
+  - Tracker 1205 - Without kernel real-time patch, A/V decode on DM355 may
+                   not play smoothly
+  - Tracker 1206 - On DM355, video decode to frame buffer is not a supported
+                   configuration
+  - Tracker 1209 - Need to use YUV420P color space instead of UYVY when doing
+                   JPEG encode
+  - Tracker 1220 - Specify the capture resolution to reduce memory
+                   requirements
+  - Tracker 1222 - DM6467 doesn't support AAC encode 
+  - Tracker 963  - MPEG4 decoding crashes
+  - Tracker 808  - [PATCH] Fix bug#798
+  - Tracker 1204 - gsttidmaiperf CPU's workload issue solved for single core
+                   platforms
+
+
+
+Release 1.01
+============
 
 New Features
 ------------
