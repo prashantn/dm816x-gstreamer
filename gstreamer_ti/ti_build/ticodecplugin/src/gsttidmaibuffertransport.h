@@ -52,8 +52,10 @@ G_BEGIN_DECLS
     GstTIDmaiBufferTransportClass))
 
 /* Use mask flags that keep track of where buffer is in use */
-#define gst_tidmaibuffer_GST_FREE    0x1
-#define gst_tidmaibuffer_CODEC_FREE  0x2
+#define gst_tidmaibuffer_GST_FREE        0x1
+#define gst_tidmaibuffer_CODEC_FREE      0x2
+#define gst_tidmaibuffer_VIDEOSINK_FREE  0x4
+#define gst_tidmaibuffer_DISPLAY_FREE    0x8
 
 typedef struct _GstTIDmaiBufferTransport      GstTIDmaiBufferTransport;
 typedef struct _GstTIDmaiBufferTransportClass GstTIDmaiBufferTransportClass;

@@ -136,8 +136,8 @@ static void gst_tidmaibuffertransport_finalize(GstBuffer *gstbuffer)
      */
     if (Buffer_getBufTab(self->dmaiBuffer) != NULL) {
         GST_LOG("clearing GStreamer useMask bit\n");
-        Buffer_freeUseMask(self->dmaiBuffer,
-        gst_tidmaibuffer_GST_FREE);
+        Buffer_freeUseMask(self->dmaiBuffer, gst_tidmaibuffer_GST_FREE);
+        Buffer_freeUseMask(self->dmaiBuffer, gst_tidmaibuffer_VIDEOSINK_FREE);
     } else {
         GST_LOG("calling Buffer_delete()\n");
         Buffer_delete(self->dmaiBuffer);

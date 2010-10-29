@@ -151,6 +151,9 @@ static GstStateChangeReturn
  gst_tidmaivideosink_change_state(GstElement * element,
      GstStateChange transition);
 static GstFlowReturn
+ gst_tidmaivideosink_buffer_alloc(GstBaseSink * bsink, guint64 offset,
+     guint size, GstCaps * caps, GstBuffer ** buf);
+static GstFlowReturn
  gst_tidmaivideosink_preroll(GstBaseSink * bsink, GstBuffer * buffer);
 static int
  gst_tidmaivideosink_videostd_get_attrs(VideoStd_Type videoStd,
@@ -353,6 +356,13 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
         GST_DEBUG_FUNCPTR(gst_tidmaivideosink_preroll);
     gstbase_sink_class->render   =
         GST_DEBUG_FUNCPTR(gst_tidmaivideosink_render);
+    gstbase_sink_class->buffer_alloc =
+        GST_DEBUG_FUNCPTR(gst_tidmaivideosink_buffer_alloc);
+
+    /* Pad-buffer allocation is currently only supported for DM365 */
+    #if !defined(Platform_dm365)
+    gstbase_sink_class->buffer_alloc = NULL;
+    #endif
 }
 
 
@@ -658,6 +668,139 @@ static gboolean gst_tidmaivideosink_event(GstBaseSink * bsink,
     g_free(sstr);
 
     return TRUE;
+}
+
+
+/******************************************************************************
+ * gst_tidmaivideosink_buffer_alloc
+ ******************************************************************************/
+static GstFlowReturn gst_tidmaivideosink_buffer_alloc(GstBaseSink * bsink,
+                         guint64 offset, guint size, GstCaps * caps,
+                         GstBuffer ** buf)
+{
+    GstTIDmaiVideoSink *dmaisink    = GST_TIDMAIVIDEOSINK(bsink);
+    BufferGfx_Attrs     gfxAttrs    = BufferGfx_Attrs_DEFAULT;
+    gboolean            alloc_unref = FALSE;
+    Buffer_Handle       hDispBuf    = NULL;
+    GstCaps            *alloc_caps;
+
+    *buf = NULL;
+
+    GST_LOG_OBJECT(dmaisink,
+        "a buffer of %d bytes was requested with caps %" GST_PTR_FORMAT
+        " and offset %" G_GUINT64_FORMAT, size, caps, offset);
+
+    /* assume we're going to alloc what was requested, keep track of wheter we
+     * need to unref or not. When we suggest a new format upstream we will
+     * create a new caps that we need to unref. */
+    alloc_caps = caps;
+
+    /* Process the buffer caps */
+    if (!gst_tidmaivideosink_process_caps(bsink, alloc_caps)) {
+        return GST_FLOW_UNEXPECTED;
+    }
+
+    /* Pad buffer allocation requires that we use user-allocated display
+     * buffers.
+     */
+    if (!dmaisink->useUserptrBufs && dmaisink->hDisplay) {
+        GST_ELEMENT_ERROR(dmaisink, RESOURCE, FAILED,
+            ("Cannot use pad buffer allocation after mmap buffers already "
+             "in use\n"), (NULL));
+        return GST_FLOW_UNEXPECTED;
+    }
+    else {
+        dmaisink->useUserptrBufs = TRUE;
+    }
+
+    /* Allocate the display buffers */
+    if (!dmaisink->hDispBufTab && dmaisink->useUserptrBufs) {
+
+        /* Set the display attributes now so we can allocate display buffers */
+        if (!gst_tidmaivideosink_set_display_attrs(dmaisink,
+            dmaisink->dGfxAttrs.colorSpace)) {
+            GST_ERROR("Error while trying to set the display attributes\n");
+            return GST_FLOW_UNEXPECTED;
+        }
+
+        if (!gst_tidmaivideosink_alloc_display_buffers(dmaisink, size)) {
+            GST_ERROR("Failed to allocate display buffers");
+            return GST_FLOW_UNEXPECTED;
+        }
+
+        /* This element cannot perform resizing when doing pad allocation */
+        if (dmaisink->resizer) {
+            GST_WARNING("resizer not supported for pad allocation; "
+                "disabling\n");
+            dmaisink->resizer = FALSE;
+        }
+    }
+
+    /* Get a buffer from the BufTab or display driver */
+    if (!(hDispBuf = gst_tidmaibuftab_get_buf(dmaisink->hDispBufTab))) {
+        if (dmaisink->hDisplay &&
+            Display_get(dmaisink->hDisplay, &hDispBuf) < 0) {
+            GST_ELEMENT_ERROR(dmaisink, RESOURCE, FAILED,
+                ("Failed to get display buffer\n"), (NULL));
+            return GST_FLOW_UNEXPECTED;
+        }
+    }
+
+    /* If the geometry doesn't match, generate a new caps for it */
+    Buffer_getAttrs(hDispBuf, BufferGfx_getBufferAttrs(&gfxAttrs));
+
+    if (gfxAttrs.dim.width  != dmaisink->dGfxAttrs.dim.width  ||
+        gfxAttrs.dim.height != dmaisink->dGfxAttrs.dim.height ||
+        gfxAttrs.colorSpace != dmaisink->dGfxAttrs.colorSpace) {
+
+        GstCaps *desired_caps;
+        GstStructure *desired_struct;
+
+        /* make a copy of the incomming caps to create the new suggestion. We
+         * can't use make_writable because we might then destroy the original
+         * caps which we still need when the peer does not accept the
+         * suggestion.
+         */
+        desired_caps = gst_caps_copy (caps);
+        desired_struct = gst_caps_get_structure (desired_caps, 0);
+
+        GST_DEBUG ("we prefer to receive a %ldx%ld video; %ldx%ld was "
+            "requested", gfxAttrs.dim.width, gfxAttrs.dim.height,
+            dmaisink->dGfxAttrs.dim.width, dmaisink->dGfxAttrs.dim.height);
+        gst_structure_set (desired_struct, "width", G_TYPE_INT,
+            gfxAttrs.dim.width, NULL);
+        gst_structure_set (desired_struct, "height", G_TYPE_INT,
+            gfxAttrs.dim.height, NULL);
+
+        if (gst_pad_peer_accept_caps (GST_VIDEO_SINK_PAD (dmaisink),
+                desired_caps)) {
+            alloc_caps  = desired_caps;
+            alloc_unref = TRUE;
+
+            if (!gst_tidmaivideosink_process_caps(bsink, alloc_caps)) {
+                return GST_FLOW_UNEXPECTED;
+            }
+            GST_DEBUG ("peer pad accepts our desired caps %" GST_PTR_FORMAT,
+                desired_caps);
+        }
+        else {
+            GST_DEBUG ("peer pad does not accept our desired caps %" 
+                GST_PTR_FORMAT, desired_caps);
+        }
+    }
+
+    /* Return the display buffer */
+    BufferGfx_resetDimensions(hDispBuf);
+    Buffer_freeUseMask(hDispBuf, gst_tidmaibuffer_DISPLAY_FREE);
+    *buf = gst_tidmaibuffertransport_new(hDispBuf, NULL);
+    gst_buffer_set_caps(*buf, alloc_caps);
+
+    /* If we allocated new caps, unref them now */
+    if (alloc_unref) {
+        gst_caps_unref (alloc_caps);
+    }
+
+    return GST_FLOW_OK;
 }
 
 
@@ -1240,6 +1383,18 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
             return FALSE;
         }
 
+        /* If we own the display buffers, tell DMAI to delay starting the
+         * display until we call Display_put for the first time.
+         */
+        if (sink->hDispBufTab) {
+            #if defined(Platform_dm365)
+            sink->dAttrs.delayStreamon = TRUE;
+            #else
+            GST_ERROR("delayed V4L2 streamon not supported\n");
+            return FALSE;
+            #endif
+        }
+
         /* Allocate user-allocated display buffers, if requested */
         if (!sink->hDispBufTab && sink->useUserptrBufs) {
             if (!gst_tidmaivideosink_alloc_display_buffers(sink, 0)) {
@@ -1369,9 +1524,6 @@ static gboolean gst_tidmaivideosink_process_caps(GstBaseSink * bsink,
     gst_structure_get_fraction(structure, "framerate", &framerateNum,
         &framerateDen);
 
-    /* Error check new values against existing ones */
-    /* TBD */
-
     /* Populate the display graphics attributes */
     dmaisink->dGfxAttrs.bAttrs.reference = dmaisink->contiguousInputFrame;
     dmaisink->dGfxAttrs.dim.width        = width;
@@ -1398,9 +1550,10 @@ static gboolean gst_tidmaivideosink_process_caps(GstBaseSink * bsink,
 static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
                          GstBuffer * buf)
 {
-    Buffer_Handle         hDispBuf  = NULL;
-    Buffer_Handle         inBuf     = NULL;
-    GstTIDmaiVideoSink   *sink      = GST_TIDMAIVIDEOSINK(bsink);
+    Buffer_Handle         hDispBuf     = NULL;
+    Buffer_Handle         inBuf        = NULL;
+    gboolean              inBufIsOurs  = FALSE;
+    GstTIDmaiVideoSink   *sink         = GST_TIDMAIVIDEOSINK(bsink);
     BufferGfx_Dimensions  dim;
     gchar                 dur_str[64];
     gchar                 ts_str[64];
@@ -1422,7 +1575,10 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
      *  generated via videotestsrc plugin.
      */
     if (GST_IS_TIDMAIBUFFERTRANSPORT(buf)) {
-        inBuf = GST_TIDMAIBUFFERTRANSPORT_DMAIBUF(buf);
+        inBuf       = GST_TIDMAIBUFFERTRANSPORT_DMAIBUF(buf);
+        inBufIsOurs = (sink->hDispBufTab &&
+                          GST_TIDMAIBUFTAB_BUFTAB(sink->hDispBufTab) ==
+                              Buffer_getBufTab(inBuf));
     } else {
         /* allocate DMAI buffer */
         if (sink->tempDmaiBuf == NULL) {
@@ -1478,11 +1634,33 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         }
     }
 
-    /* Get a buffer from the display driver */
-    if (Display_get(sink->hDisplay, &hDispBuf) < 0) {
-        GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
-        ("Failed to get display buffer\n"), (NULL));
-        goto cleanup;
+    /* If the input buffer originated from this element via pad allocation,
+     * simply give it back to the display and continue.
+     */
+    if (inBufIsOurs) {
+
+        /* Mark buffer as in-use by the display so it can't be re-used
+         * until it comes back from Display_get */
+        Buffer_setUseMask(inBuf, Buffer_getUseMask(inBuf) |
+            gst_tidmaibuffer_DISPLAY_FREE);
+
+        if (Display_put(sink->hDisplay, inBuf) < 0) {
+            GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+            ("Failed to put display buffer\n"), (NULL));
+            goto cleanup;
+        }
+        goto finish;
+    }
+
+    /* Otherwise, our input buffer originated from up-stream.  Retrieve a
+     * display buffer to copy the contents into.
+     */
+    else {
+        if (Display_get(sink->hDisplay, &hDispBuf) < 0) {
+            GST_ELEMENT_ERROR(sink, RESOURCE, FAILED,
+            ("Failed to get display buffer\n"), (NULL));
+            goto cleanup;
+        }
     }
 
     /* Retrieve the dimensions of the display buffer */
@@ -1606,6 +1784,8 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         ("Failed to put display buffer\n"), (NULL));
         goto cleanup;
     }
+
+finish:
 
     if (GST_BUFFER_TIMESTAMP(buf) != GST_CLOCK_TIME_NONE) {
         g_snprintf(ts_str, sizeof(ts_str), "%" GST_TIME_FORMAT,
@@ -1789,8 +1969,10 @@ static gboolean gst_tidmaivideosink_alloc_display_buffers(
             gfxAttrs.dim.height, gfxAttrs.dim.lineLength, gfxAttrs.colorSpace);
     }
 
+    gfxAttrs.bAttrs.useMask = gst_tidmaibuffer_VIDEOSINK_FREE;
     sink->hDispBufTab = gst_tidmaibuftab_new(sink->dAttrs.numBufs, bufSize,
         BufferGfx_getBufferAttrs(&gfxAttrs));
+    gst_tidmaibuftab_set_blocking(sink->hDispBufTab, FALSE);
 
     return TRUE;
 }
