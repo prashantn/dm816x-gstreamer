@@ -438,6 +438,7 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     dmaisink->videoStd            = NULL;
     dmaisink->videoOutput         = NULL;
     dmaisink->numBufs             = -1;
+    dmaisink->can_set_display_framerate = FALSE;
     dmaisink->rotation            = -1;
     dmaisink->tempDmaiBuf         = NULL;
     dmaisink->accelFrameCopy      = TRUE;
@@ -469,6 +470,11 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     g_value_init(&dmaisink->oattrs.framerate, GST_TYPE_FRACTION);
     g_assert(GST_VALUE_HOLDS_FRACTION(&dmaisink->oattrs.framerate));
     gst_value_set_fraction(&dmaisink->oattrs.framerate, 0, 1);
+
+    /* DM365 supports setting the display framerate */
+    #if defined(Platform_dm365)
+    dmaisink->can_set_display_framerate = TRUE;
+    #endif
 
     gst_tidmaivideosink_init_env(dmaisink);
 }
@@ -1052,6 +1058,19 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink,
         gst_tidmaivideosink_convert_attrs(VAR_VIDEOOUTPUT, sink);
     sink->dAttrs.displayDevice = sink->displayDevice == NULL ?
         sink->dAttrs.displayDevice : sink->displayDevice;
+
+    /* Specify framerate if supported by DMAI and the display driver */
+    if (sink->can_set_display_framerate) {
+        #if defined (Platform_dm365)
+        sink->dAttrs.forceFrameRateNum =
+            gst_value_get_fraction_numerator(&sink->iattrs.framerate);
+        sink->dAttrs.forceFrameRateDen =
+            gst_value_get_fraction_denominator(&sink->iattrs.framerate);
+        #else
+        GST_ERROR("setting driver framerate is not supported\n");
+        return FALSE;
+        #endif
+    }
 
     /* Set rotation on OMAP35xx */
     if (sink->cpu_dev == Cpu_Device_OMAP3530) {

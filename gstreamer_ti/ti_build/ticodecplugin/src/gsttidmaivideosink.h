@@ -120,6 +120,9 @@ struct _GstTIDmaiVideoSink {
   VideoStd_Attrs    iattrs;
   VideoStd_Attrs    oattrs;
 
+  /* Set to true of the display framerate can be set */
+  gboolean      can_set_display_framerate;
+
   gboolean      signal_handoffs;
 
   /* Hardware accelerated copy */
