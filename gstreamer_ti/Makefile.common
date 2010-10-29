@@ -174,12 +174,13 @@ ifeq ($(GST_TI_PLATFORM), dm6446)
 endif
 
 ifeq ($(GST_TI_PLATFORM), dm365)
-    export XDC_TARGET    = gnu.targets.arm.GCArmv5T
-    export XDC_PLATFORM  = ti.platforms.evmDM365
-    export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
-    export MVTOOL_DIR    = $(CSTOOL_DIR)
-    export PLATFORM_XDC  = ${XDC_PLATFORM}
-    export CROSS_COMPILE = ${CSTOOL_PREFIX}
+    export XDC_TARGET           = gnu.targets.arm.GCArmv5T
+    export XDC_PLATFORM         = ti.platforms.evmDM365
+    export MVTOOL_PREFIX        = $(CSTOOL_PREFIX)
+    export MVTOOL_DIR           = $(CSTOOL_DIR)
+    export PLATFORM_XDC         = ${XDC_PLATFORM}
+    export CROSS_COMPILE        = ${CSTOOL_PREFIX}
+    export LIBTOOL_SYSROOT_PATH = $(LINUXLIBS_INSTALL_DIR)/..
 endif
 
 ifeq ($(GST_TI_PLATFORM), dm6467)
