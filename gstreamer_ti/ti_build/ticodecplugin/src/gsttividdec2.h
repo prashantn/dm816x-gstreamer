@@ -91,6 +91,7 @@ struct _GstTIViddec2
   UInt32           numOutputBufs;
   GstTIDmaiBufTab *hOutBufTab;
   GstTICircBuffer *circBuf;
+  gboolean         padAllocOutbufs;
 
   /* Quicktime h264 header  */
   GstBuffer       *sps_pps_data;

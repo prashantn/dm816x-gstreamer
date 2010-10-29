@@ -73,7 +73,8 @@ enum
   PROP_FRAMERATE,       /* framerate      (GstFraction) */
   PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
   PROP_GEN_TIMESTAMPS,  /* genTimeStamps  (boolean) */
-  PROP_RTCODECTHREAD    /* rtCodecThread (boolean) */
+  PROP_RTCODECTHREAD,   /* rtCodecThread (boolean) */
+  PROP_PAD_ALLOC_OUTBUFS /* padAllocOutbufs (boolean) */
 };
 
 /* Define sink (input) pad capabilities.  Currently, MPEG and H264 are 
@@ -170,8 +171,8 @@ static GstClockTime
  gst_tividdec2_frame_duration(GstTIViddec2 *viddec2);
 static gboolean
  gst_tividdec2_resizeBufTab(GstTIViddec2 *viddec2);
-static gboolean 
-    gst_tividdec2_codec_start (GstTIViddec2  *viddec2);
+static gboolean
+    gst_tividdec2_codec_start (GstTIViddec2  *viddec2, GstBuffer **padBuffer);
 static gboolean 
     gst_tividdec2_codec_stop (GstTIViddec2  *viddec2);
 static void 
@@ -324,6 +325,11 @@ static void gst_tividdec2_class_init(GstTIViddec2Class *klass)
         g_param_spec_boolean("genTimeStamps", "Generate Time Stamps",
             "Set timestamps on output buffers",
             TRUE, G_PARAM_WRITABLE));
+
+    g_object_class_install_property(gobject_class, PROP_PAD_ALLOC_OUTBUFS,
+        g_param_spec_boolean("padAllocOutbufs", "Use pad allocation",
+            "Try to allocate buffers with pad allocation",
+            FALSE, G_PARAM_WRITABLE));
 }
 
 /******************************************************************************
@@ -387,6 +393,13 @@ static void gst_tividdec2_init_env(GstTIViddec2 *viddec2)
                     viddec2->rtCodecThread ? "TRUE" : "FALSE");
     }
 
+    if (gst_ti_env_is_defined("GST_TI_TIViddec2_padAllocOutbufs")) {
+        viddec2->padAllocOutbufs = 
+                gst_ti_env_get_boolean("GST_TI_TIViddec2_padAllocOutbufs");
+        GST_LOG("Setting padAllocOutbufs =%s\n", 
+                    viddec2->padAllocOutbufs ? "TRUE" : "FALSE");
+    }
+
     GST_LOG("gst_tividdec2_init_env - end\n");
 }
 
@@ -448,6 +461,7 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
 
     viddec2->numOutputBufs      = 0UL;
     viddec2->hOutBufTab         = NULL;
+    viddec2->padAllocOutbufs    = FALSE;
     viddec2->circBuf            = NULL;
 
     viddec2->sps_pps_data       = NULL;
@@ -548,6 +562,10 @@ static void gst_tividdec2_set_property(GObject *object, guint prop_id,
             viddec2->rtCodecThread = g_value_get_boolean(value);
             GST_LOG("setting \"RTCodecThread\" to \"%s\"\n",
                 viddec2->rtCodecThread ? "TRUE" : "FALSE");
+        case PROP_PAD_ALLOC_OUTBUFS:
+            viddec2->padAllocOutbufs = g_value_get_boolean(value);
+            GST_LOG("setting \"padAllocOutbufs\" to \"%s\"\n",
+                viddec2->padAllocOutbufs ? "TRUE" : "FALSE");
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1082,9 +1100,9 @@ static gboolean gst_tividdec2_init_video(GstTIViddec2 *viddec2)
      */
     Rendezvous_meet(viddec2->waitOnDecodeThread);
 
-    if (viddec2->circBuf == NULL || viddec2->hOutBufTab == NULL) {
+    if (viddec2->circBuf == NULL) {
         GST_ELEMENT_ERROR(viddec2, RESOURCE, FAILED,
-        ("decode thread failed to create circbuf or display buffer handles\n"),
+        ("decode thread failed to create circbuf handles\n"),
         (NULL));
         return FALSE;
     }
@@ -1263,11 +1281,13 @@ static gboolean gst_tividdec2_codec_stop (GstTIViddec2  *viddec2)
  * gst_tividdec2_codec_start
  *     Initialize codec engine
  *****************************************************************************/
-static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
+static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2,
+           GstBuffer **padBuffer)
 {
-    VIDDEC2_Params         params    = Vdec2_Params_DEFAULT;
-    VIDDEC2_DynamicParams  dynParams = Vdec2_DynamicParams_DEFAULT;
-    BufferGfx_Attrs        gfxAttrs  = BufferGfx_Attrs_DEFAULT;
+    VIDDEC2_Params         params      = Vdec2_Params_DEFAULT;
+    VIDDEC2_DynamicParams  dynParams   = Vdec2_DynamicParams_DEFAULT;
+    BufferGfx_Attrs        gfxAttrs    = BufferGfx_Attrs_DEFAULT;
+    BufTab_Handle          codecBufTab = NULL;
     Cpu_Device             device;
     ColorSpace_Type        colorSpace;
     Int                    defaultNumBufs;
@@ -1367,30 +1387,77 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2)
         viddec2->numOutputBufs = defaultNumBufs;
     }
 
-    /* Create codec output buffers */
-    GST_LOG("creating output buffer table\n");
-    gfxAttrs.colorSpace     = colorSpace;
-    gfxAttrs.dim.width      = params.maxWidth;
-    gfxAttrs.dim.height     = params.maxHeight;
-    gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(
-                                  gfxAttrs.dim.width, gfxAttrs.colorSpace);
+    /* Try to allocate a buffer from downstream.  To do this, we must first
+     * set the framerate to a reasonable default if one hasn't been specified,
+     * and we need to set the source pad caps with the stream information we
+     * have so far.
+     */
+    gst_tividdec2_frame_duration(viddec2);
+    gst_tividdec2_set_source_caps_base(viddec2, params.maxWidth,
+        params.maxHeight, colorSpace);
 
-    /* By default, new buffers are marked as in-use by the codec */
-    gfxAttrs.bAttrs.useMask = gst_tidmaibuffer_CODEC_FREE;
+    *padBuffer = NULL;
+    if (viddec2->padAllocOutbufs) {
+        if (gst_pad_alloc_buffer(viddec2->srcpad, 0,
+            Vdec2_getOutBufSize(viddec2->hVd), GST_PAD_CAPS(viddec2->srcpad),
+            padBuffer) != GST_FLOW_OK) {
+            GST_LOG("failed to allocate a downstream buffer\n");
+            *padBuffer = NULL;
+        }
 
-    viddec2->hOutBufTab = gst_tidmaibuftab_new(
-        viddec2->numOutputBufs, Vdec2_getOutBufSize(viddec2->hVd),
-        BufferGfx_getBufferAttrs(&gfxAttrs));
+        if (*padBuffer && !GST_IS_TIDMAIBUFFERTRANSPORT(*padBuffer)) {
+            GST_LOG("downstream buffer is not a DMAI buffer; disabling use of "
+                "pad-allocated buffers\n");
+            gst_buffer_unref(*padBuffer);
+            *padBuffer = NULL;
+        }
 
-    if (viddec2->hOutBufTab == NULL) {
+        if (*padBuffer) {
+            codecBufTab = Buffer_getBufTab(
+                GST_TIDMAIBUFFERTRANSPORT_DMAIBUF(*padBuffer));
+
+            if (!codecBufTab) {
+                GST_LOG("downstream buffer is not a BufTab member; disabling "
+                    "use of pad-allocated buffers\n");
+                gst_buffer_unref(*padBuffer);
+                *padBuffer = NULL;
+            }
+        }
+    }
+
+    /* If we can't use pad-allocated buffers, allocate our own BufTab for
+     * output buffers to push downstream.
+     */
+    if (!(*padBuffer)) {
+
+        GST_LOG("creating output buffer table\n");
+        gfxAttrs.colorSpace     = colorSpace;
+        gfxAttrs.dim.width      = params.maxWidth;
+        gfxAttrs.dim.height     = params.maxHeight;
+        gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(
+                                      gfxAttrs.dim.width, gfxAttrs.colorSpace);
+
+        /* By default, new buffers are marked as in-use by the codec */
+        gfxAttrs.bAttrs.useMask = gst_tidmaibuffer_CODEC_FREE;
+
+        viddec2->hOutBufTab = gst_tidmaibuftab_new(
+            viddec2->numOutputBufs, Vdec2_getOutBufSize(viddec2->hVd),
+            BufferGfx_getBufferAttrs(&gfxAttrs));
+
+        codecBufTab = GST_TIDMAIBUFTAB_BUFTAB(viddec2->hOutBufTab);
+    }
+
+    /* The value of codecBufTab should now either point to a downstream
+     * BufTab or our own BufTab.
+     */
+    if (codecBufTab == NULL) {
         GST_ELEMENT_ERROR(viddec2, RESOURCE, NO_SPACE_LEFT,
-        ("failed to create output buffers\n"), (NULL));
+            ("no BufTab available for codec output\n"), (NULL));
         return FALSE;
     }
 
-    /* Tell the Vdec module that hOutBufTab will be used for display buffers */
-    Vdec2_setBufTab(viddec2->hVd,
-        GST_TIDMAIBUFTAB_BUFTAB(viddec2->hOutBufTab));
+    /* Tell the Vdec module what BufTab it will be using for its output */
+    Vdec2_setBufTab(viddec2->hVd, codecBufTab);
 
     return TRUE;
 }
@@ -1406,8 +1473,10 @@ static void* gst_tividdec2_decode_thread(void *arg)
 {
     GstTIViddec2  *viddec2        = GST_TIVIDDEC2(gst_object_ref(arg));
     GstBuffer     *encDataWindow  = NULL;
+    GstBuffer     *padBuffer      = NULL;
     Buffer_Attrs   bAttrs         = Buffer_Attrs_DEFAULT;
     gboolean       codecFlushed   = FALSE;
+    gboolean       usePadBufs     = FALSE;
     void          *threadRet      = GstTIThreadSuccess;
     Buffer_Handle  hDummyInputBuf = NULL;
     Buffer_Handle  hDstBuf;
@@ -1423,7 +1492,8 @@ static void* gst_tividdec2_decode_thread(void *arg)
     GST_LOG("init video decode_thread \n");
 
     /* Initialize codec engine */
-    ret = gst_tividdec2_codec_start(viddec2);
+    ret = gst_tividdec2_codec_start(viddec2, &padBuffer);
+    usePadBufs = (padBuffer != NULL);
 
     /* Notify main thread that is ok to continue initialization */
     Rendezvous_meet(viddec2->waitOnDecodeThread);
@@ -1479,7 +1549,34 @@ static void* gst_tividdec2_decode_thread(void *arg)
         }
 
         /* Obtain a free output buffer for the decoded data */
-        if (!(hDstBuf = gst_tidmaibuftab_get_buf(viddec2->hOutBufTab))) {
+        if (usePadBufs) {
+
+            /* First time through this loop, padBuffer will already be set
+             * to the buffer we got in codec_start.  It will be NULL for every
+             * frame after that.
+             */
+            if (G_LIKELY(!padBuffer)) {
+                if (gst_pad_alloc_buffer(viddec2->srcpad, 0, 0,
+                        GST_PAD_CAPS(viddec2->srcpad), &padBuffer)
+                        != GST_FLOW_OK) {
+                    GST_ELEMENT_ERROR(viddec2, RESOURCE, READ,
+                        ("failed to allocate a downstream buffer\n"), (NULL));
+                    padBuffer = NULL;
+                    goto thread_exit;
+                }
+            }
+            hDstBuf = GST_TIDMAIBUFFERTRANSPORT_DMAIBUF(padBuffer);
+            gst_buffer_unref(padBuffer);
+            padBuffer = NULL;
+
+            /* Set the CODEC_FREE flag -- this isn't done automatically when
+             * allocating buffers from downstream.
+             */
+            Buffer_setUseMask(hDstBuf, Buffer_getUseMask(hDstBuf) |
+                gst_tidmaibuffer_CODEC_FREE);
+
+        }
+        else if (!(hDstBuf = gst_tidmaibuftab_get_buf(viddec2->hOutBufTab))) {
             GST_ELEMENT_ERROR(viddec2, RESOURCE, READ,
                 ("failed to get a free contiguous buffer from BufTab\n"), 
                 (NULL));
@@ -1626,12 +1723,15 @@ thread_failure:
 thread_exit:
 
     /* Re-claim any buffers owned by the codec */
-    bufIdx = BufTab_getNumBufs(GST_TIDMAIBUFTAB_BUFTAB(viddec2->hOutBufTab));
+    if (viddec2->hOutBufTab) {
+        bufIdx =
+            BufTab_getNumBufs(GST_TIDMAIBUFTAB_BUFTAB(viddec2->hOutBufTab));
 
-    while (bufIdx-- > 0) {
-        Buffer_Handle hBuf = BufTab_getBuf(
-            GST_TIDMAIBUFTAB_BUFTAB(viddec2->hOutBufTab), bufIdx);
-        Buffer_freeUseMask(hBuf, gst_tidmaibuffer_CODEC_FREE);
+        while (bufIdx-- > 0) {
+            Buffer_Handle hBuf = BufTab_getBuf(
+                GST_TIDMAIBUFTAB_BUFTAB(viddec2->hOutBufTab), bufIdx);
+            Buffer_freeUseMask(hBuf, gst_tidmaibuffer_CODEC_FREE);
+        }
     }
 
     /* Release the last buffer we retrieved from the circular buffer */
