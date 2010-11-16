@@ -1,7 +1,7 @@
-From 15526c46a1f636a3f3907122f7ab66d2a0097eb5 Mon Sep 17 00:00:00 2001
+From 07376e57f6e9266e18fa944136794a3c843d0733 Mon Sep 17 00:00:00 2001
 From: Don Darling <ddarling@ti.com>
 Date: Tue, 12 Oct 2010 15:23:11 -0500
-Subject: [PATCH 01/16] v4l2src: add input-src property to specify capture input
+Subject: [PATCH 01/17] v4l2src: add input-src property to specify capture input
 
 This property specifies which capture input to use when multiple inputs
 are present on a capture device.
@@ -151,5 +151,5 @@ index f2c2c08..b88b07b 100644
    return TRUE;
  }
 -- 
-1.7.0.4
+1.7.1
 

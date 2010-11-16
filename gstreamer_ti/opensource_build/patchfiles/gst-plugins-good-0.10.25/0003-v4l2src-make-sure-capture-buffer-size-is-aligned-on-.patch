@@ -1,7 +1,7 @@
-From 62c2e4855b8e8407f979008c65d9b655fd29a7c0 Mon Sep 17 00:00:00 2001
+From a5a6650a10d44e3c83428fcf6ac7aa6d6374f91d Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Tue, 13 Jul 2010 19:30:51 -0500
-Subject: [PATCH 03/16] v4l2src: make sure capture buffer size is aligned on DM365.
+Subject: [PATCH 03/17] v4l2src: make sure capture buffer size is aligned on DM365.
 
 On DM365, capture buffers use a pitch that is aligned to a 32-byte boundary.
 We need to comprehend this when calculated the expected capture buffer size.
@@ -29,5 +29,5 @@ index 9ad0803..34bc103 100644
        case GST_MAKE_FOURCC ('N', 'V', '2', '1'):
          fourcc = V4L2_PIX_FMT_NV21;
 -- 
-1.7.0.4
+1.7.1
 

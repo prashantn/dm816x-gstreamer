@@ -1,7 +1,7 @@
-From 3df09db04f83a2483033de599c19754c74cef140 Mon Sep 17 00:00:00 2001
+From c85de9dcbd3ae84239b1407275a16e7b2af5ee10 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Tue, 16 Mar 2010 15:16:00 -0500
-Subject: [PATCH 11/16] v4l2src: update gst_v4l2_get_norm to handle DM6467T and DM365 properly
+Subject: [PATCH 11/17] v4l2src: update gst_v4l2_get_norm to handle DM6467T and DM365 properly
 
 DM6467T and DM365 use the QUERYSTD ioctl to detect the standard in use by the
 connected component.
@@ -58,5 +58,5 @@ index 30ebf9e..e38754b 100644
    return TRUE;
  
 -- 
-1.7.0.4
+1.7.1
 

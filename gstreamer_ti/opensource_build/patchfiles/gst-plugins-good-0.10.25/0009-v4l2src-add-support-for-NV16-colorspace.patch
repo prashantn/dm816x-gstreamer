@@ -1,7 +1,7 @@
-From fbd033f0617863e8f1a9133dc167b2f49449bf22 Mon Sep 17 00:00:00 2001
+From 207faaba152cfbdfa74cf45202037eadd1828625 Mon Sep 17 00:00:00 2001
 From: Don Darling <ddarling@ti.com>
 Date: Tue, 12 Oct 2010 15:44:40 -0500
-Subject: [PATCH 09/16] v4l2src: add support for NV16 colorspace
+Subject: [PATCH 09/17] v4l2src: add support for NV16 colorspace
 
 ---
  sys/v4l2/gstv4l2object.c |   11 +++++++++++
@@ -44,5 +44,5 @@ index e8879a6..b03c86e 100644
         case V4L2_PIX_FMT_YUV422UVP:
           fcc = GST_MAKE_FOURCC ('Y', '8', 'C', '8');
 -- 
-1.7.0.4
+1.7.1
 

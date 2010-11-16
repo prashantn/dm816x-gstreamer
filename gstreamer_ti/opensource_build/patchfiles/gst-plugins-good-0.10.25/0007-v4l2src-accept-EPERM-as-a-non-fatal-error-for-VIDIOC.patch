@@ -1,7 +1,7 @@
-From 10fae01527e93d1439a6ffc4944fe724d3dedc80 Mon Sep 17 00:00:00 2001
+From bad1123a941b5859d11fea374b1fae4a2dbd5623 Mon Sep 17 00:00:00 2001
 From: Don Darling <ddarling@ti.com>
 Date: Tue, 12 Oct 2010 15:38:02 -0500
-Subject: [PATCH 07/16] v4l2src: accept EPERM as a non-fatal error for VIDIOC_TRY
+Subject: [PATCH 07/17] v4l2src: accept EPERM as a non-fatal error for VIDIOC_TRY
 
 When setting the capture mode, the v4l2src will try interlaced mode first, and
 if the driver returns EINVAL it will try progressive mode.  Any other errno
@@ -47,5 +47,5 @@ index 4b50009..4321a9e 100644
  
      GST_DEBUG_OBJECT (v4l2object->element, "trying again...");
 -- 
-1.7.0.4
+1.7.1
 

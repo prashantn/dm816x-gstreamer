@@ -1,7 +1,7 @@
-From 053dd65050f80078905f8f6b146a1b84db19fbc9 Mon Sep 17 00:00:00 2001
+From f5e09e5a5d70442ac2c792f71e10387241ddc68d Mon Sep 17 00:00:00 2001
 From: Don Darling <ddarling@ti.com>
 Date: Wed, 13 Oct 2010 14:16:09 -0500
-Subject: [PATCH 14/16] v4l2src: Skip detection of private controls.
+Subject: [PATCH 14/17] v4l2src: Skip detection of private controls.
 
 Control information reported by the capture driver on DM365 (and possibly
 others) reports a large number of controls outside the recognized ranges,
@@ -40,5 +40,5 @@ index 1bf1e4e..af64efe 100644
      GST_DEBUG_OBJECT (e, "checking control %08x", n);
  
 -- 
-1.7.0.4
+1.7.1
 

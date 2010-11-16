@@ -1,7 +1,7 @@
-From ae54b29b3da07ba088fa71d097fd892bc06b6cbc Mon Sep 17 00:00:00 2001
+From 3c93b831cbddefac77aebc8daa69f80df2394b2b Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Mon, 17 May 2010 11:12:21 -0500
-Subject: [PATCH 02/16] v4l2src: keep track of the input ID that will be used for capture
+Subject: [PATCH 02/17] v4l2src: keep track of the input ID that will be used for capture
 
 The default ID is set on a per-target basis to one that is reasonable.  This
 will typically be the same default as the DVSDK encode demo.
@@ -68,5 +68,5 @@ index b88b07b..eb67fd3 100644
      GST_LOG_OBJECT (e, "   index:     %d", input.index);
      GST_LOG_OBJECT (e, "   name:      '%s'", input.name);
 -- 
-1.7.0.4
+1.7.1
 

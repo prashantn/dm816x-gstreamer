@@ -109,7 +109,8 @@ PACKAGE_plugins_good_PRECONFIG_PATCHES   = \
     0013-v4l2src-disable-video-device-polling-by-default-on-D.patch \
     0014-v4l2src-Skip-detection-of-private-controls.patch \
     0015-v4l2src-Remove-short-circuit-of-VIDIOC_S_FMT-call.patch \
-    0016-v4l2src-add-feature-to-artifically-lower-framerate-b.patch
+    0016-v4l2src-add-feature-to-artifically-lower-framerate-b.patch \
+    0017-v4l2src-always-set-the-desired-framerate-on-DM365.patch
 PACKAGE_plugins_good_CONFIGURE_OPTS      = 
 PACKAGE_plugins_good_POSTCONFIG_PATCHES  =
 PACKAGE_plugins_good_BUILD_DIRS          = gst/avi

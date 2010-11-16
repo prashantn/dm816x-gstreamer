@@ -1,7 +1,7 @@
-From 86097267c27f9160f51847aa1c57f5f82225c947 Mon Sep 17 00:00:00 2001
+From fd3e16faa494e47b00cf1374bb4ac1f463b0fc48 Mon Sep 17 00:00:00 2001
 From: Don Darling <ddarling@ti.com>
 Date: Thu, 14 Oct 2010 11:19:04 -0500
-Subject: [PATCH 16/16] v4l2src: add feature to artifically lower framerate by dropping frames.
+Subject: [PATCH 16/17] v4l2src: add feature to artifically lower framerate by dropping frames.
 
 Some capture devices do not let you set the framerate.  In these cases, even
 if you specify a frame rate of 30/1, you may still get 60/1.  With this change,
@@ -185,5 +185,5 @@ index b069920..a9853fd 100644
    }
  
 -- 
-1.7.0.4
+1.7.1
 

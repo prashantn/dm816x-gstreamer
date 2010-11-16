@@ -1,7 +1,7 @@
-From ab6f158233d0056efd404cf69fc0168aca337237 Mon Sep 17 00:00:00 2001
+From b6e9b0ae1351aedbad1e3b3ec65d0b25a4ced9f6 Mon Sep 17 00:00:00 2001
 From: Don Darling <ddarling@ti.com>
 Date: Tue, 12 Oct 2010 15:36:01 -0500
-Subject: [PATCH 06/16] v4l2src: support NV12 capture on DM365 using the IPIPE in on-the-fly mode
+Subject: [PATCH 06/17] v4l2src: support NV12 capture on DM365 using the IPIPE in on-the-fly mode
 
 ---
  sys/v4l2/Makefile.am        |    2 +
@@ -839,5 +839,5 @@ index 5f1ae7c..98c3281 100644
 +#endif /* __V4L2SRC_MVL_LSP_H__ */
  
 -- 
-1.7.0.4
+1.7.1
 

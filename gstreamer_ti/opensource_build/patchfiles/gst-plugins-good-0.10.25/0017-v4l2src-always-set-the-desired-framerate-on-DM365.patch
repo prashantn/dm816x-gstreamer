@@ -1,0 +1,33 @@
+From 8dff438f5bc89868ae71d8adff519be9afbc114e Mon Sep 17 00:00:00 2001
+From: Don Darling <ddarling@ti.com>
+Date: Wed, 27 Oct 2010 18:51:31 -0500
+Subject: [PATCH 17/17] v4l2src: always set the desired framerate on DM365.
+
+By default, the frame rate is only set if the driver reports that it is
+currently using a different value.  The driver doesn't always report the
+correct value -- it may report 30fps when it's actually running at 60fps.
+This change forces the framerate to always be set, regardless of what the
+driver reports.
+---
+ sys/v4l2/v4l2src_calls.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/sys/v4l2/v4l2src_calls.c b/sys/v4l2/v4l2src_calls.c
+index a9853fd..a2a8689 100644
+--- a/sys/v4l2/v4l2src_calls.c
++++ b/sys/v4l2/v4l2src_calls.c
+@@ -269,8 +269,9 @@ gst_v4l2src_set_capture (GstV4l2Src * v4l2src, guint32 pixelformat,
+     goto done;
+   }
+ 
+-  /* We can't trust the frame rate reported by DM6467[T] driver */
+-  #if !defined(Platform_dm6467) && !defined(Platform_dm6467t)
++  /* We can't trust the frame rate reported by DM6467[T] / DM365 drivers */
++  #if !defined(Platform_dm6467) && !defined(Platform_dm6467t) && \
++      !defined(Platform_dm365)
+   /* Note: V4L2 provides the frame interval, we have the frame rate */
+   if (fractions_are_equal (stream.parm.capture.timeperframe.numerator,
+           stream.parm.capture.timeperframe.denominator, fps_d, fps_n)) {
+-- 
+1.7.1
+

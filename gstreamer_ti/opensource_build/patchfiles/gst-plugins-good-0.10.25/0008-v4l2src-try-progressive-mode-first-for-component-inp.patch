@@ -1,7 +1,7 @@
-From 5d028a0654dc89d5d86f70058aee33707bb7317e Mon Sep 17 00:00:00 2001
+From b89cf90ff8ddd7ee2659fc584a088e7443720475 Mon Sep 17 00:00:00 2001
 From: Don Darling <don.osc2@gmail.com>
 Date: Fri, 30 Apr 2010 12:56:58 -0500
-Subject: [PATCH 08/16] v4l2src: try progressive mode first for component input on some platforms
+Subject: [PATCH 08/17] v4l2src: try progressive mode first for component input on some platforms
 
 Normally, v4l2src tries INTERLACED mode first on a capture input, and if that
 fails, it tries progressive.  However, on DM6467 the component capture driver
@@ -78,5 +78,5 @@ index 4321a9e..e8879a6 100644
      v4l2object->bytesused = format.fmt.pix.sizeimage;
    #endif
 -- 
-1.7.0.4
+1.7.1
 
