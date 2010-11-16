@@ -1023,6 +1023,54 @@ exit:
     return ret;
 }
 
+/*****************************************************************************
+ * gst_tividenc1_prepare_input
+ *  Prepare the codec input buffer.
+ ****************************************************************************/
+static Buffer_Handle
+gst_tividenc1_prepare_input(GstTIVidenc1 *videnc1, GstBuffer **inBuf)
+{
+    /* If the input buffer is a physically contiguous DMAI buffer, it can
+     * be passed directly to the codec.
+     */
+    if (GST_IS_TIDMAIBUFFERTRANSPORT(*inBuf)) {
+        return GST_TIDMAIBUFFERTRANSPORT_DMAIBUF(*inBuf);
+    }
+
+    /* If zeroCopyEncode is TRUE, we have a non-DMAI buffer that can still
+     * be used directly by the codec.  Wrap it in a DMAI buffer reference
+     * so it can be passed to Venc1_process.
+     */
+    if (videnc1->zeroCopyEncode) {
+        if (!videnc1->hInBufRef) {
+            videnc1->hInBufRef =
+                gst_tividenc1_convert_gst_to_dmai(videnc1, *inBuf, TRUE);
+            if (videnc1->hInBufRef == NULL) {
+                GST_ERROR("failed to get dmai buffer\n");
+                return NULL;
+            }
+        } else {
+            Buffer_setUserPtr(videnc1->hInBufRef,
+                (Int8*)GST_BUFFER_DATA(*inBuf));
+            Buffer_setNumBytesUsed(videnc1->hInBufRef,
+                GST_BUFFER_SIZE(*inBuf));
+        }
+        return videnc1->hInBufRef;
+    }
+
+    /* Otherwise, copy the buffer contents into our local physically contiguous
+     * DMAI buffer and pass it to the codec.  The gst_tividenc1_copy_input
+     * function will copy using hardware acceleration if possible.
+     */
+    gst_tividenc1_copy_input(videnc1, videnc1->hContigInBuf, *inBuf);
+    Buffer_setNumBytesUsed(videnc1->hContigInBuf,
+        Buffer_getSize(videnc1->hContigInBuf));
+    gst_buffer_unref(*inBuf);
+    *inBuf = NULL;
+    return videnc1->hContigInBuf;
+}
+
+
 /******************************************************************************
  * gst_tividenc1_chain
  *    This is the main processing routine.  This function receives a buffer
@@ -1577,40 +1625,10 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     /* Get the time stamp from the input buffer */
     encDataTime = GST_BUFFER_TIMESTAMP(inBuf);
 
-    /* Prepare the codec input buffer (hContigInBuf):
-     * 1)  If the input buffer is a physically contiguous DMAI buffer, it can
-     *     be passed directly to the codec.
-     * 2)  If zeroCopyEncode is TRUE, we have a non-DMAI buffer that can still
-     *     be used directly by the codec.  Wrap it in a DMAI buffer reference
-     *     so it can be passed to Venc1_process.
-     * 3)  If the above scenarios don't apply, copy the buffer contents into
-     *     our local physically contiguous DMAI buffer and pass it to the
-     *     codec.  The gst_tividenc1_copy_input function will copy using
-     *     hardware acceleration if possible.
-     */
-    if (GST_IS_TIDMAIBUFFERTRANSPORT(inBuf)) {
-        hContigInBuf = GST_TIDMAIBUFFERTRANSPORT_DMAIBUF(inBuf);
-    }
-    else if (videnc1->zeroCopyEncode) {
-        if (!videnc1->hInBufRef) {
-            videnc1->hInBufRef =
-                gst_tividenc1_convert_gst_to_dmai(videnc1, inBuf, TRUE);
-            if (videnc1->hInBufRef == NULL) {
-                GST_ERROR("failed to get dmai buffer\n");
-                goto exit_fail;
-            }
-        } else {
-            Buffer_setUserPtr(videnc1->hInBufRef,
-                (Int8*)GST_BUFFER_DATA(inBuf));
-            Buffer_setNumBytesUsed(videnc1->hInBufRef, GST_BUFFER_SIZE(inBuf));
-        }
-        hContigInBuf = videnc1->hInBufRef;
-    } else {
-        hContigInBuf = videnc1->hContigInBuf;
-        gst_tividenc1_copy_input(videnc1, hContigInBuf, inBuf);
-        Buffer_setNumBytesUsed(hContigInBuf, Buffer_getSize(hContigInBuf));
-        gst_buffer_unref(inBuf);
-        inBuf = NULL;
+    /* Prepare the codec input buffer.  If the input buffer is copied and
+     * unref'd, inBuf will be set to NULL. */
+    if (!(hContigInBuf = gst_tividenc1_prepare_input(videnc1, &inBuf))) {
+        goto exit_fail;
     }
 
     /* Obtain a free output buffer for the encoded data */
