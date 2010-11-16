@@ -100,6 +100,7 @@ struct _GstTIVidenc1
 
   /* Buffer management */
   GstAdapter      *sinkAdapter;
+  GstBuffer       *inBufMetadata;
   GstTIDmaiBufTab *hOutBufTab;
   Buffer_Handle    hContigInBuf;
   Buffer_Handle    hInBufRef;

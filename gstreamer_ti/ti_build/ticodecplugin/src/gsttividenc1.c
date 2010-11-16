@@ -381,6 +381,7 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->hVe1                   = NULL;
 
     videnc1->sinkAdapter            = NULL;
+    videnc1->inBufMetadata          = NULL;
     videnc1->hOutBufTab             = NULL;
     videnc1->hContigInBuf           = NULL;
     videnc1->hInBufRef              = NULL;
@@ -992,6 +993,11 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
         return FALSE;
     }
 
+    /* Initialize the inBufMetadata */
+    if (!videnc1->inBufMetadata) {
+        videnc1->inBufMetadata = gst_buffer_new();
+    }
+
     /* Initialize the sinkAdapter */
     if (!videnc1->sinkAdapter) {
         videnc1->sinkAdapter = gst_adapter_new();
@@ -1031,6 +1037,11 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
     if (videnc1->sinkAdapter) {
         g_object_unref(videnc1->sinkAdapter);
         videnc1->sinkAdapter = NULL;
+    }
+
+    if (videnc1->inBufMetadata) {
+        gst_buffer_unref(videnc1->inBufMetadata);
+        videnc1->inBufMetadata = NULL;
     }
 
     if (videnc1->hFc) {
@@ -1403,7 +1414,6 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     Buffer_Handle  hContigInBuf = NULL;
     Buffer_Handle  hDstBuf      = NULL;
     GstFlowReturn  flowRet      = GST_FLOW_OK;
-    GstClockTime   encDataTime;
     Int            ret;
 
     *outBuf = NULL;
@@ -1417,8 +1427,9 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
         goto exit_fail;
     }
 
-    /* Get the time stamp from the input buffer */
-    encDataTime = GST_BUFFER_TIMESTAMP(inBuf);
+    /* Get the metadata from the input buffer */
+    gst_buffer_copy_metadata(videnc1->inBufMetadata, inBuf, 
+        GST_BUFFER_COPY_ALL);
 
     /* Prepare the codec input buffer.  If the input buffer is copied and
      * unref'd, inBuf will be set to NULL. */
@@ -1473,16 +1484,9 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
         Buffer_getNumBytesUsed(hDstBuf));
     gst_buffer_set_caps(*outBuf, GST_PAD_CAPS(videnc1->srcpad));
 
-    /* If we have a valid time stamp, set it on the buffer */
-    if (videnc1->genTimeStamps &&
-        GST_CLOCK_TIME_IS_VALID(encDataTime)) {
-        GST_LOG("video timestamp value: %llu\n", encDataTime);
-        GST_BUFFER_TIMESTAMP(*outBuf) = encDataTime;
-        GST_BUFFER_DURATION(*outBuf)  = videnc1->frameDuration;
-    }
-    else {
-        GST_BUFFER_TIMESTAMP(*outBuf) = GST_CLOCK_TIME_NONE;
-    }
+    /* Get the metadata from the input buffer */
+    gst_buffer_copy_metadata(*outBuf, videnc1->inBufMetadata,
+        GST_BUFFER_COPY_FLAGS | GST_BUFFER_COPY_TIMESTAMPS);
 
     /* Release buffers no longer in use by the codec */
     Buffer_freeUseMask(hDstBuf, gst_tidmaibuffer_CODEC_FREE);
