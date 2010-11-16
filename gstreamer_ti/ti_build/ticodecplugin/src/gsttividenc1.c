@@ -949,14 +949,14 @@ exit:
 }
 
 /*****************************************************************************
- * gst_tividenc1_circbuf_framecopy
- *  This function will be invoked by circular buffer during copy method.
- *  Function performs copy from source to destination buffer using
- *  DMAI framecopy module.
+ * gst_tividenc1_copy_input
+ *  Make the input data in src available in the physically contiguous memory
+ *  in dst in the best way possible.  Preferably an accelerated copy or
+ *  color conversion.
  ****************************************************************************/
-static Int gst_tividenc1_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
+static Int
+gst_tividenc1_copy_input(GstTIVidenc1 *videnc1, Int8 *dst, GstBuffer *src)
 {
-    GstTIVidenc1   *videnc1     = (GstTIVidenc1*) data;
     BufferGfx_Attrs gfxAttrs    = BufferGfx_Attrs_DEFAULT;
     Buffer_Handle  hInBuf       = NULL;
     Buffer_Handle  hOutBuf      = NULL;
@@ -997,7 +997,7 @@ static Int gst_tividenc1_circbuf_copy (Int8 *dst, GstBuffer *src, void *data)
         return GST_BUFFER_SIZE(src);
     }
 
-    GST_LOG("gst_tividenc1_circbuf_framecopy - begin\n");
+    GST_LOG("gst_tividenc1_copy_input - begin\n");
 
     if (videnc1->hFc == NULL) {
         /* Enable the accel framecopy based on contiguousInputFrame.
@@ -1080,7 +1080,7 @@ exit:
         Buffer_delete(hOutBuf);
     }
 
-    GST_LOG("gst_tividenc1_circbuf_framecopy - end\n");
+    GST_LOG("gst_tividenc1_copy_input - end\n");
     return ret;
 }
 
@@ -1621,8 +1621,8 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     }
 
     /* Copy input buffer into physically-contiguous memory.  */
-    gst_tividenc1_circbuf_copy(Buffer_getUserPtr(videnc1->hContigInBuf), inBuf,
-        videnc1);
+    gst_tividenc1_copy_input(videnc1, Buffer_getUserPtr(
+        videnc1->hContigInBuf), inBuf);
     Buffer_setNumBytesUsed(videnc1->hContigInBuf,
         Buffer_getSize(videnc1->hContigInBuf));
 
