@@ -178,6 +178,9 @@ static GstStateChangeReturn
  gst_tividenc1_change_state(GstElement *element, GstStateChange transition);
 static void*
  gst_tividenc1_encode_thread(void *arg);
+static GstFlowReturn
+ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
+     GstBuffer **outBuf);
 static void
  gst_tividenc1_drain_pipeline(GstTIVidenc1 *videnc1);
 static GstClockTime
@@ -1955,6 +1958,130 @@ thread_exit:
     GST_LOG("exit video encode_thread (%d)\n", (int)threadRet);
     return threadRet;
 }
+
+/******************************************************************************
+ * gst_tividenc1_encode
+ *     Call the video codec to process a full input buffer
+ ******************************************************************************/
+static GstFlowReturn
+gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
+    GstBuffer **outBuf)
+{
+    BufferGfx_Attrs  gfxAttrs = BufferGfx_Attrs_DEFAULT;
+    Buffer_Handle    hDstBuf  = NULL;
+    Buffer_Handle    hInBuf   = NULL;
+    GstClockTime     encDataTime;
+    GstClockTime     frameDuration;
+    Int              ret;
+
+    *outBuf = NULL;
+
+    /* Calculate the duration of a single frame in this stream */
+    frameDuration = gst_tividenc1_frame_duration(videnc1);
+
+    /* set graphics attrs for input buffer */
+    gfxAttrs.dim.width        = videnc1->width;
+    gfxAttrs.bAttrs.reference = FALSE;
+    gfxAttrs.dim.height       = videnc1->height;
+    gfxAttrs.colorSpace       = videnc1->colorSpace;
+    gfxAttrs.dim.lineLength   = BufferGfx_calcLineLength(videnc1->width,
+                                    videnc1->colorSpace);
+
+    /* DM6467: set the colorspace to YUV420PSEMI, this is mainly because on 
+     * dm6467 circular buffer will perform the color conversion from 422-420.
+     */
+    if ((videnc1->device == Cpu_Device_DM6467) && 
+            videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
+        gfxAttrs.colorSpace  = ColorSpace_YUV420PSEMI;
+    }
+ 
+    /* Make sure the input buffer is the expected size */
+    if (GST_BUFFER_SIZE(inBuf) != videnc1->upstreamBufSize) {
+        GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
+        ("input buffer is an invalid size (%lu != %lu)\n",
+        (guint32)GST_BUFFER_SIZE(inBuf), (guint32)videnc1->upstreamBufSize),
+        (NULL));
+        return GST_FLOW_UNEXPECTED;
+    }
+
+    /* allocate input buffer in physically contiguous memory */
+    hInBuf = Buffer_create(videnc1->upstreamBufSize, 
+                 BufferGfx_getBufferAttrs(&gfxAttrs));
+
+    if (hInBuf == NULL) {
+        GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
+        ("failed to allocate input buffer for encoder\n"), (NULL));
+        return GST_FLOW_UNEXPECTED;
+    }
+
+    /* Copy input buffer into physically-contiguous memory */
+    memcpy(Buffer_getUserPtr(hInBuf), GST_BUFFER_DATA(inBuf),
+        GST_BUFFER_SIZE(inBuf));
+
+    Buffer_setNumBytesUsed(hInBuf, Buffer_getSize(hInBuf));
+
+    /* Get the time stamp from the input buffer */
+    encDataTime = GST_BUFFER_TIMESTAMP(inBuf);
+
+    /* Obtain a free output buffer for the encoded data */
+    if (!(hDstBuf = gst_tidmaibuftab_get_buf(videnc1->hOutBufTab))) {
+        GST_ELEMENT_ERROR(videnc1, RESOURCE, READ,
+            ("failed to get a free contiguous buffer from BufTab\n"),
+            (NULL));
+        return GST_FLOW_UNEXPECTED;
+    }
+
+    /* Make sure the whole buffer is used for output */
+    BufferGfx_resetDimensions(hDstBuf);
+
+    /* Invoke the video encoder */
+    GST_LOG("invoking the video encoder\n");
+    ret   = Venc1_process(videnc1->hVe1, hInBuf, hDstBuf);
+    Buffer_delete(hInBuf);
+
+    if (ret < 0) {
+        GST_ELEMENT_ERROR(videnc1, STREAM, ENCODE,
+        ("failed to encode video buffer\n"), (NULL));
+        return GST_FLOW_UNEXPECTED;
+    }
+    else if (ret > 0) {
+        GST_LOG("Venc1_process returned success code %d\n", ret); 
+    }
+
+    /* Populate codec header */
+    gst_tividenc1_populate_codec_header(videnc1, hDstBuf);
+
+    /* Set the source pad capabilities based on the encoded frame properties.
+     */
+    gst_tividenc1_set_source_caps(videnc1, hDstBuf);
+
+    /* Create a DMAI transport buffer object to carry a DMAI buffer to
+     * the source pad.  The transport buffer knows how to release the
+     * buffer for re-use in this element when the source pad calls
+     * gst_buffer_unref().
+     */
+    *outBuf = gst_tidmaibuffertransport_new(hDstBuf, videnc1->hOutBufTab);
+    gst_buffer_set_data(*outBuf, GST_BUFFER_DATA(*outBuf),
+        Buffer_getNumBytesUsed(hDstBuf));
+    gst_buffer_set_caps(*outBuf, GST_PAD_CAPS(videnc1->srcpad));
+
+    /* If we have a valid time stamp, set it on the buffer */
+    if (videnc1->genTimeStamps &&
+        GST_CLOCK_TIME_IS_VALID(encDataTime)) {
+        GST_LOG("video timestamp value: %llu\n", encDataTime);
+        GST_BUFFER_TIMESTAMP(*outBuf) = encDataTime;
+        GST_BUFFER_DURATION(*outBuf)  = frameDuration;
+    }
+    else {
+        GST_BUFFER_TIMESTAMP(*outBuf) = GST_CLOCK_TIME_NONE;
+    }
+
+    /* Release buffers no longer in use by the codec */
+    Buffer_freeUseMask(hDstBuf, gst_tidmaibuffer_CODEC_FREE);
+
+    return GST_FLOW_OK;
+}
+
 
 /******************************************************************************
  * gst_tividenc1_drain_pipeline
