@@ -862,12 +862,11 @@ static Buffer_Handle gst_tividenc1_convert_gst_to_dmai(GstTIVidenc1 *videnc1,
  * gst_tividenc1_422psemi_420psemi
  *  this function color convert YUV422PSEMI to YUV420PSEMI.
  *****************************************************************************/
-static Int gst_tividenc1_422psemi_420psemi(Int8* dst, GstBuffer *src, 
-    GstTIVidenc1   *videnc1)
+static Int
+gst_tividenc1_422psemi_420psemi(Buffer_Handle hDstBuf, GstBuffer *src, 
+    GstTIVidenc1 *videnc1)
 {
-    BufferGfx_Attrs gfxAttrs    = BufferGfx_Attrs_DEFAULT;
     Buffer_Handle  hInBuf       = NULL;
-    Buffer_Handle  hOutBuf      = NULL;
     Int ret                     = -1;
     Ccv_Attrs       ccvAttrs    = Ccv_Attrs_DEFAULT;
     gboolean        accel       = FALSE;
@@ -908,27 +907,12 @@ static Int gst_tividenc1_422psemi_420psemi(Int8* dst, GstBuffer *src,
     }
 
     /* Prepare output buffer */
-    gfxAttrs.bAttrs.reference = TRUE;
-    gfxAttrs.colorSpace = ColorSpace_YUV420PSEMI;
-    gfxAttrs.dim.width  = videnc1->width;
-    gfxAttrs.dim.height = videnc1->height;
-    gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(videnc1->width, 
-                               videnc1->colorSpace);
-
-    hOutBuf = Buffer_create(gfxAttrs.dim.lineLength * videnc1->height * 3 / 2,
-                BufferGfx_getBufferAttrs(&gfxAttrs));
-    if (hOutBuf == NULL) {
-        GST_ERROR("failed to create dest buffer\n");
-        goto exit;
-    }
-    Buffer_setUserPtr(hOutBuf, dst);
-
-    if (Ccv_config(videnc1->hCcv, hInBuf, hOutBuf) < 0) {
+    if (Ccv_config(videnc1->hCcv, hInBuf, hDstBuf) < 0) {
         GST_ERROR("failed to config CCV handle\n");
         goto exit;
     }
 
-    if (Ccv_execute(videnc1->hCcv, hInBuf, hOutBuf) < 0) {
+    if (Ccv_execute(videnc1->hCcv, hInBuf, hDstBuf) < 0) {
         GST_ERROR("failed to execute Ccv handle\n");
         goto exit;
     }
@@ -941,10 +925,6 @@ exit:
         Buffer_delete(hInBuf);
     }
 
-    if (hOutBuf) {
-        Buffer_delete(hOutBuf);
-    }
-
     return ret;
 }
 
@@ -955,11 +935,10 @@ exit:
  *  color conversion.
  ****************************************************************************/
 static Int
-gst_tividenc1_copy_input(GstTIVidenc1 *videnc1, Int8 *dst, GstBuffer *src)
+gst_tividenc1_copy_input(GstTIVidenc1 *videnc1, Buffer_Handle hDstBuf,
+    GstBuffer *src)
 {
-    BufferGfx_Attrs gfxAttrs    = BufferGfx_Attrs_DEFAULT;
     Buffer_Handle  hInBuf       = NULL;
-    Buffer_Handle  hOutBuf      = NULL;
     Int ret                     = -1;
     Framecopy_Attrs fcAttrs     = Framecopy_Attrs_DEFAULT;
     gboolean        accel       = FALSE;
@@ -968,33 +947,10 @@ gst_tividenc1_copy_input(GstTIVidenc1 *videnc1, Int8 *dst, GstBuffer *src)
     BufferGfx_Dimensions  dim;
     #endif
 
-    /* If we are not recieving full frame then use memcpy() and let circular
-     * manage everything else.
-     */
-    if (GST_BUFFER_SIZE(src) < gst_ti_calc_buffer_size(videnc1->width,
-         videnc1->height, 0, videnc1->colorSpace)) {
-        memcpy(dst, GST_BUFFER_DATA(src), GST_BUFFER_SIZE(src));
-        return GST_BUFFER_SIZE(src);
-    }
- 
     /* Check to see if we need to execute ccv on dm6467 */
     if (videnc1->device == Cpu_Device_DM6467 &&
          videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
-        return gst_tividenc1_422psemi_420psemi(dst, src, videnc1);
-    }
-
-    /* TODO:
-     * DMAI 1.20.00.06 has BUG in non-accel framecopy for YUV420PSEMI. 
-     * Use memcpy() to copy upstream buffer in circular buffer. And this 
-     * workaround  *must* be removed once move to later version of DMAI for 
-     * DM6467.
-     */
-    if (!(videnc1->contiguousInputFrame) &&
-            (videnc1->device == Cpu_Device_DM6467) &&
-             (videnc1->colorSpace == ColorSpace_YUV420PSEMI)) {
-
-        memcpy(dst, GST_BUFFER_DATA(src), GST_BUFFER_SIZE(src));
-        return GST_BUFFER_SIZE(src);
+        return gst_tividenc1_422psemi_420psemi(hDstBuf, src, videnc1);
     }
 
     GST_LOG("gst_tividenc1_copy_input - begin\n");
@@ -1044,27 +1000,12 @@ gst_tividenc1_copy_input(GstTIVidenc1 *videnc1, Int8 *dst, GstBuffer *src)
     #endif
 
     /* Prepare output buffer */
-    gfxAttrs.bAttrs.reference = TRUE;
-    gfxAttrs.colorSpace = videnc1->colorSpace;
-    gfxAttrs.dim.width  = videnc1->width;
-    gfxAttrs.dim.height = videnc1->height;
-    gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(videnc1->width, 
-                               videnc1->colorSpace);
-
-    hOutBuf = Buffer_create(GST_BUFFER_SIZE(src),
-                BufferGfx_getBufferAttrs(&gfxAttrs));
-    if (hOutBuf == NULL) {
-        GST_ERROR("failed to create dest buffer\n");
-        goto exit;
-    }
-    Buffer_setUserPtr(hOutBuf, dst);
-
-    if (Framecopy_config(videnc1->hFc, hInBuf, hOutBuf) < 0) {
+    if (Framecopy_config(videnc1->hFc, hInBuf, hDstBuf) < 0) {
         GST_ERROR("failed to configure framecopy\n");
         goto exit;
     }
 
-    if (Framecopy_execute(videnc1->hFc, hInBuf, hOutBuf) < 0) {
+    if (Framecopy_execute(videnc1->hFc, hInBuf, hDstBuf) < 0) {
         GST_ERROR("failed to execute framecopy\n");
         goto exit;
     }
@@ -1074,10 +1015,6 @@ gst_tividenc1_copy_input(GstTIVidenc1 *videnc1, Int8 *dst, GstBuffer *src)
 exit:
     if (hInBuf) {
         Buffer_delete(hInBuf);
-    }
-
-    if (hOutBuf) {
-        Buffer_delete(hOutBuf);
     }
 
     GST_LOG("gst_tividenc1_copy_input - end\n");
@@ -1621,8 +1558,7 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     }
 
     /* Copy input buffer into physically-contiguous memory.  */
-    gst_tividenc1_copy_input(videnc1, Buffer_getUserPtr(
-        videnc1->hContigInBuf), inBuf);
+    gst_tividenc1_copy_input(videnc1, videnc1->hContigInBuf, inBuf);
     Buffer_setNumBytesUsed(videnc1->hContigInBuf,
         Buffer_getSize(videnc1->hContigInBuf));
 
