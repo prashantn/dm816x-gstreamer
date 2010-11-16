@@ -27,7 +27,6 @@
 
 #include <gst/gst.h>
 #include <gst/base/gstadapter.h>
-#include "gstticircbuffer.h"
 #include "gsttidmaibuftab.h"
 
 #include <xdc/std.h>
@@ -37,6 +36,7 @@
 #include <ti/sdo/dmai/Buffer.h>
 #include <ti/sdo/dmai/Fifo.h>
 #include <ti/sdo/dmai/BufTab.h>
+#include <ti/sdo/dmai/Framecopy.h>
 #include <ti/sdo/dmai/Rendezvous.h>
 #include <ti/sdo/dmai/ce/Venc1.h>
 #include <ti/sdo/dmai/Cpu.h>
@@ -72,10 +72,8 @@ struct _GstTIVidenc1
   const gchar*   codecName;
   const gchar*   resolution;
   const gchar*   iColor;
-  gboolean       displayBuffer;
   gboolean       genTimeStamps;
   gboolean       contiguousInputFrame;
-  gint           numInputBufs;
   gint           numOutputBufs;
   gint32         bitRate;
   gint           rateControlPreset;
@@ -104,7 +102,6 @@ struct _GstTIVidenc1
   GstAdapter      *sinkAdapter;
   GstTIDmaiBufTab *hOutBufTab;
   Buffer_Handle    hContigInBuf;
-  GstTICircBuffer *circBuf;
 
   /* H.264 header */
   GstBuffer  *codec_data;

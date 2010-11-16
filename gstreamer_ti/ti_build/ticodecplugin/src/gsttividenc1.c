@@ -73,10 +73,8 @@ enum
   PROP_RESOLUTION,      /* resolution     (string)  */
   PROP_BITRATE,         /* bitrate        (int)     */
   PROP_IN_COLORSPACE,   /* iColorSpace    (string)  */
-  PROP_NUM_INPUT_BUFS,  /* numInputBuf    (int)     */
   PROP_NUM_OUTPUT_BUFS, /* numOutputBuf   (int)     */
   PROP_FRAMERATE,       /* framerate      (GstFraction) */
-  PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
   PROP_CONTIG_INPUT_BUF,/* contiguousInputFrame  (boolean) */
   PROP_GEN_TIMESTAMPS,  /* genTimeStamps  (boolean) */
   PROP_RATE_CTRL_PRESET,/* rateControlPreset  (gint) */
@@ -305,15 +303,6 @@ static void gst_tividenc1_class_init(GstTIVidenc1Class *klass)
             "Set the video encoder bit rate",
             1, G_MAXINT32, DEFAULT_BIT_RATE, G_PARAM_WRITABLE));
 
-    /* Number of input buffers in the circular queue.
-     * This is the buffer that is recieved from the upstream 
-     */
-    g_object_class_install_property(gobject_class, PROP_NUM_INPUT_BUFS,
-        g_param_spec_int("numInputBufs",
-            "Number of Input buffers",
-            "Number of input buffers in circular queue",
-            1, G_MAXINT32, 1, G_PARAM_WRITABLE));
-
     /* We allow more than three output buffer because this is the buffer that
      * is sent to the downstream element.  It may be that we need to have
      * more than 3 buffer if the downstream element doesn't give the buffer
@@ -348,11 +337,6 @@ static void gst_tividenc1_class_init(GstTIVidenc1Class *klass)
             "Frame rate of the video expressed as a fraction.  A value "
             "of 0/1 indicates the framerate is not specified", 0, 1,
             G_MAXINT, 1, 0, 1, G_PARAM_READWRITE));
-
-    g_object_class_install_property(gobject_class, PROP_DISPLAY_BUFFER,
-        g_param_spec_boolean("displayBuffer", "Display Buffer",
-            "Display circular buffer status while processing",
-            FALSE, G_PARAM_WRITABLE));
 
     g_object_class_install_property(gobject_class, PROP_BYTE_STREAM,
         g_param_spec_boolean("byteStream", "byte stream",
@@ -419,7 +403,6 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     /* Initialize TIVidenc1 state */
     videnc1->engineName             = NULL;
     videnc1->codecName              = NULL;
-    videnc1->displayBuffer          = FALSE;
     videnc1->genTimeStamps          = TRUE;
 
     videnc1->hEngine                = NULL;
@@ -428,7 +411,6 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->sinkAdapter            = NULL;
     videnc1->hOutBufTab             = NULL;
     videnc1->hContigInBuf           = NULL;
-    videnc1->circBuf                = NULL;
 
     videnc1->width                  = 0;
     videnc1->height                 = 0;
@@ -436,7 +418,6 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->colorSpace             = ColorSpace_NOTSET;
 
     videnc1->numOutputBufs          = 0;
-    videnc1->numInputBufs           = 0;
     videnc1->upstreamBufSize        = -1;
     videnc1->frameDuration          = GST_CLOCK_TIME_NONE;
     videnc1->hCcv                   = NULL;
@@ -544,11 +525,6 @@ static void gst_tividenc1_set_property(GObject *object, guint prop_id,
             GST_LOG("setting \"encodingPreset\" to \"%d\" \n",
                      videnc1->encodingPreset);
             break;
-        case PROP_NUM_INPUT_BUFS:
-            videnc1->numInputBufs = g_value_get_int(value);
-            GST_LOG("setting \"numInputBufs\" to \"%d\" \n",
-                     videnc1->numInputBufs);
-            break;
         case PROP_FRAMERATE:
         {
             g_value_copy(value, &videnc1->framerate);
@@ -561,11 +537,6 @@ static void gst_tividenc1_set_property(GObject *object, guint prop_id,
             videnc1->contiguousInputFrame = g_value_get_boolean(value);
             GST_LOG("setting \"contiguousInputFrame\" to \"%s\"\n",
                 videnc1->contiguousInputFrame ? "TRUE" : "FALSE");
-            break;
-        case PROP_DISPLAY_BUFFER:
-            videnc1->displayBuffer = g_value_get_boolean(value);
-            GST_LOG("setting \"displayBuffer\" to \"%s\"\n",
-                videnc1->displayBuffer ? "TRUE" : "FALSE");
             break;
         case PROP_BYTE_STREAM:
             videnc1->byteStream = g_value_get_boolean(value);
@@ -1144,8 +1115,8 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
     
         /* DM365: If we are recieving YUV420PSEMI buffer from upstream
          * then we may need to componsate resizer 32-byte alignment issue. 
-         * Hence create big enough circular buffer to hold the 32-byte aligned 
-         * data from upstream.
+         * Hence make sure the input buffer will be big enough to hold the
+         * 32-byte aligned data from upstream.
          */
         #if defined(Platform_dm365)
         if ((videnc1->device == Cpu_Device_DM365) && 
@@ -1158,18 +1129,6 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
         if (!gst_tividenc1_init_video(videnc1)) {
             GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
             ("unable to initialize video\n"), (NULL));
-            return GST_FLOW_UNEXPECTED;
-        }
-            
-        GST_TICIRCBUFFER_TIMESTAMP(videnc1->circBuf) =
-            GST_CLOCK_TIME_IS_VALID(GST_BUFFER_TIMESTAMP(buf)) ?
-            GST_BUFFER_TIMESTAMP(buf) : 0ULL;
-
-        /* set circular buffer to use user defined copy function */
-        if (gst_ticircbuffer_copy_config(videnc1->circBuf,  
-            gst_tividenc1_circbuf_copy, (void*)videnc1) < 0) {
-            GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
-            ("failed to configure user defined copy\n"),(NULL));
             return GST_FLOW_UNEXPECTED;
         }
     }
@@ -1369,17 +1328,6 @@ static gboolean gst_tividenc1_codec_stop (GstTIVidenc1 *videnc1)
         videnc1->hContigInBuf = NULL;
     }
 
-    if (videnc1->circBuf) {
-        GstTICircBuffer *circBuf;
-
-        GST_LOG("freeing cicrular input buffer\n");
-
-        circBuf               = videnc1->circBuf;
-        videnc1->circBuf      = NULL;
-        gst_value_set_fraction(&videnc1->framerate, 0, 1);
-        gst_ticircbuffer_unref(circBuf);
-    }
-
     /* Re-claim any buffers owned by the codec */
     if (videnc1->hOutBufTab) {
         Int bufIdx;
@@ -1532,28 +1480,16 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
         return FALSE;
     }
 
-    /* Create a circular input buffer */
-    if (videnc1->numInputBufs == 0) {
-        videnc1->numInputBufs = 2;
-    }
-
-    /* Check if we need to create circular buffer with different size */
+    /* Determine the size of the physically contiguous input buffer.  If
+     * it has already been determined, leave it.  Otherwise ask the codec how
+     * big it should be.
+     */
     if (videnc1->upstreamBufSize > 0) {
         inBufSize = videnc1->upstreamBufSize;
     }
     else {
         inBufSize = Venc1_getInBufSize(videnc1->hVe1);
         videnc1->upstreamBufSize = inBufSize;
-    }
-
-    videnc1->circBuf = gst_ticircbuffer_new(inBufSize, 
-                            videnc1->numInputBufs, TRUE);
-
-    if (videnc1->circBuf == NULL) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
-        ("failed to create circular input buffer\n"), (NULL));
-        gst_tividenc1_exit_video(videnc1);
-        return FALSE;
     }
 
     /* Create a physically contiguous input buffer */
@@ -1609,9 +1545,6 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
         gst_tividenc1_exit_video(videnc1);
         return FALSE;
     }
-
-    /* Display buffer contents if displayBuffer=TRUE was specified */
-    gst_ticircbuffer_set_display(videnc1->circBuf, videnc1->displayBuffer);
 
     return TRUE;
 }
