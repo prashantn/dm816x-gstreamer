@@ -102,6 +102,8 @@ struct _GstTIVidenc1
   GstAdapter      *sinkAdapter;
   GstTIDmaiBufTab *hOutBufTab;
   Buffer_Handle    hContigInBuf;
+  Buffer_Handle    hInBufRef;
+  gboolean         zeroCopyEncode;
 
   /* H.264 header */
   GstBuffer  *codec_data;

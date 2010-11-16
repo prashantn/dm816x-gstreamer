@@ -411,6 +411,8 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->sinkAdapter            = NULL;
     videnc1->hOutBufTab             = NULL;
     videnc1->hContigInBuf           = NULL;
+    videnc1->hInBufRef              = NULL;
+    videnc1->zeroCopyEncode         = FALSE;
 
     videnc1->width                  = 0;
     videnc1->height                 = 0;
@@ -1150,6 +1152,13 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
     /* Calculate the duration of a single frame in this stream */
     videnc1->frameDuration = gst_tividenc1_frame_duration(videnc1);
 
+    /* Determine if we can pass input buffer directly to codec */
+    #if defined(Platform_dm365)
+        if (videnc1->contiguousInputFrame) {
+            videnc1->zeroCopyEncode = TRUE;
+        }
+    #endif
+
     /* Start the codec */
     if (!gst_tividenc1_codec_start(videnc1)) {
         GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
@@ -1264,6 +1273,13 @@ static gboolean gst_tividenc1_codec_stop (GstTIVidenc1 *videnc1)
         Buffer_delete(videnc1->hContigInBuf);
         videnc1->hContigInBuf = NULL;
     }
+
+    if (videnc1->hInBufRef) {
+        Buffer_delete(videnc1->hInBufRef);
+        videnc1->hInBufRef = NULL;
+    }
+
+    videnc1->zeroCopyEncode = FALSE;
 
     /* Re-claim any buffers owned by the codec */
     if (videnc1->hOutBufTab) {
@@ -1446,14 +1462,16 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
         BufferGfx_calcLineLength(gfxAttrsIn.dim.width, gfxAttrsIn.colorSpace);
 
     /* allocate input buffer in physically contiguous memory */
-    videnc1->hContigInBuf = Buffer_create(videnc1->upstreamBufSize, 
-        BufferGfx_getBufferAttrs(&gfxAttrsIn));
+    if (!videnc1->zeroCopyEncode) {
+        videnc1->hContigInBuf = Buffer_create(videnc1->upstreamBufSize, 
+            BufferGfx_getBufferAttrs(&gfxAttrsIn));
 
-    if (videnc1->hContigInBuf == NULL) {
-        gst_tividenc1_exit_video(videnc1);
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
-        ("failed to allocate input buffer for encoder\n"), (NULL));
-        return FALSE;
+        if (videnc1->hContigInBuf == NULL) {
+            gst_tividenc1_exit_video(videnc1);
+            GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
+            ("failed to allocate input buffer for encoder\n"), (NULL));
+            return FALSE;
+        }
     }
 
     /* Create codec output buffers */
@@ -1542,7 +1560,8 @@ static GstFlowReturn
 gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     GstBuffer **outBuf)
 {
-    Buffer_Handle  hDstBuf  = NULL;
+    Buffer_Handle  hContigInBuf = NULL;
+    Buffer_Handle  hDstBuf      = NULL;
     GstClockTime   encDataTime;
     Int            ret;
 
@@ -1557,10 +1576,29 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
         return GST_FLOW_UNEXPECTED;
     }
 
-    /* Copy input buffer into physically-contiguous memory.  */
-    gst_tividenc1_copy_input(videnc1, videnc1->hContigInBuf, inBuf);
-    Buffer_setNumBytesUsed(videnc1->hContigInBuf,
-        Buffer_getSize(videnc1->hContigInBuf));
+    /* If zero-copy encode is enabled, we can pass the input buffer directly
+     * to the encoder without a copy.  Otherwise, copy the input buffer into
+     * our physically contiguous buffer for the codec.
+     */
+    if (videnc1->zeroCopyEncode) {
+        if (!videnc1->hInBufRef) {
+            videnc1->hInBufRef =
+                gst_tividenc1_convert_gst_to_dmai(videnc1, inBuf, TRUE);
+            if (videnc1->hInBufRef == NULL) {
+                GST_ERROR("failed to get dmai buffer\n");
+                return GST_FLOW_UNEXPECTED;
+            }
+        } else {
+            Buffer_setUserPtr(videnc1->hInBufRef,
+                (Int8*)GST_BUFFER_DATA(inBuf));
+            Buffer_setNumBytesUsed(videnc1->hInBufRef, GST_BUFFER_SIZE(inBuf));
+        }
+        hContigInBuf = videnc1->hInBufRef;
+    } else {
+        hContigInBuf = videnc1->hContigInBuf;
+        gst_tividenc1_copy_input(videnc1, hContigInBuf, inBuf);
+        Buffer_setNumBytesUsed(hContigInBuf, Buffer_getSize(hContigInBuf));
+    }
 
     /* Get the time stamp from the input buffer */
     encDataTime = GST_BUFFER_TIMESTAMP(inBuf);
@@ -1578,7 +1616,7 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
 
     /* Invoke the video encoder */
     GST_LOG("invoking the video encoder\n");
-    ret   = Venc1_process(videnc1->hVe1, videnc1->hContigInBuf, hDstBuf);
+    ret   = Venc1_process(videnc1->hVe1, hContigInBuf, hDstBuf);
 
     if (ret < 0) {
         GST_ELEMENT_ERROR(videnc1, STREAM, ENCODE,
