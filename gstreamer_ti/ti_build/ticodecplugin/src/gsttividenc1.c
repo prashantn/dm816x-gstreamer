@@ -427,6 +427,7 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
 
     videnc1->sinkAdapter            = NULL;
     videnc1->hOutBufTab             = NULL;
+    videnc1->hContigInBuf           = NULL;
     videnc1->circBuf                = NULL;
 
     videnc1->width                  = 0;
@@ -1363,6 +1364,11 @@ static GstStateChangeReturn gst_tividenc1_change_state(GstElement *element,
  *****************************************************************************/
 static gboolean gst_tividenc1_codec_stop (GstTIVidenc1 *videnc1)
 {
+    if (videnc1->hContigInBuf) {
+        Buffer_delete(videnc1->hContigInBuf);
+        videnc1->hContigInBuf = NULL;
+    }
+
     if (videnc1->circBuf) {
         GstTICircBuffer *circBuf;
 
@@ -1413,10 +1419,11 @@ static gboolean gst_tividenc1_codec_stop (GstTIVidenc1 *videnc1)
  *****************************************************************************/
 static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
 {
-    VIDENC1_DynamicParams dynParams  = Venc1_DynamicParams_DEFAULT;
-    BufferGfx_Attrs       gfxAttrs   = BufferGfx_Attrs_DEFAULT;
+    VIDENC1_DynamicParams dynParams   = Venc1_DynamicParams_DEFAULT;
+    BufferGfx_Attrs       gfxAttrsIn  = BufferGfx_Attrs_DEFAULT;
+    BufferGfx_Attrs       gfxAttrsOut = BufferGfx_Attrs_DEFAULT;
+    VIDENC1_Params        params      = Venc1_Params_DEFAULT;
     Int                   inBufSize;
-    VIDENC1_Params        params     = Venc1_Params_DEFAULT;
 
     /* Open the codec engine */
     GST_LOG("opening codec engine \"%s\"\n", videnc1->engineName);
@@ -1549,18 +1556,45 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
         return FALSE;
     }
 
+    /* Create a physically contiguous input buffer */
+    /* On DM6467, set the colorspace to YUV420PSEMI.  We will convert to
+     * YUV420PSEMI when copying into the input buffer.
+     */
+    gfxAttrsIn.dim.width        = videnc1->width;
+    gfxAttrsIn.dim.height       = videnc1->height;
+    gfxAttrsIn.colorSpace       = videnc1->colorSpace;
+
+    if ((videnc1->device == Cpu_Device_DM6467) &&
+        videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
+        gfxAttrsIn.colorSpace  = ColorSpace_YUV420PSEMI;
+    }
+
+    gfxAttrsIn.dim.lineLength   =
+        BufferGfx_calcLineLength(gfxAttrsIn.dim.width, gfxAttrsIn.colorSpace);
+
+    /* allocate input buffer in physically contiguous memory */
+    videnc1->hContigInBuf = Buffer_create(videnc1->upstreamBufSize, 
+        BufferGfx_getBufferAttrs(&gfxAttrsIn));
+
+    if (videnc1->hContigInBuf == NULL) {
+        gst_tividenc1_exit_video(videnc1);
+        GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
+        ("failed to allocate input buffer for encoder\n"), (NULL));
+        return FALSE;
+    }
+
     /* Create codec output buffers */
     GST_LOG("creating output buffer table\n");
-    gfxAttrs.colorSpace     = videnc1->colorSpace;
-    gfxAttrs.dim.width      = videnc1->width;
-    gfxAttrs.dim.height     = videnc1->height;
-    gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(
-                                  gfxAttrs.dim.width, gfxAttrs.colorSpace);
+    gfxAttrsOut.colorSpace     = videnc1->colorSpace;
+    gfxAttrsOut.dim.width      = videnc1->width;
+    gfxAttrsOut.dim.height     = videnc1->height;
+    gfxAttrsOut.dim.lineLength = BufferGfx_calcLineLength(
+        gfxAttrsOut.dim.width, gfxAttrsOut.colorSpace);
 
-    gfxAttrs.bAttrs.memParams.align = 128;
+    gfxAttrsOut.bAttrs.memParams.align = 128;
 
     /* By default, new buffers are marked as in-use by the codec */
-    gfxAttrs.bAttrs.useMask = gst_tidmaibuffer_CODEC_FREE;
+    gfxAttrsOut.bAttrs.useMask = gst_tidmaibuffer_CODEC_FREE;
 
     if (videnc1->numOutputBufs == 0) {
         videnc1->numOutputBufs = 3;
@@ -1568,7 +1602,7 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
 
     videnc1->hOutBufTab = gst_tidmaibuftab_new(videnc1->numOutputBufs,
         Venc1_getOutBufSize(videnc1->hVe1),
-        BufferGfx_getBufferAttrs(&gfxAttrs));
+        BufferGfx_getBufferAttrs(&gfxAttrsOut));
 
     if (videnc1->hOutBufTab == NULL) {
         GST_ERROR("failed to create output buffers\n");
@@ -1638,30 +1672,12 @@ static GstFlowReturn
 gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     GstBuffer **outBuf)
 {
-    BufferGfx_Attrs  gfxAttrs = BufferGfx_Attrs_DEFAULT;
-    Buffer_Handle    hDstBuf  = NULL;
-    Buffer_Handle    hInBuf   = NULL;
-    GstClockTime     encDataTime;
-    Int              ret;
+    Buffer_Handle  hDstBuf  = NULL;
+    GstClockTime   encDataTime;
+    Int            ret;
 
     *outBuf = NULL;
 
-    /* set graphics attrs for input buffer */
-    gfxAttrs.dim.width        = videnc1->width;
-    gfxAttrs.bAttrs.reference = FALSE;
-    gfxAttrs.dim.height       = videnc1->height;
-    gfxAttrs.colorSpace       = videnc1->colorSpace;
-    gfxAttrs.dim.lineLength   = BufferGfx_calcLineLength(videnc1->width,
-                                    videnc1->colorSpace);
-
-    /* DM6467: set the colorspace to YUV420PSEMI, this is mainly because on 
-     * dm6467 circular buffer will perform the color conversion from 422-420.
-     */
-    if ((videnc1->device == Cpu_Device_DM6467) && 
-            videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
-        gfxAttrs.colorSpace  = ColorSpace_YUV420PSEMI;
-    }
- 
     /* Make sure the input buffer is the expected size */
     if (GST_BUFFER_SIZE(inBuf) != videnc1->upstreamBufSize) {
         GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
@@ -1671,19 +1687,11 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
         return GST_FLOW_UNEXPECTED;
     }
 
-    /* allocate input buffer in physically contiguous memory */
-    hInBuf = Buffer_create(videnc1->upstreamBufSize, 
-                 BufferGfx_getBufferAttrs(&gfxAttrs));
-
-    if (hInBuf == NULL) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
-        ("failed to allocate input buffer for encoder\n"), (NULL));
-        return GST_FLOW_UNEXPECTED;
-    }
-
     /* Copy input buffer into physically-contiguous memory.  */
-    gst_tividenc1_circbuf_copy(Buffer_getUserPtr(hInBuf), inBuf, videnc1);
-    Buffer_setNumBytesUsed(hInBuf, Buffer_getSize(hInBuf));
+    gst_tividenc1_circbuf_copy(Buffer_getUserPtr(videnc1->hContigInBuf), inBuf,
+        videnc1);
+    Buffer_setNumBytesUsed(videnc1->hContigInBuf,
+        Buffer_getSize(videnc1->hContigInBuf));
 
     /* Get the time stamp from the input buffer */
     encDataTime = GST_BUFFER_TIMESTAMP(inBuf);
@@ -1701,8 +1709,7 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
 
     /* Invoke the video encoder */
     GST_LOG("invoking the video encoder\n");
-    ret   = Venc1_process(videnc1->hVe1, hInBuf, hDstBuf);
-    Buffer_delete(hInBuf);
+    ret   = Venc1_process(videnc1->hVe1, videnc1->hContigInBuf, hDstBuf);
 
     if (ret < 0) {
         GST_ELEMENT_ERROR(videnc1, STREAM, ENCODE,

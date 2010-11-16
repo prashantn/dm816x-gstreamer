@@ -103,6 +103,7 @@ struct _GstTIVidenc1
   /* Buffer management */
   GstAdapter      *sinkAdapter;
   GstTIDmaiBufTab *hOutBufTab;
+  Buffer_Handle    hContigInBuf;
   GstTICircBuffer *circBuf;
 
   /* H.264 header */
