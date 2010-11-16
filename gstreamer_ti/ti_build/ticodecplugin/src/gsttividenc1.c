@@ -1001,7 +1001,7 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
     videnc1->frameDuration = gst_tividenc1_frame_duration(videnc1);
 
     /* Determine if we can pass input buffer directly to codec */
-    #if defined(Platform_dm365)
+    #if defined(Platform_dm365) || defined(Platform_dm355)
         if (videnc1->contiguousInputFrame) {
             videnc1->zeroCopyEncode = TRUE;
         }
