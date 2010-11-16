@@ -426,6 +426,7 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->waitOnEncodeThread     = NULL;
     videnc1->waitOnEncodeDrain      = NULL;
 
+    videnc1->sinkAdapter            = NULL;
     videnc1->hOutBufTab             = NULL;
     videnc1->circBuf                = NULL;
 
@@ -1196,16 +1197,36 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
         }
     }
 
-    /* Queue up the encoded data stream into a circular buffer */
-    if (!gst_ticircbuffer_queue_data(videnc1->circBuf, buf)) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, WRITE,
-        ("Failed to queue input buffer into circular buffer\n"), (NULL));
-        flow = GST_FLOW_UNEXPECTED;
-        goto exit;
+    /* We can't easily check to make sure a buffer is physically contiguous in
+     * memory, but we can make sure it's the right size, which is better than
+     * nothing.
+     */
+    if (videnc1->contiguousInputFrame &&
+        GST_BUFFER_SIZE(buf) != videnc1->upstreamBufSize) {
+            GST_ELEMENT_ERROR(videnc1, RESOURCE, WRITE,
+            ("if contiguousInputFrame=TRUE the input buffer should be of size"
+             "%lu\n", (unsigned long) videnc1->upstreamBufSize), (NULL));
+            flow = GST_FLOW_UNEXPECTED;
+            goto exit;
+    }
+
+    gst_adapter_push (videnc1->sinkAdapter, buf);
+    while (gst_adapter_available(videnc1->sinkAdapter) >=
+           videnc1->upstreamBufSize) {
+        GstBuffer *qBuf = gst_adapter_take_buffer(videnc1->sinkAdapter,
+                              videnc1->upstreamBufSize);
+
+        /* Queue up the encoded data stream into a circular buffer */
+        if (!gst_ticircbuffer_queue_data(videnc1->circBuf, qBuf)) {
+            GST_ELEMENT_ERROR(videnc1, RESOURCE, WRITE,
+            ("Failed to queue input buffer into circular buffer\n"), (NULL));
+            flow = GST_FLOW_UNEXPECTED;
+            goto exit;
+        }
+        gst_buffer_unref(qBuf);
     }
 
 exit:
-    gst_buffer_unref(buf);
     return flow;
 }
 
@@ -1241,6 +1262,11 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
         GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
         ("codec name not specified\n"), (NULL));
         return FALSE;
+    }
+
+    /* Initialize the sinkAdapter */
+    if (!videnc1->sinkAdapter) {
+        videnc1->sinkAdapter = gst_adapter_new();
     }
 
     /* Initialize thread status management */
@@ -1363,6 +1389,11 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
     if (videnc1->waitOnEncodeDrain) {
         Rendezvous_delete(videnc1->waitOnEncodeDrain);
         videnc1->waitOnEncodeDrain = NULL;
+    }
+
+    if (videnc1->sinkAdapter) {
+        g_object_unref(videnc1->sinkAdapter);
+        videnc1->sinkAdapter = NULL;
     }
 
     if (videnc1->hFc) {
@@ -1601,6 +1632,7 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
     }
     else {
         inBufSize = Venc1_getInBufSize(videnc1->hVe1);
+        videnc1->upstreamBufSize = inBufSize;
     }
 
     videnc1->circBuf = gst_ticircbuffer_new(inBufSize, 

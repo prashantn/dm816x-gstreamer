@@ -26,6 +26,7 @@
 #include <pthread.h>
 
 #include <gst/gst.h>
+#include <gst/base/gstadapter.h>
 #include "gstticircbuffer.h"
 #include "gsttidmaibuftab.h"
 
@@ -61,7 +62,7 @@ typedef struct _GstTIVidenc1Class GstTIVidenc1Class;
 /* _GstTIVidenc1 object */
 struct _GstTIVidenc1
 {
-  /* gStreamer infrastructure */
+  /* GStreamer infrastructure */
   GstElement     element;
   GstPad        *sinkpad;
   GstPad        *srcpad;
@@ -107,6 +108,7 @@ struct _GstTIVidenc1
   Framecopy_Handle hFc;
 
   /* Buffer management */
+  GstAdapter      *sinkAdapter;
   GstTIDmaiBufTab *hOutBufTab;
   GstTICircBuffer *circBuf;
 

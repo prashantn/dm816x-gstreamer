@@ -1,5 +1,9 @@
 2010-10-25: Don Darling, Texas Instruments, Inc.
 	* src/gsttividenc1.{c,h}:
+	Use GstAdapter on TIVidenc1's sink pad.
+
+2010-10-25: Don Darling, Texas Instruments, Inc.
+	* src/gsttividenc1.{c,h}:
 	Fix handling of framerate values in TIVidenc1.
 
 2010-09-13: Don Darling, Texas Instruments, Inc.
