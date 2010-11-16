@@ -437,6 +437,7 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->numOutputBufs          = 0;
     videnc1->numInputBufs           = 0;
     videnc1->upstreamBufSize        = -1;
+    videnc1->frameDuration          = GST_CLOCK_TIME_NONE;
     videnc1->hCcv                   = NULL;
     videnc1->hFc                    = NULL;
     videnc1->rateControlPreset      = 1;
@@ -1249,6 +1250,9 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
         videnc1->sinkAdapter = gst_adapter_new();
     }
 
+    /* Calculate the duration of a single frame in this stream */
+    videnc1->frameDuration = gst_tividenc1_frame_duration(videnc1);
+
     /* Start the codec */
     if (!gst_tividenc1_codec_start(videnc1)) {
         GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
@@ -1292,6 +1296,8 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
         gst_buffer_unref(videnc1->codec_data);
         videnc1->codec_data = NULL;
     }
+
+    videnc1->frameDuration = GST_CLOCK_TIME_NONE;
 
     /* Stop the codec */
     if (gst_tividenc1_codec_stop(videnc1) < 0) {
@@ -1636,13 +1642,9 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     Buffer_Handle    hDstBuf  = NULL;
     Buffer_Handle    hInBuf   = NULL;
     GstClockTime     encDataTime;
-    GstClockTime     frameDuration;
     Int              ret;
 
     *outBuf = NULL;
-
-    /* Calculate the duration of a single frame in this stream */
-    frameDuration = gst_tividenc1_frame_duration(videnc1);
 
     /* set graphics attrs for input buffer */
     gfxAttrs.dim.width        = videnc1->width;
@@ -1733,7 +1735,7 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
         GST_CLOCK_TIME_IS_VALID(encDataTime)) {
         GST_LOG("video timestamp value: %llu\n", encDataTime);
         GST_BUFFER_TIMESTAMP(*outBuf) = encDataTime;
-        GST_BUFFER_DURATION(*outBuf)  = frameDuration;
+        GST_BUFFER_DURATION(*outBuf)  = videnc1->frameDuration;
     }
     else {
         GST_BUFFER_TIMESTAMP(*outBuf) = GST_CLOCK_TIME_NONE;

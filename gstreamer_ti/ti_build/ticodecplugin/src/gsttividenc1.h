@@ -89,6 +89,7 @@ struct _GstTIVidenc1
 
   /* Framerate */
   GValue             framerate;
+  GstClockTime       frameDuration;
 
   /* Frame resolution */
   gint           width;
