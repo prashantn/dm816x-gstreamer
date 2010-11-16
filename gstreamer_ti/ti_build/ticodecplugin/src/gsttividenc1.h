@@ -74,7 +74,6 @@ struct _GstTIVidenc1
   const gchar*   iColor;
   gboolean       genTimeStamps;
   gboolean       contiguousInputFrame;
-  gint           numOutputBufs;
   gint32         bitRate;
   gint           rateControlPreset;
   gint           encodingPreset;
@@ -101,7 +100,7 @@ struct _GstTIVidenc1
   /* Buffer management */
   GstAdapter      *sinkAdapter;
   GstBuffer       *inBufMetadata;
-  GstTIDmaiBufTab *hOutBufTab;
+  Buffer_Handle    hEncOutBuf;
   Buffer_Handle    hContigInBuf;
   Buffer_Handle    hInBufRef;
   gboolean         zeroCopyEncode;

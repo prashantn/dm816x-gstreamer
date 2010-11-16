@@ -275,17 +275,6 @@ static void gst_tividenc1_class_init(GstTIVidenc1Class *klass)
             "Set the video encoder bit rate",
             1, G_MAXINT32, DEFAULT_BIT_RATE, G_PARAM_WRITABLE));
 
-    /* We allow more than three output buffer because this is the buffer that
-     * is sent to the downstream element.  It may be that we need to have
-     * more than 3 buffer if the downstream element doesn't give the buffer
-     * back in time for the codec to use.
-     */
-    g_object_class_install_property(gobject_class, PROP_NUM_OUTPUT_BUFS,
-        g_param_spec_int("numOutputBufs",
-            "Number of Ouput Buffers",
-            "Number of output buffers to allocate for codec",
-            3, G_MAXINT32, 3, G_PARAM_WRITABLE));
-
     g_object_class_install_property(gobject_class, PROP_RATE_CTRL_PRESET,
         g_param_spec_int("rateControlPreset",
             "Rate control",
@@ -382,7 +371,7 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
 
     videnc1->sinkAdapter            = NULL;
     videnc1->inBufMetadata          = NULL;
-    videnc1->hOutBufTab             = NULL;
+    videnc1->hEncOutBuf             = NULL;
     videnc1->hContigInBuf           = NULL;
     videnc1->hInBufRef              = NULL;
     videnc1->zeroCopyEncode         = FALSE;
@@ -392,7 +381,6 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->bitRate                = -1;
     videnc1->colorSpace             = ColorSpace_NOTSET;
 
-    videnc1->numOutputBufs          = 0;
     videnc1->upstreamBufSize        = -1;
     videnc1->frameDuration          = GST_CLOCK_TIME_NONE;
     videnc1->hCcv                   = NULL;
@@ -480,11 +468,6 @@ static void gst_tividenc1_set_property(GObject *object, guint prop_id,
                 (gchar*)g_malloc(strlen(g_value_get_string(value)) + 1);
             strcpy((gchar*)videnc1->codecName, g_value_get_string(value));
             GST_LOG("setting \"codecName\" to \"%s\"\n", videnc1->codecName);
-            break;
-        case PROP_NUM_OUTPUT_BUFS:
-            videnc1->numOutputBufs = g_value_get_int(value);
-            GST_LOG("setting \"numOutputBufs\" to \"%d\" \n",
-                     videnc1->numOutputBufs);
             break;
         case PROP_RATE_CTRL_PRESET:
             videnc1->rateControlPreset = g_value_get_int(value);
@@ -1140,22 +1123,9 @@ static gboolean gst_tividenc1_codec_stop (GstTIVidenc1 *videnc1)
 
     videnc1->zeroCopyEncode = FALSE;
 
-    /* Re-claim any buffers owned by the codec */
-    if (videnc1->hOutBufTab) {
-        Int bufIdx;
-
-        bufIdx =
-            BufTab_getNumBufs(GST_TIDMAIBUFTAB_BUFTAB(videnc1->hOutBufTab));
-
-        while (bufIdx-- > 0) {
-            Buffer_Handle hBuf = BufTab_getBuf(
-                GST_TIDMAIBUFTAB_BUFTAB(videnc1->hOutBufTab), bufIdx);
-            Buffer_freeUseMask(hBuf, gst_tidmaibuffer_CODEC_FREE);
-        }
-
-        GST_LOG("freeing output buffers\n");
-        gst_tidmaibuftab_unref(videnc1->hOutBufTab);
-        videnc1->hOutBufTab = NULL;
+    if (videnc1->hEncOutBuf) {
+        Buffer_delete(videnc1->hEncOutBuf);
+        videnc1->hEncOutBuf = NULL;
     }
 
     if (videnc1->hVe1) {
@@ -1335,22 +1305,8 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
 
     gfxAttrsOut.bAttrs.memParams.align = 128;
 
-    /* By default, new buffers are marked as in-use by the codec */
-    gfxAttrsOut.bAttrs.useMask = gst_tidmaibuffer_CODEC_FREE;
-
-    if (videnc1->numOutputBufs == 0) {
-        videnc1->numOutputBufs = 3;
-    }
-
-    videnc1->hOutBufTab = gst_tidmaibuftab_new(videnc1->numOutputBufs,
-        Venc1_getOutBufSize(videnc1->hVe1),
+    videnc1->hEncOutBuf = Buffer_create(Venc1_getOutBufSize(videnc1->hVe1),
         BufferGfx_getBufferAttrs(&gfxAttrsOut));
-
-    if (videnc1->hOutBufTab == NULL) {
-        GST_ERROR("failed to create output buffers\n");
-        gst_tividenc1_exit_video(videnc1);
-        return FALSE;
-    }
 
     return TRUE;
 }
@@ -1412,7 +1368,6 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     GstBuffer **outBuf)
 {
     Buffer_Handle  hContigInBuf = NULL;
-    Buffer_Handle  hDstBuf      = NULL;
     GstFlowReturn  flowRet      = GST_FLOW_OK;
     Int            ret;
 
@@ -1437,20 +1392,12 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
         goto exit_fail;
     }
 
-    /* Obtain a free output buffer for the encoded data */
-    if (!(hDstBuf = gst_tidmaibuftab_get_buf(videnc1->hOutBufTab))) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, READ,
-            ("failed to get a free contiguous buffer from BufTab\n"),
-            (NULL));
-        goto exit_fail;
-    }
-
-    /* Make sure the whole buffer is used for output */
-    BufferGfx_resetDimensions(hDstBuf);
+    /* Reset metadata for encoded output buffer */
+    BufferGfx_resetDimensions(videnc1->hEncOutBuf);
 
     /* Invoke the video encoder */
     GST_LOG("invoking the video encoder\n");
-    ret   = Venc1_process(videnc1->hVe1, hContigInBuf, hDstBuf);
+    ret   = Venc1_process(videnc1->hVe1, hContigInBuf, videnc1->hEncOutBuf);
 
     if (ret < 0) {
         GST_ELEMENT_ERROR(videnc1, STREAM, ENCODE,
@@ -1468,28 +1415,28 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     }
 
     /* Populate codec header */
-    gst_tividenc1_populate_codec_header(videnc1, hDstBuf);
+    gst_tividenc1_populate_codec_header(videnc1, videnc1->hEncOutBuf);
 
     /* Set the source pad capabilities based on the encoded frame properties.
      */
-    gst_tividenc1_set_source_caps(videnc1, hDstBuf);
+    gst_tividenc1_set_source_caps(videnc1, videnc1->hEncOutBuf);
 
     /* Create a DMAI transport buffer object to carry a DMAI buffer to
      * the source pad.  The transport buffer knows how to release the
      * buffer for re-use in this element when the source pad calls
      * gst_buffer_unref().
      */
-    *outBuf = gst_buffer_new_and_alloc(Buffer_getNumBytesUsed(hDstBuf));
-    memcpy(GST_BUFFER_DATA(*outBuf), Buffer_getUserPtr(hDstBuf),
-        Buffer_getNumBytesUsed(hDstBuf));
+    *outBuf =
+        gst_buffer_new_and_alloc(Buffer_getNumBytesUsed(videnc1->hEncOutBuf));
+
+    memcpy(GST_BUFFER_DATA(*outBuf), Buffer_getUserPtr(videnc1->hEncOutBuf),
+        Buffer_getNumBytesUsed(videnc1->hEncOutBuf));
+
     gst_buffer_set_caps(*outBuf, GST_PAD_CAPS(videnc1->srcpad));
 
     /* Get the metadata from the input buffer */
     gst_buffer_copy_metadata(*outBuf, videnc1->inBufMetadata,
         GST_BUFFER_COPY_FLAGS | GST_BUFFER_COPY_TIMESTAMPS);
-
-    /* Release buffers no longer in use by the codec */
-    Buffer_freeUseMask(hDstBuf, gst_tidmaibuffer_CODEC_FREE);
 
     goto exit_ok;
 
