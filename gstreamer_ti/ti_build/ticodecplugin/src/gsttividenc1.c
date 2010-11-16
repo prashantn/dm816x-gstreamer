@@ -1374,7 +1374,8 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     if (GST_BUFFER_SIZE(inBuf) != videnc1->upstreamBufSize) {
         GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
         ("input buffer is an invalid size (%lu != %lu)\n",
-        (guint32)GST_BUFFER_SIZE(inBuf), (guint32)videnc1->upstreamBufSize),
+        (unsigned long)GST_BUFFER_SIZE(inBuf),
+        (unsigned long)videnc1->upstreamBufSize),
         (NULL));
         goto exit_fail;
     }
