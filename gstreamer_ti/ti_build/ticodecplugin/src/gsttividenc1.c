@@ -1096,7 +1096,6 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
         if (gst_tividenc1_encode(videnc1, qBuf, &outBuf) != GST_FLOW_OK) {
             GST_ELEMENT_ERROR(videnc1, RESOURCE, WRITE,
             ("Failed to encode input buffer\n"), (NULL));
-            gst_buffer_unref(qBuf);
             return GST_FLOW_UNEXPECTED;
         }
 
@@ -1107,8 +1106,6 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
             gst_buffer_unref(qBuf);
             return GST_FLOW_UNEXPECTED;
         }
-
-        gst_buffer_unref(qBuf);
     }
 
     return GST_FLOW_OK;
@@ -1562,6 +1559,7 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
 {
     Buffer_Handle  hContigInBuf = NULL;
     Buffer_Handle  hDstBuf      = NULL;
+    GstFlowReturn  flowRet      = GST_FLOW_OK;
     GstClockTime   encDataTime;
     Int            ret;
 
@@ -1573,8 +1571,11 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
         ("input buffer is an invalid size (%lu != %lu)\n",
         (guint32)GST_BUFFER_SIZE(inBuf), (guint32)videnc1->upstreamBufSize),
         (NULL));
-        return GST_FLOW_UNEXPECTED;
+        goto exit_fail;
     }
+
+    /* Get the time stamp from the input buffer */
+    encDataTime = GST_BUFFER_TIMESTAMP(inBuf);
 
     /* If zero-copy encode is enabled, we can pass the input buffer directly
      * to the encoder without a copy.  Otherwise, copy the input buffer into
@@ -1586,7 +1587,7 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
                 gst_tividenc1_convert_gst_to_dmai(videnc1, inBuf, TRUE);
             if (videnc1->hInBufRef == NULL) {
                 GST_ERROR("failed to get dmai buffer\n");
-                return GST_FLOW_UNEXPECTED;
+                goto exit_fail;
             }
         } else {
             Buffer_setUserPtr(videnc1->hInBufRef,
@@ -1598,17 +1599,16 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
         hContigInBuf = videnc1->hContigInBuf;
         gst_tividenc1_copy_input(videnc1, hContigInBuf, inBuf);
         Buffer_setNumBytesUsed(hContigInBuf, Buffer_getSize(hContigInBuf));
+        gst_buffer_unref(inBuf);
+        inBuf = NULL;
     }
-
-    /* Get the time stamp from the input buffer */
-    encDataTime = GST_BUFFER_TIMESTAMP(inBuf);
 
     /* Obtain a free output buffer for the encoded data */
     if (!(hDstBuf = gst_tidmaibuftab_get_buf(videnc1->hOutBufTab))) {
         GST_ELEMENT_ERROR(videnc1, RESOURCE, READ,
             ("failed to get a free contiguous buffer from BufTab\n"),
             (NULL));
-        return GST_FLOW_UNEXPECTED;
+        goto exit_fail;
     }
 
     /* Make sure the whole buffer is used for output */
@@ -1621,10 +1621,16 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     if (ret < 0) {
         GST_ELEMENT_ERROR(videnc1, STREAM, ENCODE,
         ("failed to encode video buffer\n"), (NULL));
-        return GST_FLOW_UNEXPECTED;
+        goto exit_fail;
     }
     else if (ret > 0) {
         GST_LOG("Venc1_process returned success code %d\n", ret); 
+    }
+
+    /* Release the input buffer if we haven't already */
+    if (inBuf) {
+        gst_buffer_unref(inBuf);
+        inBuf = NULL;
     }
 
     /* Populate codec header */
@@ -1658,7 +1664,14 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     /* Release buffers no longer in use by the codec */
     Buffer_freeUseMask(hDstBuf, gst_tidmaibuffer_CODEC_FREE);
 
-    return GST_FLOW_OK;
+    goto exit_ok;
+
+exit_fail:
+    flowRet = GST_FLOW_UNEXPECTED;
+
+exit_ok:
+    if (inBuf) gst_buffer_unref(inBuf);
+    return flowRet;
 }
 
 
