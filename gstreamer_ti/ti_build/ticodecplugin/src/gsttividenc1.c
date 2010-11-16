@@ -176,13 +176,14 @@ static gboolean
  gst_tividenc1_exit_video(GstTIVidenc1 *videnc1);
 static GstStateChangeReturn
  gst_tividenc1_change_state(GstElement *element, GstStateChange transition);
-static void*
- gst_tividenc1_encode_thread(void *arg);
+static void
+ gst_tividenc1_populate_codec_header (GstTIVidenc1 *videnc1,
+     Buffer_Handle hDstBuf);
+static GstFlowReturn
+ gst_tividenc1_parse_and_push (GstTIVidenc1 *videnc1, GstBuffer *outBuf);
 static GstFlowReturn
  gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
      GstBuffer **outBuf);
-static void
- gst_tividenc1_drain_pipeline(GstTIVidenc1 *videnc1);
 static GstClockTime
  gst_tividenc1_frame_duration(GstTIVidenc1 *videnc1);
 static ColorSpace_Type 
@@ -423,11 +424,6 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
 
     videnc1->hEngine                = NULL;
     videnc1->hVe1                   = NULL;
-    videnc1->drainingEOS            = FALSE;
-    videnc1->threadStatus           = 0UL;
-
-    videnc1->waitOnEncodeThread     = NULL;
-    videnc1->waitOnEncodeDrain      = NULL;
 
     videnc1->sinkAdapter            = NULL;
     videnc1->hOutBufTab             = NULL;
@@ -835,17 +831,6 @@ static gboolean gst_tividenc1_sink_event(GstPad *pad, GstEvent *event)
             break;
 
         case GST_EVENT_EOS:
-            /* end-of-stream: process any remaining encoded frame data */
-            GST_LOG("no more input; draining remaining encoded video data\n");
-
-            if (!videnc1->drainingEOS) {
-               gst_tividenc1_drain_pipeline(videnc1);
-             }
-
-            /* Propagate EOS to downstream elements */
-            ret = gst_pad_push_event(videnc1->srcpad, event);
-            break;
-
         case GST_EVENT_FLUSH_STOP:
             ret = gst_pad_push_event(videnc1->srcpad, event);
             break;
@@ -1134,18 +1119,7 @@ exit:
  ******************************************************************************/
 static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
 {
-    GstTIVidenc1   *videnc1     = GST_TIVIDENC1(GST_OBJECT_PARENT(pad));
-    GstFlowReturn   flow        = GST_FLOW_OK;
-    gboolean        checkResult;
-
-    /* If the encode thread aborted, signal it to let it know it's ok to
-     * shut down, and communicate the failure to the pipeline.
-     */
-    if (gst_tithread_check_status(videnc1, TIThread_CODEC_ABORTED,
-            checkResult)) {
-        flow = GST_FLOW_UNEXPECTED;
-        goto exit;
-    }
+    GstTIVidenc1 *videnc1 = GST_TIVIDENC1(GST_OBJECT_PARENT(pad));
 
     /* If our engine handle is currently NULL, then either this is our first
      * buffer or the upstream element has re-negotiated our capabilities which
@@ -1178,12 +1152,11 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
         }
         #endif
 
-        /* Initialize video encoder thread */
+        /* Initialize video encoder */
         if (!gst_tividenc1_init_video(videnc1)) {
             GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
             ("unable to initialize video\n"), (NULL));
-            flow = GST_FLOW_UNEXPECTED;
-            goto exit;
+            return GST_FLOW_UNEXPECTED;
         }
             
         GST_TICIRCBUFFER_TIMESTAMP(videnc1->circBuf) =
@@ -1195,8 +1168,7 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
             gst_tividenc1_circbuf_copy, (void*)videnc1) < 0) {
             GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
             ("failed to configure user defined copy\n"),(NULL));
-            flow = GST_FLOW_UNEXPECTED;
-            goto exit;
+            return GST_FLOW_UNEXPECTED;
         }
     }
 
@@ -1209,28 +1181,37 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
             GST_ELEMENT_ERROR(videnc1, RESOURCE, WRITE,
             ("if contiguousInputFrame=TRUE the input buffer should be of size"
              "%lu\n", (unsigned long) videnc1->upstreamBufSize), (NULL));
-            flow = GST_FLOW_UNEXPECTED;
-            goto exit;
+            return GST_FLOW_UNEXPECTED;
     }
 
     gst_adapter_push (videnc1->sinkAdapter, buf);
     while (gst_adapter_available(videnc1->sinkAdapter) >=
            videnc1->upstreamBufSize) {
-        GstBuffer *qBuf = gst_adapter_take_buffer(videnc1->sinkAdapter,
-                              videnc1->upstreamBufSize);
+        GstBuffer     *qBuf;
+        GstBuffer     *outBuf;
 
-        /* Queue up the encoded data stream into a circular buffer */
-        if (!gst_ticircbuffer_queue_data(videnc1->circBuf, qBuf)) {
+        qBuf = gst_adapter_take_buffer(videnc1->sinkAdapter,
+                   videnc1->upstreamBufSize);
+
+        if (gst_tividenc1_encode(videnc1, qBuf, &outBuf) != GST_FLOW_OK) {
             GST_ELEMENT_ERROR(videnc1, RESOURCE, WRITE,
-            ("Failed to queue input buffer into circular buffer\n"), (NULL));
-            flow = GST_FLOW_UNEXPECTED;
-            goto exit;
+            ("Failed to encode input buffer\n"), (NULL));
+            gst_buffer_unref(qBuf);
+            return GST_FLOW_UNEXPECTED;
         }
+
+        /* Parse and Push the transport buffer to the source pad */
+        GST_LOG("pushing display buffer to source pad\n");
+        if (gst_tividenc1_parse_and_push(videnc1, outBuf) != GST_FLOW_OK) {
+            GST_DEBUG("push to source pad failed\n");
+            gst_buffer_unref(qBuf);
+            return GST_FLOW_UNEXPECTED;
+        }
+
         gst_buffer_unref(qBuf);
     }
 
-exit:
-    return flow;
+    return GST_FLOW_OK;
 }
 
 /******************************************************************************
@@ -1239,10 +1220,6 @@ exit:
  ******************************************************************************/
 static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
 {
-    Rendezvous_Attrs    rzvAttrs = Rendezvous_Attrs_DEFAULT;
-    struct sched_param  schedParam;
-    pthread_attr_t      attr;
-
     GST_LOG("begin init_video\n");
 
     /* If video has already been initialized, shut down previous encoder */
@@ -1272,75 +1249,10 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
         videnc1->sinkAdapter = gst_adapter_new();
     }
 
-    /* Initialize thread status management */
-    videnc1->threadStatus = 0UL;
-    pthread_mutex_init(&videnc1->threadStatusMutex, NULL);
-
-    /* Initialize rendezvous objects for making threads wait on conditions */
-    videnc1->waitOnEncodeThread = Rendezvous_create(2, &rzvAttrs);
-    videnc1->waitOnEncodeDrain  = Rendezvous_create(100, &rzvAttrs);
-    videnc1->drainingEOS        = FALSE;
-
-    /* Initialize custom thread attributes */
-    if (pthread_attr_init(&attr)) {
-        GST_WARNING("failed to initialize thread attrs\n");
-        gst_tividenc1_exit_video(videnc1);
-        return FALSE;
-    }
-
-    /* Force the thread to use the system scope */
-    if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM)) {
-        GST_WARNING("failed to set scope attribute\n");
-        gst_tividenc1_exit_video(videnc1);
-        return FALSE;
-    }
-
-    /* Force the thread to use custom scheduling attributes */
-    if (pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED)) {
-        GST_WARNING("failed to set schedule inheritance attribute\n");
-        gst_tividenc1_exit_video(videnc1);
-        return FALSE;
-    }
-
-    /* Set the thread to be fifo real time scheduled */
-    if (pthread_attr_setschedpolicy(&attr, SCHED_FIFO)) {
-        GST_WARNING("failed to set FIFO scheduling policy\n");
-        gst_tividenc1_exit_video(videnc1);
-        return FALSE;
-    }
-
-    /* Set the display thread priority */
-    schedParam.sched_priority = GstTIVideoThreadPriority;
-    if (pthread_attr_setschedparam(&attr, &schedParam)) {
-        GST_WARNING("failed to set scheduler parameters\n");
-        return FALSE;
-    }
-
-    /* Create encoder thread */
-    if (pthread_create(&videnc1->encodeThread, &attr,
-            gst_tividenc1_encode_thread, (void*)videnc1)) {
+    /* Start the codec */
+    if (!gst_tividenc1_codec_start(videnc1)) {
         GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
-        ("failed to create encode thread\n"), (NULL));
-        gst_tividenc1_exit_video(videnc1);
-        return FALSE;
-    }
-    gst_tithread_set_status(videnc1, TIThread_CODEC_CREATED);
-
-    /* Destroy the custom thread attributes */
-    if (pthread_attr_destroy(&attr)) {
-        GST_WARNING("failed to destroy thread attrs\n");
-        gst_tividenc1_exit_video(videnc1);
-        return FALSE;
-    }
-
-    /* Make sure circular buffer and display buffer handles are created by
-     * decoder thread.
-     */
-    Rendezvous_meet(videnc1->waitOnEncodeThread);
-
-    if (videnc1->circBuf == NULL || videnc1->hOutBufTab == NULL) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
-        ("encode thread failed to create circbuf or display buffer handles\n"),
+        ("failed to initialize codec\n"),
         (NULL));
         return FALSE;
     }
@@ -1356,43 +1268,7 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
  ******************************************************************************/
 static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
 {
-    void*    thread_ret;
-    gboolean checkResult;
-
     GST_LOG("begin exit_video\n");
-
-    /* Drain the pipeline if it hasn't already been drained */
-    if (!videnc1->drainingEOS) {
-       gst_tividenc1_drain_pipeline(videnc1);
-     }
-
-    /* Shut down the encode thread */
-    if (gst_tithread_check_status(
-            videnc1, TIThread_CODEC_CREATED, checkResult)) {
-        GST_LOG("shutting down encode thread\n");
-
-        Rendezvous_force(videnc1->waitOnEncodeThread);
-        if (pthread_join(videnc1->encodeThread, &thread_ret) == 0) {
-            if (thread_ret == GstTIThreadFailure) {
-                GST_DEBUG("encode thread exited with an error condition\n");
-            }
-        }
-    }
-
-    /* Shut down thread status management */
-    videnc1->threadStatus = 0UL;
-    pthread_mutex_destroy(&videnc1->threadStatusMutex);
-
-    /* Shut down remaining items */
-    if (videnc1->waitOnEncodeThread) {
-        Rendezvous_delete(videnc1->waitOnEncodeThread);
-        videnc1->waitOnEncodeThread = NULL;
-    }
-
-    if (videnc1->waitOnEncodeDrain) {
-        Rendezvous_delete(videnc1->waitOnEncodeDrain);
-        videnc1->waitOnEncodeDrain = NULL;
-    }
 
     if (videnc1->sinkAdapter) {
         g_object_unref(videnc1->sinkAdapter);
@@ -1415,6 +1291,13 @@ static gboolean gst_tividenc1_exit_video(GstTIVidenc1 *videnc1)
         GST_LOG("freeing codec_data buffer\n");
         gst_buffer_unref(videnc1->codec_data);
         videnc1->codec_data = NULL;
+    }
+
+    /* Stop the codec */
+    if (gst_tividenc1_codec_stop(videnc1) < 0) {
+        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED,
+        ("failed to stop codec\n"),
+        (NULL));
     }
 
     GST_LOG("end exit_video\n");
@@ -1485,7 +1368,19 @@ static gboolean gst_tividenc1_codec_stop (GstTIVidenc1 *videnc1)
         gst_ticircbuffer_unref(circBuf);
     }
 
+    /* Re-claim any buffers owned by the codec */
     if (videnc1->hOutBufTab) {
+        Int bufIdx;
+
+        bufIdx =
+            BufTab_getNumBufs(GST_TIDMAIBUFTAB_BUFTAB(videnc1->hOutBufTab));
+
+        while (bufIdx-- > 0) {
+            Buffer_Handle hBuf = BufTab_getBuf(
+                GST_TIDMAIBUFTAB_BUFTAB(videnc1->hOutBufTab), bufIdx);
+            Buffer_freeUseMask(hBuf, gst_tidmaibuffer_CODEC_FREE);
+        }
+
         GST_LOG("freeing output buffers\n");
         gst_tidmaibuftab_unref(videnc1->hOutBufTab);
         videnc1->hOutBufTab = NULL;
@@ -1685,7 +1580,8 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
  * gst_tividenc1_populate_codec_header
  *  This function populates codec_data field for H.264.
  *****************************************************************************/
-void gst_tividenc1_populate_codec_header (GstTIVidenc1 *videnc1, 
+static void
+gst_tividenc1_populate_codec_header (GstTIVidenc1 *videnc1,
     Buffer_Handle hDstBuf)
 {
     if (gst_is_h264_encoder(videnc1->codecName)) {
@@ -1702,8 +1598,8 @@ void gst_tividenc1_populate_codec_header (GstTIVidenc1 *videnc1,
  * gst_tividenc1_parse_and_queue 
  *  Function parses and push the output buffer .
  *****************************************************************************/
-GstFlowReturn  gst_tividenc1_parse_and_push (GstTIVidenc1 *videnc1, 
-    GstBuffer *outBuf)
+static GstFlowReturn
+gst_tividenc1_parse_and_push (GstTIVidenc1 *videnc1, GstBuffer *outBuf)
 {
     guint8 *data;
     guint   len;
@@ -1726,237 +1622,6 @@ GstFlowReturn  gst_tividenc1_parse_and_push (GstTIVidenc1 *videnc1,
     }
 
     return gst_pad_push(videnc1->srcpad, outBuf);
-}
-
-/******************************************************************************
- * gst_tividenc1_encode_thread
- *     Call the video codec to process a full input buffer
- ******************************************************************************/
-static void* gst_tividenc1_encode_thread(void *arg)
-{
-    GstTIVidenc1        *videnc1       = GST_TIVIDENC1(gst_object_ref(arg));
-    GstBuffer           *encDataWindow  = NULL;
-    BufferGfx_Attrs     gfxAttrs        = BufferGfx_Attrs_DEFAULT;
-    void                *threadRet      = GstTIThreadSuccess;
-    Buffer_Handle       hDstBuf, hInBuf = NULL;
-    Int32               encDataConsumed;
-    GstClockTime        encDataTime;
-    GstClockTime        frameDuration;
-    Buffer_Handle       hEncDataWindow;
-    GstBuffer           *outBuf;
-    Int                 bufIdx;
-    Int                 ret;
-
-    /* Calculate the duration of a single frame in this stream */
-    frameDuration = gst_tividenc1_frame_duration(videnc1);
-
-    /* Initialize codec engine */
-    ret = gst_tividenc1_codec_start(videnc1);
-
-    /* Notify main thread that is ok to continue initialization */
-    Rendezvous_meet(videnc1->waitOnEncodeThread);
-    Rendezvous_reset(videnc1->waitOnEncodeThread);
-
-    if (ret == FALSE) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, FAILED, 
-        ("failed to start codec\n"), (NULL));
-        goto thread_exit;
-    }
-
-    /* set graphics attrs for input buffer */
-    gfxAttrs.dim.width  = videnc1->width;
-    gfxAttrs.bAttrs.reference = TRUE;
-    gfxAttrs.dim.height  = videnc1->height;
-    gfxAttrs.colorSpace  = videnc1->colorSpace;
-    gfxAttrs.dim.lineLength = BufferGfx_calcLineLength(videnc1->width,
-                                    videnc1->colorSpace);
-
-    /* DM6467: set the colorspace to YUV420PSEMI, this is mainly because on 
-     * dm6467 circular buffer will perform the color conversion from 422-420.
-     */
-    if ((videnc1->device == Cpu_Device_DM6467) && 
-            videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
-        gfxAttrs.colorSpace  = ColorSpace_YUV420PSEMI;
-    }
- 
-    /* allocate reference input buffer */
-    hInBuf = Buffer_create(1, 
-                BufferGfx_getBufferAttrs(&gfxAttrs));
-    if (hInBuf == NULL) {
-        GST_ELEMENT_ERROR(videnc1, RESOURCE, NO_SPACE_LEFT,
-        ("failed to allocate ccv buffer\n"), (NULL));
-        goto thread_failure;
-    }
-
-    /* Main thread loop */
-    while (TRUE) {
-
-        /* Obtain an encoded data frame */
-        encDataWindow  = gst_ticircbuffer_get_data(videnc1->circBuf);
-        encDataTime    = GST_BUFFER_TIMESTAMP(encDataWindow);
-        hEncDataWindow = GST_TIDMAIBUFFERTRANSPORT_DMAIBUF(encDataWindow);
-
-        /* If we received a data frame of zero size, there is no more data to
-         * process -- exit the thread.  If we weren't told that we are
-         * draining the pipeline, something is not right, so exit with an
-         * error.
-         */
-        if (GST_BUFFER_SIZE(encDataWindow) == 0) {
-            GST_LOG("no video data remains\n");
-            if (!videnc1->drainingEOS) {
-                goto thread_failure;
-            }
-            goto thread_exit;
-        }
-
-        /* Obtain a free output buffer for the encoded data */
-        if (!(hDstBuf = gst_tidmaibuftab_get_buf(videnc1->hOutBufTab))) {
-            GST_ELEMENT_ERROR(videnc1, RESOURCE, READ,
-                ("failed to get a free contiguous buffer from BufTab\n"),
-                (NULL));
-            goto thread_failure;
-        }
-
-        /* Make sure the whole buffer is used for output */
-        BufferGfx_resetDimensions(hDstBuf);
-
-        /* set the input buffer size */ 
-        if (videnc1->device == Cpu_Device_DM6467 &&
-             videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
-            Buffer_setSize(hInBuf, videnc1->width * videnc1->height * 3 / 2);
-        }
-        else {
-            Buffer_setSize(hInBuf, GST_BUFFER_SIZE(encDataWindow));
-        }
-
-        /* Update the user pointer for input buffer. */        
-        Buffer_setNumBytesUsed(hInBuf, Buffer_getSize(hInBuf));
-        Buffer_setUserPtr(hInBuf, Buffer_getUserPtr(hEncDataWindow));
-
-        /* Invoke the video encoder */
-        GST_LOG("invoking the video encoder\n");
-        ret   = Venc1_process(videnc1->hVe1, hInBuf, hDstBuf);
-
-        encDataConsumed = GST_BUFFER_SIZE(encDataWindow);
-
-        if (ret < 0) {
-            GST_ELEMENT_ERROR(videnc1, STREAM, ENCODE,
-            ("failed to encode video buffer\n"), (NULL));
-            goto thread_failure;
-        }
-
-        /* If no encoded data was used we cannot find the next frame */
-        if (ret == Dmai_EBITERROR && encDataConsumed == 0) {
-            GST_ELEMENT_ERROR(videnc1, STREAM, ENCODE,
-            ("fatal bit error\n"), (NULL));
-            goto thread_failure;
-        }
-
-        if (ret > 0) {
-            GST_LOG("Venc1_process returned success code %d\n", ret); 
-        }
-
-        /* Release the reference buffer, and tell the circular buffer how much
-         * data was consumed.
-         */
-        ret = gst_ticircbuffer_data_consumed(videnc1->circBuf, encDataWindow,
-                  encDataConsumed);
-        encDataWindow = NULL;
-
-        if (!ret) {
-            goto thread_failure;
-        }
-
-        /* Populate codec header */
-        gst_tividenc1_populate_codec_header(videnc1, hDstBuf);
-
-        /* Set the source pad capabilities based on the encoded frame
-         * properties.
-         */
-        gst_tividenc1_set_source_caps(videnc1, hDstBuf);
-
-        /* Create a DMAI transport buffer object to carry a DMAI buffer to
-         * the source pad.  The transport buffer knows how to release the
-         * buffer for re-use in this element when the source pad calls
-         * gst_buffer_unref().
-         */
-        outBuf = gst_tidmaibuffertransport_new(hDstBuf, videnc1->hOutBufTab);
-        gst_buffer_set_data(outBuf, GST_BUFFER_DATA(outBuf),
-            Buffer_getNumBytesUsed(hDstBuf));
-        gst_buffer_set_caps(outBuf, GST_PAD_CAPS(videnc1->srcpad));
-
-        /* If we have a valid time stamp, set it on the buffer */
-        if (videnc1->genTimeStamps &&
-            GST_CLOCK_TIME_IS_VALID(encDataTime)) {
-            GST_LOG("video timestamp value: %llu\n", encDataTime);
-            GST_BUFFER_TIMESTAMP(outBuf) = encDataTime;
-            GST_BUFFER_DURATION(outBuf)  = frameDuration;
-        }
-        else {
-            GST_BUFFER_TIMESTAMP(outBuf) = GST_CLOCK_TIME_NONE;
-        }
-
-        /* Tell circular buffer how much time we consumed */
-        gst_ticircbuffer_time_consumed(videnc1->circBuf, frameDuration);
-
-        /* Parse and Push the transport buffer to the source pad */
-        GST_LOG("pushing display buffer to source pad\n");
-        if (gst_tividenc1_parse_and_push(videnc1, outBuf) != GST_FLOW_OK) {
-            GST_DEBUG("push to source pad failed\n");
-            goto thread_failure;
-        }
-
-        /* Release buffers no longer in use by the codec */
-        Buffer_freeUseMask(hDstBuf, gst_tidmaibuffer_CODEC_FREE);
-    }
-
-thread_failure:
-
-    gst_tithread_set_status(videnc1, TIThread_CODEC_ABORTED);
-    gst_ticircbuffer_consumer_aborted(videnc1->circBuf);
-    threadRet = GstTIThreadFailure;
-
-thread_exit: 
-
-    /* Re-claim any buffers owned by the codec */
-    bufIdx = BufTab_getNumBufs(GST_TIDMAIBUFTAB_BUFTAB(videnc1->hOutBufTab));
-
-    while (bufIdx-- > 0) {
-        Buffer_Handle hBuf = BufTab_getBuf(
-            GST_TIDMAIBUFTAB_BUFTAB(videnc1->hOutBufTab), bufIdx);
-        Buffer_freeUseMask(hBuf, gst_tidmaibuffer_CODEC_FREE);
-    }
-
-    /* Release the last buffer we retrieved from the circular buffer */
-    if (encDataWindow) {
-        gst_ticircbuffer_data_consumed(videnc1->circBuf, encDataWindow, 0);
-    }
-
-    /* We have to wait to shut down this thread until we can guarantee that
-     * no more input buffers will be queued into the circular buffer
-     * (we're about to delete it).  
-     */
-    Rendezvous_meet(videnc1->waitOnEncodeThread);
-    Rendezvous_reset(videnc1->waitOnEncodeThread);
-
-    /* Notify main thread that we are done draining before we shutdown the
-     * codec, or we will hang.  We proceed in this order so the EOS event gets
-     * propagated downstream before we attempt to shut down the codec.  The
-     * codec-shutdown process will block until all BufTab buffers have been
-     * released, and downstream-elements may hang on to buffers until
-     * they get the EOS.
-     */
-    Rendezvous_force(videnc1->waitOnEncodeDrain);
-
-    /* Stop codec engine */
-    if (gst_tividenc1_codec_stop(videnc1) < 0) {
-        GST_ERROR("failed to stop codec\n");
-    }
-
-    gst_object_unref(videnc1);
-
-    GST_LOG("exit video encode_thread (%d)\n", (int)threadRet);
-    return threadRet;
 }
 
 /******************************************************************************
@@ -2014,10 +1679,8 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
         return GST_FLOW_UNEXPECTED;
     }
 
-    /* Copy input buffer into physically-contiguous memory */
-    memcpy(Buffer_getUserPtr(hInBuf), GST_BUFFER_DATA(inBuf),
-        GST_BUFFER_SIZE(inBuf));
-
+    /* Copy input buffer into physically-contiguous memory.  */
+    gst_tividenc1_circbuf_copy(Buffer_getUserPtr(hInBuf), inBuf, videnc1);
     Buffer_setNumBytesUsed(hInBuf, Buffer_getSize(hInBuf));
 
     /* Get the time stamp from the input buffer */
@@ -2080,31 +1743,6 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
     Buffer_freeUseMask(hDstBuf, gst_tidmaibuffer_CODEC_FREE);
 
     return GST_FLOW_OK;
-}
-
-
-/******************************************************************************
- * gst_tividenc1_drain_pipeline
- *    Wait for the encode thread to finish processing queued input data.
- ******************************************************************************/
-static void gst_tividenc1_drain_pipeline(GstTIVidenc1 *videnc1)
-{
-    gboolean checkResult;
-
-    /* If the encode thread hasn't been created, there is nothing to drain. */
-    if (!gst_tithread_check_status(
-             videnc1, TIThread_CODEC_CREATED, checkResult)) {
-        return;
-    }
-
-    videnc1->drainingEOS = TRUE;
-    gst_ticircbuffer_drain(videnc1->circBuf, TRUE);
-
-    /* Tell the encode thread that it is ok to shut down */
-    Rendezvous_force(videnc1->waitOnEncodeThread);
-
-    /* Wait for the encoder to finish draining */
-    Rendezvous_meet(videnc1->waitOnEncodeDrain);
 }
 
 

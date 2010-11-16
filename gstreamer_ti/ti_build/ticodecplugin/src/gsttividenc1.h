@@ -84,16 +84,8 @@ struct _GstTIVidenc1
   /* Element state */
   Engine_Handle    hEngine;
   Venc1_Handle     hVe1;
-  gboolean         drainingEOS;
-  pthread_mutex_t  threadStatusMutex;
-  UInt32           threadStatus;
   Cpu_Device       device;
   gint             upstreamBufSize;
-
-  /* Encode thread */
-  pthread_t          encodeThread;
-  Rendezvous_Handle  waitOnEncodeThread;
-  Rendezvous_Handle  waitOnEncodeDrain;
 
   /* Framerate */
   GValue             framerate;
