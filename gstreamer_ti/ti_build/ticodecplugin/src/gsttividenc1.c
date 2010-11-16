@@ -1468,8 +1468,8 @@ gst_tividenc1_encode(GstTIVidenc1 *videnc1, GstBuffer *inBuf,
      * buffer for re-use in this element when the source pad calls
      * gst_buffer_unref().
      */
-    *outBuf = gst_tidmaibuffertransport_new(hDstBuf, videnc1->hOutBufTab);
-    gst_buffer_set_data(*outBuf, GST_BUFFER_DATA(*outBuf),
+    *outBuf = gst_buffer_new_and_alloc(Buffer_getNumBytesUsed(hDstBuf));
+    memcpy(GST_BUFFER_DATA(*outBuf), Buffer_getUserPtr(hDstBuf),
         Buffer_getNumBytesUsed(hDstBuf));
     gst_buffer_set_caps(*outBuf, GST_PAD_CAPS(videnc1->srcpad));
 
