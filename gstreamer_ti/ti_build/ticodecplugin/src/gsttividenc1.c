@@ -9,13 +9,6 @@
  *         TIVidenc1 engineName="<engine name>" codecName="<codecName>" !
  *         fakesink silent=TRUE
  *
- * Notes:
- *  * This element currently assumes that video input is in  UYVY, Y8C8
- *    and NV12 formats.
- *
- *    Note: On DM6467, VDCE is used to perform Ccv from YUV422P semi to
- *    YUV420P semi.
- *
  * Original Author:
  *     Brijesh Singh, Texas Instruments, Inc.
  *
@@ -104,18 +97,7 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
     )
 );
 
-/* Define sink (input) pad capabilities.  Currently, UYVY, NV12 and Y8C8 
- * supported.
- *
- * UYVY - YUV 422 interleaved corresponding to V4L2_PIX_FMT_UYVY in v4l2
- * Y8C8 - YUV 422 semi planar. The dm6467 VDCE outputs this format after a
- *        color conversion.The format consists of two planes: one with the
- *        Y component and one with the CbCr components interleaved (hence semi)  *
- *        See the LSP VDCE documentation for a thorough description of this
- *        format.
- * NV12 - 8-bit Y plane followed by an interleaved U/V plane with 2x2 
- *        subsampling
- */
+/* Declare supperted sink pad capabilities. */
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     "sink",
     GST_PAD_SINK,
@@ -123,16 +105,6 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     GST_STATIC_CAPS
     ("video/x-raw-yuv, "                        /* UYVY - YUV422 interleaved */
          "format=(fourcc)UYVY, "                
-         "framerate=(fraction)[ 0, MAX ], "
-         "width=(int)[ 1, MAX ], "
-         "height=(int)[ 1, MAX ];"
-     "video/x-raw-yuv, "                        /* Y8C8 - YUV422 semi planar */
-         "format=(fourcc)Y8C8, "               
-         "framerate=(fraction)[ 0, MAX ], "
-         "width=(int)[ 1, MAX ], "
-         "height=(int)[ 1, MAX ];"
-    "video/x-raw-yuv, "                         /* NV16 - YUV422 semi planar */
-         "format=(fourcc)NV16, "
          "framerate=(fraction)[ 0, MAX ], "
          "width=(int)[ 1, MAX ], "
          "height=(int)[ 1, MAX ];"
@@ -445,10 +417,6 @@ static ColorSpace_Type gst_tividenc1_find_colorSpace (const gchar *colorSpace)
 {
     if (!strcmp(colorSpace, "UYVY"))
         return ColorSpace_UYVY;
-    else if (!strcmp(colorSpace, "NV16")) 
-        return ColorSpace_YUV422PSEMI;
-    else if (!strcmp(colorSpace, "Y8C8")) 
-        return ColorSpace_YUV422PSEMI;
     else if (!strcmp(colorSpace, "NV12")) 
         return ColorSpace_YUV420PSEMI;
     else 
@@ -642,11 +610,6 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
             switch (fourcc) {
                 case GST_MAKE_FOURCC('U', 'Y', 'V', 'Y'):
                     videnc1->colorSpace = ColorSpace_UYVY;
-                    break;
-
-                case GST_MAKE_FOURCC('N', 'V', '1', '6'):
-                case GST_MAKE_FOURCC('Y', '8', 'C', '8'):
-                    videnc1->colorSpace = ColorSpace_YUV422PSEMI;
                     break;
 
                 case GST_MAKE_FOURCC('N', 'V', '1', '2'):
@@ -860,169 +823,6 @@ static Buffer_Handle gst_tividenc1_convert_gst_to_dmai(GstTIVidenc1 *videnc1,
     return hBuf;
 }
 
-/******************************************************************************
- * gst_tividenc1_422psemi_420psemi
- *  this function color convert YUV422PSEMI to YUV420PSEMI.
- *****************************************************************************/
-static Int
-gst_tividenc1_422psemi_420psemi(Buffer_Handle hDstBuf, GstBuffer *src, 
-    GstTIVidenc1 *videnc1)
-{
-    Buffer_Handle  hInBuf       = NULL;
-    Int ret                     = -1;
-    Ccv_Attrs       ccvAttrs    = Ccv_Attrs_DEFAULT;
-    gboolean        accel       = FALSE;
-
-    GST_LOG("gst_tividenc1_422psemi_420psemi - begin\n");
-
-    /* create ccv handle */
-    if (videnc1->hCcv == NULL) {
-        /* Enable the accel ccv based on contiguousInputFrame.
-         * If accel is set to FALSE then DMAI will use software ccv function
-         * else will use HW accelerated ccv engine.
-         */
-
-        /* If we are getting dmai transport buffer then enable HW 
-         * acceleration */
-        if (GST_IS_TIDMAIBUFFERTRANSPORT(src)) {
-            accel = TRUE;
-        }
-        else {
-            accel = videnc1->contiguousInputFrame;
-        }
-
-        ccvAttrs.accel = videnc1->contiguousInputFrame;
-        videnc1->hCcv = Ccv_create(&ccvAttrs);
-        if (videnc1->hCcv == NULL) {
-            GST_ERROR("failed to create CCV handle\n");
-            goto exit;
-        }
-        
-        GST_INFO("HW accel CCV: %s\n", accel ? "enabled":"disabled");
-    }
-
-    /* Prepare input buffer */
-    hInBuf = gst_tividenc1_convert_gst_to_dmai(videnc1, src, TRUE);
-    if (hInBuf == NULL) {
-        GST_ERROR("failed to get dmai buffer\n");
-        goto exit;
-    }
-
-    /* Prepare output buffer */
-    if (Ccv_config(videnc1->hCcv, hInBuf, hDstBuf) < 0) {
-        GST_ERROR("failed to config CCV handle\n");
-        goto exit;
-    }
-
-    if (Ccv_execute(videnc1->hCcv, hInBuf, hDstBuf) < 0) {
-        GST_ERROR("failed to execute Ccv handle\n");
-        goto exit;
-    }
-
-    ret = GST_BUFFER_SIZE(src);
-
-    GST_LOG("gst_tividenc1_422psemi_420psemi - end\n");
-exit:
-    if (hInBuf) {
-        Buffer_delete(hInBuf);
-    }
-
-    return ret;
-}
-
-/*****************************************************************************
- * gst_tividenc1_copy_input
- *  Make the input data in src available in the physically contiguous memory
- *  in dst in the best way possible.  Preferably an accelerated copy or
- *  color conversion.
- ****************************************************************************/
-static Int
-gst_tividenc1_copy_input(GstTIVidenc1 *videnc1, Buffer_Handle hDstBuf,
-    GstBuffer *src)
-{
-    Buffer_Handle  hInBuf       = NULL;
-    Int ret                     = -1;
-    Framecopy_Attrs fcAttrs     = Framecopy_Attrs_DEFAULT;
-    gboolean        accel       = FALSE;
-
-    #if defined(Platform_dm365)
-    BufferGfx_Dimensions  dim;
-    #endif
-
-    /* Check to see if we need to execute ccv on dm6467 */
-    if (videnc1->device == Cpu_Device_DM6467 &&
-         videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
-        return gst_tividenc1_422psemi_420psemi(hDstBuf, src, videnc1);
-    }
-
-    GST_LOG("gst_tividenc1_copy_input - begin\n");
-
-    if (videnc1->hFc == NULL) {
-        /* Enable the accel framecopy based on contiguousInputFrame.
-         * If accel is set to FALSE then DMAI will use regular memcpy function
-         * else will use HW accelerated framecopy.
-         */
-
-        /* If we are getting dmai transport buffer then enable HW 
-         * acceleration */
-        if (GST_IS_TIDMAIBUFFERTRANSPORT(src)) {
-            accel = TRUE;
-        }
-        else {
-            accel = videnc1->contiguousInputFrame;
-        }
-
-        fcAttrs.accel = videnc1->contiguousInputFrame;
-
-        videnc1->hFc = Framecopy_create(&fcAttrs);
-        if (videnc1->hFc == NULL) {
-            GST_ERROR("failed to create framecopy handle\n");
-            goto exit;
-        }
-
-        GST_INFO("HW accel framecopy: %s\n", accel ? "enabled":"disabled");
-    }
-
-    /* Prepare input buffer */
-    hInBuf = gst_tividenc1_convert_gst_to_dmai(videnc1, src, TRUE);
-    if (hInBuf == NULL) {
-        GST_ERROR("failed to get dmai buffer\n");
-        goto exit;
-    }
-
-    #if defined(Platform_dm365)
-    /* Handle resizer 32-byte issue on DM365 platform */
-    if (videnc1->device ==  Cpu_Device_DM365) {
-        if ((videnc1->colorSpace ==  ColorSpace_YUV420PSEMI)) {
-            BufferGfx_getDimensions(hInBuf, &dim);
-            dim.lineLength = Dmai_roundUp(dim.lineLength,32);
-            BufferGfx_setDimensions(hInBuf, &dim);
-        }
-    }
-    #endif
-
-    /* Prepare output buffer */
-    if (Framecopy_config(videnc1->hFc, hInBuf, hDstBuf) < 0) {
-        GST_ERROR("failed to configure framecopy\n");
-        goto exit;
-    }
-
-    if (Framecopy_execute(videnc1->hFc, hInBuf, hDstBuf) < 0) {
-        GST_ERROR("failed to execute framecopy\n");
-        goto exit;
-    }
-
-    ret = GST_BUFFER_SIZE(src);
-
-exit:
-    if (hInBuf) {
-        Buffer_delete(hInBuf);
-    }
-
-    GST_LOG("gst_tividenc1_copy_input - end\n");
-    return ret;
-}
-
 /*****************************************************************************
  * gst_tividenc1_prepare_input
  *  Prepare the codec input buffer.
@@ -1059,12 +859,26 @@ gst_tividenc1_prepare_input(GstTIVidenc1 *videnc1, GstBuffer **inBuf)
     }
 
     /* Otherwise, copy the buffer contents into our local physically contiguous
-     * DMAI buffer and pass it to the codec.  The gst_tividenc1_copy_input
-     * function will copy using hardware acceleration if possible.
+     * DMAI buffer and pass it to the codec.  We should only ever need to do
+     * this for file input -- if we're doing capture+encode and don't support
+     * zero-copy, the TIPrepEncBuf element should have been used to copy
+     * the input buffer to a DMAI transport buffer, which we handle above.
      */
-    gst_tividenc1_copy_input(videnc1, videnc1->hContigInBuf, *inBuf);
-    Buffer_setNumBytesUsed(videnc1->hContigInBuf,
-        Buffer_getSize(videnc1->hContigInBuf));
+    if (videnc1->contiguousInputFrame) {
+        static gboolean warned_already = FALSE;
+
+        if (!warned_already) {
+            GST_ELEMENT_WARNING(videnc1, STREAM, ENCODE,
+            ("performing a slow memcpy of the input buffer to a "
+                "physically contiguous buffer; you probably want to use "
+                "the TIPrepEncBuf element before TIVidenc1 to properly "
+                "prepare your input buffer for encoding"), (NULL));
+            warned_already = TRUE;
+        }
+    }
+    memcpy(Buffer_getUserPtr(videnc1->hContigInBuf), GST_BUFFER_DATA(*inBuf),
+        GST_BUFFER_SIZE(*inBuf));
+    Buffer_setNumBytesUsed(videnc1->hContigInBuf, GST_BUFFER_SIZE(*inBuf));
     gst_buffer_unref(*inBuf);
     *inBuf = NULL;
     return videnc1->hContigInBuf;
@@ -1089,17 +903,6 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
      */
     if (videnc1->hEngine == NULL) {
 
-        /* Calculate the input buffer size for circular buffer */
-        /* DM6467: If we are recieving YUV422PSEMI from the upstream then create
-         * big enough circular buffer to hold the YUV422PSEMI data. This is 
-         * mainly because codec accepts YUV420PSEMI and we will execute
-         * CCV in encode thread before calling video encoder.
-         */
-        if ((videnc1->device == Cpu_Device_DM6467) && 
-              (videnc1->colorSpace == ColorSpace_YUV422PSEMI)) {
-            videnc1->upstreamBufSize = GST_BUFFER_SIZE(buf);
-        }
-    
         /* DM365: If we are recieving YUV420PSEMI buffer from upstream
          * then we may need to componsate resizer 32-byte alignment issue. 
          * Hence make sure the input buffer will be big enough to hold the
@@ -1491,17 +1294,9 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
     }
 
     /* Create a physically contiguous input buffer */
-    /* On DM6467, set the colorspace to YUV420PSEMI.  We will convert to
-     * YUV420PSEMI when copying into the input buffer.
-     */
     gfxAttrsIn.dim.width        = videnc1->width;
     gfxAttrsIn.dim.height       = videnc1->height;
     gfxAttrsIn.colorSpace       = videnc1->colorSpace;
-
-    if ((videnc1->device == Cpu_Device_DM6467) &&
-        videnc1->colorSpace == ColorSpace_YUV422PSEMI) {
-        gfxAttrsIn.colorSpace  = ColorSpace_YUV420PSEMI;
-    }
 
     gfxAttrsIn.dim.lineLength   =
         BufferGfx_calcLineLength(gfxAttrsIn.dim.width, gfxAttrsIn.colorSpace);
