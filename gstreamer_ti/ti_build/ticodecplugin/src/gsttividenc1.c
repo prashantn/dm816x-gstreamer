@@ -887,17 +887,14 @@ static GstFlowReturn gst_tividenc1_chain(GstPad * pad, GstBuffer * buf)
      */
     if (videnc1->hEngine == NULL) {
 
-        /* DM365: If we are recieving YUV420PSEMI buffer from upstream
-         * then we may need to componsate resizer 32-byte alignment issue. 
-         * Hence make sure the input buffer will be big enough to hold the
-         * 32-byte aligned data from upstream.
+        /* If we know the input buffer is physically contiguous in memory, use
+         * its size as the expected size for all input buffers.  Otherwise,
+         * the codec will be asked later on for the size to expect.
          */
-        #if defined(Platform_dm365)
-        if ((videnc1->device == Cpu_Device_DM365) && 
-             (videnc1->colorSpace == ColorSpace_YUV420PSEMI)) {
+        if (videnc1->contiguousInputFrame ||
+            GST_IS_TIDMAIBUFFERTRANSPORT(buf)) {
             videnc1->upstreamBufSize = GST_BUFFER_SIZE(buf);
         }
-        #endif
 
         /* Initialize video encoder */
         if (!gst_tividenc1_init_video(videnc1)) {
