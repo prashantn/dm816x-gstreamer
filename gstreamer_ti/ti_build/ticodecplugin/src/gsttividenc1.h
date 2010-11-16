@@ -94,9 +94,8 @@ struct _GstTIVidenc1
   Rendezvous_Handle  waitOnEncodeThread;
   Rendezvous_Handle  waitOnEncodeDrain;
 
-  /* Framerate (Num/Den) */
-  gint               framerateNum;
-  gint               framerateDen;
+  /* Framerate */
+  GValue             framerate;
 
   /* Frame resolution */
   gint           width;

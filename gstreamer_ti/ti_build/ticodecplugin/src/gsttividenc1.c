@@ -75,7 +75,7 @@ enum
   PROP_IN_COLORSPACE,   /* iColorSpace    (string)  */
   PROP_NUM_INPUT_BUFS,  /* numInputBuf    (int)     */
   PROP_NUM_OUTPUT_BUFS, /* numOutputBuf   (int)     */
-  PROP_FRAMERATE,       /* frameRate      (int)     */
+  PROP_FRAMERATE,       /* framerate      (GstFraction) */
   PROP_DISPLAY_BUFFER,  /* displayBuffer  (boolean) */
   PROP_CONTIG_INPUT_BUF,/* contiguousInputFrame  (boolean) */
   PROP_GEN_TIMESTAMPS,  /* genTimeStamps  (boolean) */
@@ -340,12 +340,10 @@ static void gst_tividenc1_class_init(GstTIVidenc1Class *klass)
             1, G_MAXINT32, 1, G_PARAM_WRITABLE));
 
     g_object_class_install_property(gobject_class, PROP_FRAMERATE,
-        g_param_spec_int("frameRate",
-            "Frame rate to play output",
-            "Communicate this framerate to downstream elements.  The frame "
-            "rate specified should be an integer.  If 29.97fps is desired, "
-            "specify 30 for this setting",
-            1, G_MAXINT32, 30, G_PARAM_WRITABLE));
+        gst_param_spec_fraction("framerate", "frame rate of video",
+            "Frame rate of the video expressed as a fraction.  A value "
+            "of 0/1 indicates the framerate is not specified", 0, 1,
+            G_MAXINT, 1, 0, 1, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_DISPLAY_BUFFER,
         g_param_spec_boolean("displayBuffer", "Display Buffer",
@@ -428,8 +426,6 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->waitOnEncodeThread     = NULL;
     videnc1->waitOnEncodeDrain      = NULL;
 
-    videnc1->framerateNum           = 0;
-    videnc1->framerateDen           = 0;
     videnc1->hOutBufTab             = NULL;
     videnc1->circBuf                = NULL;
 
@@ -448,6 +444,13 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->encodingPreset         = 1;
     videnc1->byteStream             = TRUE;
     videnc1->codec_data             = NULL;
+
+    /* Initialize GValue members */
+    memset(&videnc1->framerate, 0, sizeof(GValue));
+    g_value_init(&videnc1->framerate, GST_TYPE_FRACTION);
+    g_assert(GST_VALUE_HOLDS_FRACTION(&videnc1->framerate));
+    gst_value_set_fraction(&videnc1->framerate, 0, 1);
+
 }
 
 /******************************************************************************
@@ -546,17 +549,10 @@ static void gst_tividenc1_set_property(GObject *object, guint prop_id,
             break;
         case PROP_FRAMERATE:
         {
-            videnc1->framerateNum = g_value_get_int(value);
-            videnc1->framerateDen = 1;
-
-            /* If 30fps was specified, use 29.97 */
-            if (videnc1->framerateNum == 30) {
-                videnc1->framerateNum = 30000;
-                videnc1->framerateDen = 1001;
-            }
-
-            GST_LOG("setting \"frameRate\" to \"%2.2lf\"\n",
-               (gdouble)videnc1->framerateNum / (gdouble)videnc1->framerateDen);
+            g_value_copy(value, &videnc1->framerate);
+            GST_LOG("Setting framerate=%d/%d\n", 
+                gst_value_get_fraction_numerator(&videnc1->framerate),
+                gst_value_get_fraction_denominator(&videnc1->framerate));
             break;
         }
         case PROP_CONTIG_INPUT_BUF:
@@ -611,6 +607,9 @@ static void gst_tividenc1_get_property(GObject *object, guint prop_id,
         case PROP_IN_COLORSPACE:
             g_value_set_string(value, videnc1->iColor);
             break;
+        case PROP_FRAMERATE:
+            g_value_copy(&videnc1->framerate, value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
             break;
@@ -652,8 +651,10 @@ static gboolean gst_tividenc1_set_sink_caps(GstPad *pad, GstCaps *caps)
 
         if (gst_structure_get_fraction(capStruct, "framerate", &framerateNum,
                 &framerateDen)) {
-            videnc1->framerateNum = framerateNum;
-            videnc1->framerateDen = framerateDen;
+            if (gst_value_get_fraction_numerator(&videnc1->framerate) == 0) {
+                gst_value_set_fraction(&videnc1->framerate, framerateNum,
+                    framerateDen);
+            }
         }
     }
 
@@ -739,8 +740,9 @@ static gboolean gst_tividenc1_set_source_caps(
     if (h264Codec && (!strcmp(h264Codec->CE_CodecName, videnc1->codecName))) {
         caps =
             gst_caps_new_simple("video/x-h264",
-                "framerate",    GST_TYPE_FRACTION,  videnc1->framerateNum,
-                                                    videnc1->framerateDen,
+                "framerate",    GST_TYPE_FRACTION,
+                    gst_value_get_fraction_numerator(&videnc1->framerate),
+                    gst_value_get_fraction_denominator(&videnc1->framerate),
                 "width",        G_TYPE_INT,         dim.width,
                 "height",       G_TYPE_INT,         dim.height,
                 NULL);
@@ -762,8 +764,9 @@ static gboolean gst_tividenc1_set_source_caps(
         caps =
             gst_caps_new_simple("video/mpeg",
                 "mpegversion",  G_TYPE_INT,         mpegversion,
-                "framerate",    GST_TYPE_FRACTION,  videnc1->framerateNum,
-                                                    videnc1->framerateDen,
+                "framerate",    GST_TYPE_FRACTION,
+                    gst_value_get_fraction_numerator(&videnc1->framerate),
+                    gst_value_get_fraction_denominator(&videnc1->framerate),
                 "width",        G_TYPE_INT,         dim.width,
                 "height",       G_TYPE_INT,         dim.height,
                 NULL);
@@ -780,8 +783,9 @@ static gboolean gst_tividenc1_set_source_caps(
         caps =
             gst_caps_new_simple("video/mpeg",
                 "mpegversion",  G_TYPE_INT,         mpegversion,
-                "framerate",    GST_TYPE_FRACTION,  videnc1->framerateNum,
-                                                    videnc1->framerateDen,
+                "framerate",    GST_TYPE_FRACTION,
+                    gst_value_get_fraction_numerator(&videnc1->framerate),
+                    gst_value_get_fraction_denominator(&videnc1->framerate),
                 "width",        G_TYPE_INT,         dim.width,
                 "height",       G_TYPE_INT,         dim.height,
                 NULL);
@@ -1443,8 +1447,7 @@ static gboolean gst_tividenc1_codec_stop (GstTIVidenc1 *videnc1)
 
         circBuf               = videnc1->circBuf;
         videnc1->circBuf      = NULL;
-        videnc1->framerateNum = 0;
-        videnc1->framerateDen = 0;
+        gst_value_set_fraction(&videnc1->framerate, 0, 1);
         gst_ticircbuffer_unref(circBuf);
     }
 
@@ -1953,15 +1956,15 @@ static void gst_tividenc1_drain_pipeline(GstTIVidenc1 *videnc1)
 static GstClockTime gst_tividenc1_frame_duration(GstTIVidenc1 *videnc1)
 {
     /* Default to 29.97 if the frame rate was not specified */
-    if (videnc1->framerateNum == 0 && videnc1->framerateDen == 0) {
-        GST_WARNING("framerate not specified; using 29.97fps");
-        videnc1->framerateNum = 30000;
-        videnc1->framerateDen = 1001;
+    if (gst_value_get_fraction_numerator(&videnc1->framerate) == 0) {
+         GST_WARNING("framerate not specified; using 29.97fps");
+        gst_value_set_fraction(&videnc1->framerate, 30000, 1001);
     }
 
-    return (GstClockTime)
-        ((1 / ((gdouble)videnc1->framerateNum/(gdouble)videnc1->framerateDen))
-         * GST_SECOND);
+    return
+     ((GstClockTime) gst_value_get_fraction_denominator(&videnc1->framerate)) *
+     GST_SECOND /
+     ((GstClockTime) gst_value_get_fraction_numerator(&videnc1->framerate));
 }
 
 
