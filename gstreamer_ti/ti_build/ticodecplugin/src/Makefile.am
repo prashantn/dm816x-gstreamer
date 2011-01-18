@@ -7,7 +7,7 @@ plugin_LTLIBRARIES  = libgstticodecplugin.la
 if HAVE_C6ACCEL
 C6ACCEL_SRC = gsttic6xcolorspace.c
 C6ACCEL_HEAD = gsttic6xcolorspace.h
-C6ACCEL_LIB = $(C6ACCEL_INSTALL_DIR)/soc/c6accelw/lib/c6accelw_$(GST_TI_PLATFORM).a470MV
+C6ACCEL_LIB = $(C6ACCEL_INSTALL_DIR)/soc/c6accelw/lib/c6accelw_$(C6ACCEL_PLATFORM).a470MV
 endif
 
 

@@ -208,6 +208,7 @@ ifeq ($(GST_TI_PLATFORM), omap3530)
     export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
     export C6ACCEL_INSTALL_DIR
     export ENABLE_C6ACCEL = true
+    export C6ACCEL_PLATFORM = $(GST_TI_PLATFORM)
     export LIBTOOL_SYSROOT_PATH=$(LINUXLIBS_INSTALL_DIR)/..
 endif
 
@@ -221,6 +222,7 @@ ifeq ($(GST_TI_PLATFORM), omapl138)
     export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
     export C6ACCEL_INSTALL_DIR
     export ENABLE_C6ACCEL = true
+    export C6ACCEL_PLATFORM = $(GST_TI_PLATFORM)
     export LIBTOOL_SYSROOT_PATH=$(LINUXLIBS_INSTALL_DIR)/..
 endif
 

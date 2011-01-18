@@ -89,6 +89,7 @@ ifeq ($(GST_TI_PLATFORM), omapl138)
     export CROSS_COMPILE = ${CSTOOL_PREFIX}
     export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
     export C6ACCEL_INSTALL_DIR
+    export C6ACCEL_PLATFORM = $(GST_TI_PLATFORM)
     export ENABLE_C6ACCEL ="--enable-c6accel"
 endif
 
@@ -101,6 +102,7 @@ ifeq ($(GST_TI_PLATFORM), omap3530)
     export CROSS_COMPILE = ${CSTOOL_PREFIX}
     export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
     export C6ACCEL_INSTALL_DIR
+    export C6ACCEL_PLATFORM = $(GST_TI_PLATFORM)
     export ENABLE_C6ACCEL ="--enable-c6accel"
 endif
 
