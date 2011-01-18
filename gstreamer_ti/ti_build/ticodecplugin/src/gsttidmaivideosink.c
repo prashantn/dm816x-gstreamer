@@ -360,7 +360,7 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
         GST_DEBUG_FUNCPTR(gst_tidmaivideosink_buffer_alloc);
 
     /* Pad-buffer allocation is currently only supported for DM365 */
-    #if !defined(Platform_dm365)
+    #if !defined(Platform_dm365) && !defined(Platform_omap3530)
     gstbase_sink_class->buffer_alloc = NULL;
     #endif
 }
@@ -733,6 +733,13 @@ static GstFlowReturn gst_tidmaivideosink_buffer_alloc(GstBaseSink * bsink,
             GST_WARNING("resizer not supported for pad allocation; "
                 "disabling\n");
             dmaisink->resizer = FALSE;
+        }
+
+        /* This element cannot perform rotation when doing pad allocation */
+        if (dmaisink->rotation) {
+            GST_WARNING("rotation not supported for pad allocation; "
+                "disabling\n");
+            dmaisink->rotation = FALSE;
         }
     }
 
@@ -1387,7 +1394,7 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
          * display until we call Display_put for the first time.
          */
         if (sink->hDispBufTab) {
-            #if defined(Platform_dm365)
+            #if defined(Platform_dm365) || defined(Platform_omap3530)
             sink->dAttrs.delayStreamon = TRUE;
             #else
             GST_ERROR("delayed V4L2 streamon not supported\n");
