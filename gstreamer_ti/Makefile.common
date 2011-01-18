@@ -137,7 +137,7 @@ ifndef CROSS_COMPILER
     ifeq ($(GST_TI_PLATFORM), omapl138)
         CROSS_COMPILER=CS_2009Q1
     endif
-    ifeq ($(GST_TI_PLATFORM), omap3530_dv400)
+    ifeq ($(GST_TI_PLATFORM), dm3730)
         CROSS_COMPILER=CS_2009Q1
     endif
 endif
