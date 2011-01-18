@@ -8,7 +8,7 @@
 # Copyright (C) 2009 Ridgerun 
 #
 
-.PHONY: default configure dm6446 omap3530 dm355 dm6467 dm365 omapl138 dm3730
+.PHONY: default configure dm6446 omap3530 dm355 dm6467 dm365 omapl138 dm3730 dm368
 
 DVSDK_PATH=undefined
 DMAI_INSTALL_DIR=undefined
@@ -72,6 +72,15 @@ ifeq ($(GST_TI_PLATFORM), dm6467t)
 endif
 
 ifeq ($(GST_TI_PLATFORM), dm365)
+    export XDC_TARGET    = gnu.targets.arm.GCArmv5T
+    export XDC_PLATFORM  = ti.platforms.evmDM365
+    export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
+    export MVTOOL_DIR    = $(CSTOOL_DIR)
+    export PLATFORM_XDC  = ${XDC_PLATFORM}
+    export CROSS_COMPILE = ${CSTOOL_PREFIX}
+endif
+
+ifeq ($(GST_TI_PLATFORM), dm368)
     export XDC_TARGET    = gnu.targets.arm.GCArmv5T
     export XDC_PLATFORM  = ti.platforms.evmDM365
     export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
@@ -150,4 +159,7 @@ omapl138: Makefile
 	$(MAKE) -f Makefile
 
 dm3730: Makefile
+	$(MAKE) -f Makefile
+
+dm368: Makefile
 	$(MAKE) -f Makefile

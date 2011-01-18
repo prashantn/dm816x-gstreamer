@@ -465,7 +465,7 @@ gst_tiprepencbuf_copy_input(GstTIPrepEncBuf * prepencbuf,
     Buffer_Handle    hInBuf  = NULL;
     Int              ret     = -1;
 
-#if defined(Platform_dm365)
+#if defined(Platform_dm365) || defined(Platform_dm368)
     BufferGfx_Dimensions dim;
 #endif
 
@@ -510,9 +510,9 @@ gst_tiprepencbuf_copy_input(GstTIPrepEncBuf * prepencbuf,
         goto exit;
     }
 
-#if defined(Platform_dm365)
+#if defined(Platform_dm365) || defined(Platform_dm368)
     /* Handle resizer 32-byte issue on DM365 platform */
-    if (prepencbuf->device == Cpu_Device_DM365) {
+    if (prepencbuf->device == Cpu_Device_DM365 || prepencbuf->device == Cpu_Device_DM368) {
         if ((prepencbuf->srcColorSpace == ColorSpace_YUV420PSEMI)) {
             BufferGfx_getDimensions(hInBuf, &dim);
             dim.lineLength = Dmai_roundUp(dim.lineLength, 32);

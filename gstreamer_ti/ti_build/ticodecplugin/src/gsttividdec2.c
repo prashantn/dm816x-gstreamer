@@ -1333,6 +1333,15 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2,
             defaultNumBufs           = 4;
             break;
         #endif
+        #if defined(Platform_dm368)
+        case Cpu_Device_DM368:
+            params.forceChromaFormat = XDM_YUV_420SP;
+            params.maxWidth          = VideoStd_720P_WIDTH;
+            params.maxHeight         = VideoStd_720P_HEIGHT;
+            colorSpace               = ColorSpace_YUV420PSEMI;
+            defaultNumBufs           = 4;
+            break;
+        #endif
         #if defined(Platform_omapl138)
         case Cpu_Device_OMAPL138:
             params.forceChromaFormat = XDM_YUV_420P;

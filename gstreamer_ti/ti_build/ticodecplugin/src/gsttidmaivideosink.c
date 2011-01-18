@@ -361,7 +361,7 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
 
     /* Pad-buffer allocation is currently supported on DM365, OMAP3530 and DM3730 */
     #if !defined(Platform_dm365) && !defined(Platform_omap3530) && \
-    !defined(Platform_dm3730)
+    !defined(Platform_dm3730) && !defined(Platform_dm368)
     gstbase_sink_class->buffer_alloc = NULL;
     #endif
 }
@@ -483,7 +483,7 @@ static void gst_tidmaivideosink_init(GstTIDmaiVideoSink * dmaisink,
     gst_value_set_fraction(&dmaisink->oattrs.framerate, 0, 1);
 
     /* DM365 supports setting the display framerate */
-    #if defined(Platform_dm365)
+    #if defined(Platform_dm365) || defined(Platform_dm368)
     dmaisink->can_set_display_framerate = TRUE;
     #endif
 
@@ -1188,6 +1188,12 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink,
             sink->dAttrs.colorSpace = colorSpace;
             break;
         #endif
+        #if defined(Platform_dm368)
+        case Cpu_Device_DM368:
+            sink->dAttrs = Display_Attrs_DM365_VID_DEFAULT;
+            sink->dAttrs.colorSpace = colorSpace;
+            break;
+        #endif
         default:
             sink->dAttrs = Display_Attrs_DM6446_DM355_VID_DEFAULT;
             break;
@@ -1217,7 +1223,7 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink,
 
     /* Specify framerate if supported by DMAI and the display driver */
     if (sink->can_set_display_framerate) {
-        #if defined (Platform_dm365)
+        #if defined (Platform_dm365) || defined(Platform_dm368)
         sink->dAttrs.forceFrameRateNum =
             gst_value_get_fraction_numerator(&sink->iattrs.framerate);
         sink->dAttrs.forceFrameRateDen =
@@ -1403,8 +1409,9 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
          */
         if (sink->hDispBufTab) {
             #if defined(Platform_dm365) || defined(Platform_omap3530) || \
-              defined(Platform_dm3730)
+              defined(Platform_dm3730) || defined(Platform_dm368)
             sink->dAttrs.delayStreamon = TRUE;
+            printf("delay stream on ....\n");
             #else
             GST_ERROR("delayed V4L2 streamon not supported\n");
             return FALSE;
@@ -1611,7 +1618,7 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
         }
         inBuf = sink->tempDmaiBuf;
         
-        #if defined(Platform_dm365)
+        #if defined(Platform_dm365) || defined(Platform_dm368)
         /* DM365: TO componsate resizer 32-byte alignment, we need to set
          * lineLength to roundup on 32-byte boundry.
          */
@@ -1963,7 +1970,7 @@ static gboolean gst_tidmaivideosink_alloc_display_buffers(
      * For other platforms, unfortunately there is no default set and we need
      * to specify one.
      */
-    #if defined(Platform_dm365)
+    #if defined(Platform_dm365) || defined(Platform_dm368)
         gfxAttrs.colorSpace = sink->dAttrs.colorSpace;
     #elif defined(Platform_dm6467) || defined(Platform_dm6467t)
         gfxAttrs.colorSpace = ColorSpace_YUV422PSEMI;
@@ -1976,7 +1983,7 @@ static gboolean gst_tidmaivideosink_alloc_display_buffers(
         BufferGfx_calcLineLength(gfxAttrs.dim.width, gfxAttrs.colorSpace);
 
     /* On DM365 the display pitch must be aligned to a 32-byte boundary */
-    #if defined(Platform_dm365)
+    #if defined(Platform_dm365) || defined(Platform_dm368)
         gfxAttrs.dim.lineLength = Dmai_roundUp(gfxAttrs.dim.lineLength, 32);
     #endif
 
@@ -2004,7 +2011,7 @@ static gboolean gst_tidmaivideosink_open_osd(GstTIDmaiVideoSink * sink)
     Display_Attrs   aAttrs = {0};
     Buffer_Handle   hBuf;
 
-    #if defined(Platform_dm365)
+    #if defined(Platform_dm365) || defined(Platform_dm368)
         oAttrs = Display_Attrs_DM365_OSD_DEFAULT;
         aAttrs = Display_Attrs_DM365_ATTR_DEFAULT;
     #elif defined(Platform_dm6446) || defined(Platform_dm355)

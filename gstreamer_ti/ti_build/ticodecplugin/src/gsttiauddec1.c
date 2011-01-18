@@ -1104,7 +1104,7 @@ static gboolean gst_tiauddec1_codec_start (GstTIAuddec1  *auddec1)
     }
 
     if (gst_tiauddec1_codec_is_aac(auddec1)) {
-        #if defined (Platform_dm365)
+        #if defined (Platform_dm365) || defined(Platform_dm368)
         params.dataEndianness = XDM_LE_16;
         #else
         ; /* do nothing */

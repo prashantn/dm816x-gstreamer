@@ -987,7 +987,7 @@ static gboolean gst_tividenc1_init_video(GstTIVidenc1 *videnc1)
     videnc1->frameDuration = gst_tividenc1_frame_duration(videnc1);
 
     /* Determine if we can pass input buffer directly to codec */
-    #if defined(Platform_dm365) || defined(Platform_dm355)
+    #if defined(Platform_dm365) || defined(Platform_dm355) || defined(Platform_dm368)
         if (videnc1->contiguousInputFrame) {
             videnc1->zeroCopyEncode = TRUE;
         }
@@ -1191,6 +1191,18 @@ static gboolean gst_tividenc1_codec_start (GstTIVidenc1 *videnc1)
 
         #if defined(Platform_dm365)
         case Cpu_Device_DM365:
+            if (videnc1->colorSpace == ColorSpace_UYVY) {
+                params.inputChromaFormat = XDM_YUV_422ILE;
+            }
+            else {
+                params.inputChromaFormat = XDM_YUV_420SP;
+                params.reconChromaFormat = XDM_YUV_420SP;
+            }
+            break;
+        #endif
+
+        #if defined(Platform_dm368)
+        case Cpu_Device_DM368:
             if (videnc1->colorSpace == ColorSpace_UYVY) {
                 params.inputChromaFormat = XDM_YUV_422ILE;
             }
