@@ -1764,6 +1764,17 @@ static GstFlowReturn gst_tidmaivideosink_render(GstBaseSink * bsink,
             dim.y      = (dim.height - sink->dGfxAttrs.dim.height) / 2;
             dim.height = sink->dGfxAttrs.dim.height;
         }
+        
+        #if defined(Platform_dm365) || defined(Platform_dm368)
+        /* Y must be even otherwise DMAI will report asseration */
+        dim.y = dim.y & 0xFFFE;
+        #endif
+
+        #if defined(Platform_omap3530) || defined(Platform_dm3730)
+        /* X must be even otherwise DMAI will report asseration */
+        dim.x = dim.x & 0xFFFE;
+        #endif
+
         BufferGfx_setDimensions(hDispBuf, &dim);
 
         /* DM6467 Only: Color convert the 420Psemi decoded buffer from
