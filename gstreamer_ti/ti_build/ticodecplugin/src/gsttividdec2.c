@@ -562,6 +562,7 @@ static void gst_tividdec2_set_property(GObject *object, guint prop_id,
             viddec2->rtCodecThread = g_value_get_boolean(value);
             GST_LOG("setting \"RTCodecThread\" to \"%s\"\n",
                 viddec2->rtCodecThread ? "TRUE" : "FALSE");
+            break;
         case PROP_PAD_ALLOC_OUTBUFS:
             viddec2->padAllocOutbufs = g_value_get_boolean(value);
             GST_LOG("setting \"padAllocOutbufs\" to \"%s\"\n",
