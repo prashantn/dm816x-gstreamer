@@ -1128,10 +1128,12 @@ static int gst_tidmaivideosink_convert_attrs(int attr,
                 return Display_Output_DVI;
             else if (!strcmp(sink->videoOutput, "LCD"))
                 return Display_Output_LCD;
+            else if (!strcmp(sink->videoOutput, "AUTO"))
+                return Display_Output_SYSTEM;
             else {
                 GST_ERROR("Invalid videoOutput entered (%s)."
                     "Please choose from:\n"
-                    "\tSVIDEO, COMPOSITE, COMPONENT, LCD, DVI\n",
+                    "\tSVIDEO, COMPOSITE, COMPONENT, LCD, DVI, AUTO\n",
                     sink->videoOutput);
                 return -1;
             }
