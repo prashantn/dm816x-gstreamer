@@ -167,8 +167,8 @@ ifeq ($(GST_TI_PLATFORM), dm355)
     export XDC_PLATFORM  = ti.platforms.evmDM355
     export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
     export MVTOOL_DIR    = $(CSTOOL_DIR)
-    export PLATFORM_XDC  = ${XDC_PLATFORM}
-    export CROSS_COMPILE = ${CSTOOL_PREFIX}
+    export PLATFORM_XDC  = $(XDC_PLATFORM)
+    export CROSS_COMPILE = $(CSTOOL_PREFIX)
 endif
 
 ifeq ($(GST_TI_PLATFORM), dm6446)
@@ -181,8 +181,8 @@ ifeq ($(GST_TI_PLATFORM), dm365)
     export XDC_PLATFORM         = ti.platforms.evmDM365
     export MVTOOL_PREFIX        = $(CSTOOL_PREFIX)
     export MVTOOL_DIR           = $(CSTOOL_DIR)
-    export PLATFORM_XDC         = ${XDC_PLATFORM}
-    export CROSS_COMPILE        = ${CSTOOL_PREFIX}
+    export PLATFORM_XDC         = $(XDC_PLATFORM)
+    export CROSS_COMPILE        = $(CSTOOL_PREFIX)
     export LIBTOOL_SYSROOT_PATH = $(LINUXLIBS_INSTALL_DIR)/..
 endif
 
@@ -191,8 +191,8 @@ ifeq ($(GST_TI_PLATFORM), dm368)
     export XDC_PLATFORM  = ti.platforms.evmDM365
     export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
     export MVTOOL_DIR    = $(CSTOOL_DIR)
-    export PLATFORM_XDC  = ${XDC_PLATFORM}
-    export CROSS_COMPILE = ${CSTOOL_PREFIX}
+    export PLATFORM_XDC  = $(XDC_PLATFORM)
+    export CROSS_COMPILE = $(CSTOOL_PREFIX)
     export LIBTOOL_SYSROOT_PATH = $(LINUXLIBS_INSTALL_DIR)/..
 endif
 
@@ -207,8 +207,8 @@ ifeq ($(GST_TI_PLATFORM), dm6467t)
     export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
     export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
     export MVTOOL_DIR    = $(CSTOOL_DIR)
-    export PLATFORM_XDC  = ${XDC_PLATFORM}
-    export CROSS_COMPILE = ${CSTOOL_PREFIX}
+    export PLATFORM_XDC  = $(XDC_PLATFORM)
+    export CROSS_COMPILE = $(CSTOOL_PREFIX)
 endif
 
 ifeq ($(GST_TI_PLATFORM), omap3530)
@@ -216,8 +216,8 @@ ifeq ($(GST_TI_PLATFORM), omap3530)
     export XDC_PLATFORM  = ti.platforms.evm3530
     export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
     export MVTOOL_DIR    = $(CSTOOL_DIR)
-    export PLATFORM_XDC  = ${XDC_PLATFORM}
-    export CROSS_COMPILE = ${CSTOOL_PREFIX}
+    export PLATFORM_XDC  = $(XDC_PLATFORM)
+    export CROSS_COMPILE = $(CSTOOL_PREFIX)
     export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
     export C6ACCEL_INSTALL_DIR
     export ENABLE_C6ACCEL = true
@@ -230,8 +230,8 @@ ifeq ($(GST_TI_PLATFORM), dm3730)
     export XDC_PLATFORM  = ti.platforms.evm3530
     export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
     export MVTOOL_DIR    = $(CSTOOL_DIR)
-    export PLATFORM_XDC  = ${XDC_PLATFORM}
-    export CROSS_COMPILE = ${CSTOOL_PREFIX}
+    export PLATFORM_XDC  = $(XDC_PLATFORM)
+    export CROSS_COMPILE = $(CSTOOL_PREFIX)
     export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
     export C6ACCEL_INSTALL_DIR
     export ENABLE_C6ACCEL = true
@@ -244,8 +244,8 @@ ifeq ($(GST_TI_PLATFORM), omapl138)
     export XDC_PLATFORM  = ti.platforms.evmOMAPL138
     export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
     export MVTOOL_DIR    = $(CSTOOL_DIR)
-    export PLATFORM_XDC  = ${XDC_PLATFORM}
-    export CROSS_COMPILE = ${CSTOOL_PREFIX}
+    export PLATFORM_XDC  = $(XDC_PLATFORM)
+    export CROSS_COMPILE = $(CSTOOL_PREFIX)
     export LINK_XDC_ROOT = $(LINK_INSTALL_DIR)
     export C6ACCEL_INSTALL_DIR
     export ENABLE_C6ACCEL = true
