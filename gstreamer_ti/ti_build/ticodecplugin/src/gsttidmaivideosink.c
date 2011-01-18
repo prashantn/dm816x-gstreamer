@@ -269,7 +269,7 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
 
     g_object_class_install_property(gobject_class, PROP_ROTATION,
         g_param_spec_int("rotation", "Rotation angle", "Rotation angle "
-            "(OMAP3530 only)", -1, G_MAXINT, -1, G_PARAM_READWRITE));
+            "(OMAP3530/DM3730 only)", -1, G_MAXINT, -1, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_FRAMERATE,
         gst_param_spec_fraction("framerate", "frame rate of video",
@@ -359,8 +359,9 @@ static void gst_tidmaivideosink_class_init(GstTIDmaiVideoSinkClass * klass)
     gstbase_sink_class->buffer_alloc =
         GST_DEBUG_FUNCPTR(gst_tidmaivideosink_buffer_alloc);
 
-    /* Pad-buffer allocation is currently only supported for DM365 */
-    #if !defined(Platform_dm365) && !defined(Platform_omap3530)
+    /* Pad-buffer allocation is currently supported on DM365, OMAP3530 and DM3730 */
+    #if !defined(Platform_dm365) && !defined(Platform_omap3530) && \
+    !defined(Platform_dm3730)
     gstbase_sink_class->buffer_alloc = NULL;
     #endif
 }
@@ -1176,6 +1177,11 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink,
         case Cpu_Device_OMAP3530:
             sink->dAttrs = Display_Attrs_O3530_VID_DEFAULT;
             break;
+        #if defined(Platform_dm3730)
+        case Cpu_Device_DM3730:
+            sink->dAttrs = Display_Attrs_O3530_VID_DEFAULT;
+            break;
+        #endif
         #if defined(Platform_dm365)
         case Cpu_Device_DM365:
             sink->dAttrs = Display_Attrs_DM365_VID_DEFAULT;
@@ -1222,11 +1228,13 @@ static gboolean gst_tidmaivideosink_set_display_attrs(GstTIDmaiVideoSink *sink,
         #endif
     }
 
-    /* Set rotation on OMAP35xx */
-    if (sink->cpu_dev == Cpu_Device_OMAP3530) {
+    /* Set rotation on OMAP35xx/DM3730 */
+    #if defined(Platform_omap3530) || defined(Platform_dm3730)
+    if (sink->cpu_dev == Cpu_Device_OMAP3530 || sink->cpu_dev == Cpu_Device_DM3730) {
         sink->dAttrs.rotation = sink->rotation == -1 ?
             sink->dAttrs.rotation : sink->rotation;
     }
+    #endif
 
     /* Validate that the inputs the user gave are correct. */
     if (sink->dAttrs.displayStd == -1) {
@@ -1394,7 +1402,8 @@ static gboolean gst_tidmaivideosink_init_display(GstTIDmaiVideoSink * sink)
          * display until we call Display_put for the first time.
          */
         if (sink->hDispBufTab) {
-            #if defined(Platform_dm365) || defined(Platform_omap3530)
+            #if defined(Platform_dm365) || defined(Platform_omap3530) || \
+              defined(Platform_dm3730)
             sink->dAttrs.delayStreamon = TRUE;
             #else
             GST_ERROR("delayed V4L2 streamon not supported\n");
