@@ -1,12 +1,12 @@
 /*
- * gstticodecs_dm365.c
+ * gstticodecs_dm368.c
  *
- * This file provides information for available codecs on the DM365 platform.
+ * This file provides information for available codecs on the DM368 platform.
  *
  * Original Author:
- *     Sajesh Kumar Saran, Texas Instruments, Inc.
+ *     Brijesh Singh , Texas Instruments, Inc.
  *
- * Copyright (C) 2008-2010 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com/
  *
  * This program is free software; you can redistribute it and/or modify 
  * it under the terms of the GNU Lesser General Public License as
