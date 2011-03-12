@@ -78,6 +78,7 @@ struct _GstTIViddec2
   pthread_mutex_t  threadStatusMutex;
   UInt32           threadStatus;
   gboolean         firstFrame;
+  gint             width, height;
 
   /* Decode thread */
   pthread_t          decodeThread;

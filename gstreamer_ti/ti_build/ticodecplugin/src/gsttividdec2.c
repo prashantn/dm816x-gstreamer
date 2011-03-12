@@ -476,6 +476,9 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
 
     viddec2->rtCodecThread      = TRUE;
 
+    viddec2->width              = 0;
+    viddec2->height             = 0;
+
     /* Initialize GValue members */
     memset(&viddec2->framerate, 0, sizeof(GValue));
     g_value_init(&viddec2->framerate, GST_TYPE_FRACTION);
@@ -635,6 +638,16 @@ static gboolean gst_tividdec2_set_sink_caps(GstPad *pad, GstCaps *caps)
                     framerateDen);
             }
         }
+
+        if (viddec2->width == 0 && 
+            !gst_structure_get_int(capStruct, "width", &viddec2->width)) {
+             viddec2->width = 0;
+        }
+
+        if (viddec2->height == 0 && 
+            !gst_structure_get_int(capStruct, "height", &viddec2->height)) {
+             viddec2->height = 0;
+        }
     }
 
     /* MPEG Decode */
@@ -708,10 +721,11 @@ static gboolean gst_tividdec2_set_sink_caps(GstPad *pad, GstCaps *caps)
     if (!viddec2->engineName) {
         viddec2->engineName = codec->CE_EngineName;
     }
+
     if (!viddec2->codecName) {
         viddec2->codecName = codec->CE_CodecName;
     }
-
+    
     gst_object_unref(viddec2);
 
     GST_LOG("sink caps negotiation successful\n");
@@ -954,6 +968,7 @@ static GstFlowReturn gst_tividdec2_chain(GstPad * pad, GstBuffer * buf)
     GstTIViddec2  *viddec2 = GST_TIVIDDEC2(GST_OBJECT_PARENT(pad));
     GstFlowReturn  flow    = GST_FLOW_OK;
     gboolean       checkResult;
+
 
     /* If the decode thread aborted, signal it to let it know it's ok to
      * shut down, and communicate the failure to the pipeline.
@@ -1368,6 +1383,12 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2,
             colorSpace               = ColorSpace_UYVY;
             defaultNumBufs           = 3;
             break;
+    }
+
+    /* If height and width is passed then configure codec params with this information */
+    if (viddec2->width > 0 && viddec2->height > 0) {
+        params.maxWidth = viddec2->width;
+        params.maxHeight = viddec2->height;
     }
 
     GST_LOG("opening video decoder \"%s\"\n", viddec2->codecName);
