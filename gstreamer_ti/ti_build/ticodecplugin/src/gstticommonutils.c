@@ -394,6 +394,7 @@ void gst_ti_parse_newsegment(GstEvent **event, GstSegment *segment,
 
         gst_segment_set_newsegment(segment, update, rate, fmt, start, 
                                     stop, position);
+	*totalDuration = start;
     }
 
     /* Recieved event format is byte format - we need convert in time format */
