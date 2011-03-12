@@ -195,6 +195,14 @@ gst_dmaiperf_base_init (gpointer gclass)
   gst_element_class_set_details (element_class, &element_details);
 }
 
+static GstFlowReturn
+gst_dmaiperf_prepare_output_buffer (GstBaseTransform * trans,
+  GstBuffer * in_buf, gint out_size, GstCaps * out_caps, GstBuffer ** out_buf)
+{
+   *out_buf = gst_buffer_ref (in_buf);
+   return GST_FLOW_OK;
+}
+
 /******************************************************************************
  * gst_dmaiperf_class_init
  *    Initializes the Dmaiperf class.
@@ -213,6 +221,7 @@ gst_dmaiperf_class_init (GstDmaiperfClass * klass)
   trans_class = (GstBaseTransformClass *) klass;
 
   trans_class->transform_ip = GST_DEBUG_FUNCPTR (gst_dmaiperf_transform_ip);
+  trans_class->prepare_output_buffer = GST_DEBUG_FUNCPTR (gst_dmaiperf_prepare_output_buffer);
   trans_class->start = GST_DEBUG_FUNCPTR (gst_dmaiperf_start);
   trans_class->stop = GST_DEBUG_FUNCPTR (gst_dmaiperf_stop);
 
@@ -228,6 +237,7 @@ gst_dmaiperf_class_init (GstDmaiperfClass * klass)
       g_param_spec_boolean ("print-arm-load", "print-arm-load",
           "Print the CPU load info", FALSE, G_PARAM_WRITABLE));
 
+  
   GST_LOG ("initialized class init\n");
 }
 
