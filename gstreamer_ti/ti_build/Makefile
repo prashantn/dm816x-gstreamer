@@ -24,6 +24,13 @@ ifeq ($(ENABLE_C6ACCEL), true)
 endif
 
 #------------------------------------------------------------------------------
+# Check if we need to enable tidisplaysink2 element
+#------------------------------------------------------------------------------
+ifeq ($(ENABLE_TIDISPLAYSINK2), true)
+ EXTRA_CONFIGURE_OPTS +="--enable-tidisplaysink2"
+endif
+
+#------------------------------------------------------------------------------
 # TI_PLUGINS
 #     list of subdirectories containing TI plugins
 #------------------------------------------------------------------------------

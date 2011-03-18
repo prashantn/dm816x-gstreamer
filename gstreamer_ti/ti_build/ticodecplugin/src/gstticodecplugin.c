@@ -48,6 +48,10 @@
     #include "gsttic6xcolorspace.h"
 #endif
 
+#if HAVE_TIDISPLAYSINK2
+    #include "gsttidisplaysink2.h"
+#endif
+
 /* entry point to initialize the plug-in
  * initialize the plug-in itself
  * register the element factories and other features
@@ -139,6 +143,14 @@ TICodecPlugin_init (GstPlugin * TICodecPlugin)
     if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
         TICodecPlugin, "TIC6xColorspace", GST_RANK_PRIMARY,
         GST_TYPE_TIC6XCOLORSPACE))
+        return FALSE;
+#endif
+
+#if HAVE_TIDISPLAYSINK2
+    env_value = getenv("GST_TI_tidisplaysink2_DISABLE");
+    if ((!env_value || strcmp(env_value,"1")) && !gst_element_register(
+        TICodecPlugin, "tidisplaysink2", GST_RANK_PRIMARY,
+        GST_TYPE_TIDISPLAYSINK2))
         return FALSE;
 #endif
 

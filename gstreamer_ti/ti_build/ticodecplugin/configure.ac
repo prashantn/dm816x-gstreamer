@@ -113,6 +113,22 @@ if test "x$c6accel" = "xtrue"; then
 	AC_MSG_NOTICE(Enabling c6accel elements)
 	AC_DEFINE([HAVE_C6ACCEL], [1], [C6Accel based elements])
 fi
+
+dnl check if we need to build tidisplaysink2 elements
+AC_ARG_ENABLE([tidisplaysink2],
+	[  --enable-tidisplaysink2  Enable tidisplaysink2 elements ],
+	[ case "${enableval}" in
+		yes) tidisplaysink2=true ;;
+		no)  tidisplaysink2=false ;;
+		*) AC_MSG_ERROR([bad value ${enableval} for --enable-tidisplaysink2]) ;;
+	  esac],
+	[tidisplaysink2=false]
+)
+AM_CONDITIONAL([HAVE_TIDISPLAYSINK2], [test x$tidisplaysink2 = xtrue])
+if test "x$tidisplaysink2" = "xtrue"; then
+	AC_MSG_NOTICE(Enabling tidisplaysink2 elements)
+	AC_DEFINE([HAVE_TIDISPLAYSINK2], [1], [tidisplaysink2 elements])
+fi
  
 dnl make _CFLAGS and _LIBS available
 AC_SUBST(GSTPB_BASE_CFLAGS)

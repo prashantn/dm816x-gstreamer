@@ -84,6 +84,7 @@ Imaging Elements:
 
 Other Elements:
 * TIDmaiVideoSink:  Video sink supporting both framebuffer and V4L2 displays
+* tidisplaysink2:   TIDmaiVideoSink version 2, supported on DM36x, DM3730 and OMAPL138
 * TIVidResize:      This element resizes video frames.
 * TIPrepEncBuf:     Prepare input buffer for encoding (hardware-accelerated
                     copy or color-conversion into physically-contiguous

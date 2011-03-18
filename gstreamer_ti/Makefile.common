@@ -184,6 +184,7 @@ ifeq ($(GST_TI_PLATFORM), dm365)
     export PLATFORM_XDC         = $(XDC_PLATFORM)
     export CROSS_COMPILE        = $(CSTOOL_PREFIX)
     export LIBTOOL_SYSROOT_PATH = $(LINUXLIBS_INSTALL_DIR)/..
+    export ENABLE_TIDISPLAYSINK2 = true
 endif
 
 ifeq ($(GST_TI_PLATFORM), dm368)
@@ -194,6 +195,7 @@ ifeq ($(GST_TI_PLATFORM), dm368)
     export PLATFORM_XDC  = $(XDC_PLATFORM)
     export CROSS_COMPILE = $(CSTOOL_PREFIX)
     export LIBTOOL_SYSROOT_PATH = $(LINUXLIBS_INSTALL_DIR)/..
+    export ENABLE_TIDISPLAYSINK2 = true
 endif
 
 ifeq ($(GST_TI_PLATFORM), dm6467)
@@ -223,6 +225,7 @@ ifeq ($(GST_TI_PLATFORM), omap3530)
     export ENABLE_C6ACCEL = true
     export C6ACCEL_PLATFORM = $(GST_TI_PLATFORM)
     export LIBTOOL_SYSROOT_PATH=$(LINUXLIBS_INSTALL_DIR)/..
+    export ENABLE_TIDISPLAYSINK2 = true
 endif
 
 ifeq ($(GST_TI_PLATFORM), dm3730)
@@ -237,6 +240,7 @@ ifeq ($(GST_TI_PLATFORM), dm3730)
     export ENABLE_C6ACCEL = true
     export C6ACCEL_PLATFORM = omap3530
     export LIBTOOL_SYSROOT_PATH=$(LINUXLIBS_INSTALL_DIR)/..
+    export ENABLE_TIDISPLAYSINK2 = true
 endif
 
 ifeq ($(GST_TI_PLATFORM), omapl138)
@@ -251,6 +255,7 @@ ifeq ($(GST_TI_PLATFORM), omapl138)
     export ENABLE_C6ACCEL = true
     export C6ACCEL_PLATFORM = $(GST_TI_PLATFORM)
     export LIBTOOL_SYSROOT_PATH=$(LINUXLIBS_INSTALL_DIR)/..
+    export ENABLE_TIDISPLAYSINK2 = true
 endif
 
 #------------------------------------------------------------------------------
