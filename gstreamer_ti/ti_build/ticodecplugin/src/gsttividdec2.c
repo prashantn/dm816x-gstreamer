@@ -59,6 +59,26 @@
 #include "gstticommonutils.h"
 #include "gsttiquicktime_mpeg4.h"
 
+/* Define property defaults */
+#define     DEFAULT_NUMOUTPUT_BUFS  3
+#define     DEFAULT_FRAMERATE_NUM   30000
+#define     DEFAULT_FRAMERATE_DEN   1001
+#define     DEFAULT_GENTIMESTAMP    TRUE
+#define     DEFAULT_RTCODECTHREAD   TRUE
+#define     DEFAULT_DISPLAY_BUFFER  FALSE
+#define     DEFAULT_PADALLOC        FALSE
+
+/* define platform specific defaults */
+#if defined(Platform_dm365) || defined(Platform_dm368)
+    #define     DEFAULT_ENGINE_NAME     "codecServer"
+#elif defined(Platform_dm3730) || defined(Platform_omap3530)
+    #define     DEFAULT_ENGINE_NAME     "codecServer"
+#elif defined(Platform_dm6467) || defined(Platform_dm6467t)
+    #define     DEFAULT_ENGINE_NAME     "codecServer"
+#else
+    #define     DEFAULT_ENGINE_NAME     "decode"
+#endif
+
 /* Declare variable used to categorize GST_LOG output */
 GST_DEBUG_CATEGORY_STATIC (gst_tividdec2_debug);
 #define GST_CAT_DEFAULT gst_tividdec2_debug
@@ -292,44 +312,44 @@ static void gst_tividdec2_class_init(GstTIViddec2Class *klass)
 
     g_object_class_install_property(gobject_class, PROP_ENGINE_NAME,
         g_param_spec_string("engineName", "Engine Name",
-            "Engine name used by Codec Engine", "unspecified",
-            G_PARAM_READWRITE));
+            "Engine name used by Codec Engine", DEFAULT_ENGINE_NAME,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
     g_object_class_install_property(gobject_class, PROP_CODEC_NAME,
         g_param_spec_string("codecName", "Codec Name", "Name of video codec",
-            "unspecified", G_PARAM_READWRITE));
+            "unspecified", G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
     g_object_class_install_property(gobject_class, PROP_NUM_OUTPUT_BUFS,
         g_param_spec_int("numOutputBufs",
             "Number of Ouput Buffers",
             "Number of output buffers to allocate for codec",
-            2, G_MAXINT32, 3, G_PARAM_WRITABLE));
+            2, G_MAXINT32, DEFAULT_NUMOUTPUT_BUFS, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_FRAMERATE,
         gst_param_spec_fraction("framerate", "frame rate of video",
             "Frame rate of the video expressed as a fraction.  A value "
             "of 0/1 indicates the framerate is not specified", 0, 1,
-            G_MAXINT, 1, 0, 1, G_PARAM_READWRITE));
+            G_MAXINT, 1, DEFAULT_FRAMERATE_NUM, DEFAULT_FRAMERATE_DEN, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_DISPLAY_BUFFER,
         g_param_spec_boolean("displayBuffer", "Display Buffer",
             "Display circular buffer status while processing",
-            FALSE, G_PARAM_WRITABLE));
+            DEFAULT_DISPLAY_BUFFER, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_RTCODECTHREAD,
         g_param_spec_boolean("RTCodecThread", "Real time codec thread",
             "Exectue codec calls in real-time thread",
-            TRUE, G_PARAM_WRITABLE));
+            DEFAULT_RTCODECTHREAD, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_GEN_TIMESTAMPS,
         g_param_spec_boolean("genTimeStamps", "Generate Time Stamps",
             "Set timestamps on output buffers",
-            TRUE, G_PARAM_WRITABLE));
+            DEFAULT_GENTIMESTAMP, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_PAD_ALLOC_OUTBUFS,
         g_param_spec_boolean("padAllocOutbufs", "Use pad allocation",
             "Try to allocate buffers with pad allocation",
-            FALSE, G_PARAM_WRITABLE));
+            DEFAULT_PADALLOC, G_PARAM_READWRITE));
 }
 
 /******************************************************************************
@@ -445,10 +465,14 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     gst_element_add_pad(GST_ELEMENT(viddec2), viddec2->srcpad);
 
     /* Initialize TIViddec2 state */
-    viddec2->engineName         = NULL;
+    g_object_set(viddec2, "engineName", DEFAULT_ENGINE_NAME, NULL);
+    viddec2->displayBuffer      = DEFAULT_DISPLAY_BUFFER;
+    viddec2->genTimeStamps      = DEFAULT_GENTIMESTAMP;
+    viddec2->numOutputBufs      = DEFAULT_NUMOUTPUT_BUFS;
+    viddec2->padAllocOutbufs    = DEFAULT_PADALLOC;
+    viddec2->rtCodecThread      = DEFAULT_RTCODECTHREAD;
+    
     viddec2->codecName          = NULL;
-    viddec2->displayBuffer      = FALSE;
-    viddec2->genTimeStamps      = TRUE;
 
     viddec2->hEngine            = NULL;
     viddec2->hVd                = NULL;
@@ -459,9 +483,7 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     viddec2->waitOnDecodeThread = NULL;
     viddec2->waitOnDecodeDrain  = NULL;
 
-    viddec2->numOutputBufs      = 0UL;
     viddec2->hOutBufTab         = NULL;
-    viddec2->padAllocOutbufs    = FALSE;
     viddec2->circBuf            = NULL;
 
     viddec2->sps_pps_data       = NULL;
@@ -474,8 +496,6 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
 
     viddec2->mpeg4_quicktime_header = NULL;
 
-    viddec2->rtCodecThread      = TRUE;
-
     viddec2->width              = 0;
     viddec2->height             = 0;
 
@@ -483,7 +503,7 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     memset(&viddec2->framerate, 0, sizeof(GValue));
     g_value_init(&viddec2->framerate, GST_TYPE_FRACTION);
     g_assert(GST_VALUE_HOLDS_FRACTION(&viddec2->framerate));
-    gst_value_set_fraction(&viddec2->framerate, 0, 1);
+    gst_value_set_fraction(&viddec2->framerate, DEFAULT_FRAMERATE_NUM, DEFAULT_FRAMERATE_DEN);
 
     gst_tividdec2_init_env(viddec2);
 }
@@ -599,6 +619,21 @@ static void gst_tividdec2_get_property(GObject *object, guint prop_id,
             break;
         case PROP_FRAMERATE:
             g_value_copy(&viddec2->framerate, value);
+            break;
+        case PROP_PAD_ALLOC_OUTBUFS:
+            g_value_set_boolean(value, viddec2->padAllocOutbufs);
+            break;
+        case PROP_RTCODECTHREAD:
+            g_value_set_boolean(value, viddec2->rtCodecThread);
+            break;
+        case PROP_GEN_TIMESTAMPS:
+            g_value_set_boolean(value, viddec2->genTimeStamps);
+            break;
+        case PROP_DISPLAY_BUFFER:
+            g_value_set_boolean(value, viddec2->displayBuffer);
+            break;
+        case PROP_NUM_OUTPUT_BUFS:
+            g_value_set_int(value, viddec2->numOutputBufs);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
