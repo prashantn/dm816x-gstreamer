@@ -64,6 +64,21 @@
 GST_DEBUG_CATEGORY_STATIC (gst_tiauddec1_debug);
 #define GST_CAT_DEFAULT gst_tiauddec1_debug
 
+/* define property defaults */
+#define     DEFAULT_CODEC_NAME          "unspecified"
+#define     DEFAULT_NUMOUTPUT_BUFS      3
+#define     DEFAULT_NUM_CHANNELES       2
+#define     DEFAULT_DISPLAY_BUFFER      FALSE
+#define     DEFAULT_GENTIMESTAMPS       TRUE
+#define     DEFAULT_RTCODECTHREAD       TRUE
+
+/* define platform specific defaults */
+#if defined(Platfrom_dm6446)
+    #define     DEFAULT_ENGINE_NAME         "decode"
+#else
+    #define     DEFAULT_ENGINE_NAME         "codecServer"
+#endif
+    
 /* Element property identifiers */
 enum
 {
@@ -259,39 +274,39 @@ static void gst_tiauddec1_class_init(GstTIAuddec1Class *klass)
 
     g_object_class_install_property(gobject_class, PROP_ENGINE_NAME,
         g_param_spec_string("engineName", "Engine Name",
-            "Engine name used by Codec Engine", "unspecified",
-            G_PARAM_READWRITE));
+            "Engine name used by Codec Engine", DEFAULT_ENGINE_NAME,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
     g_object_class_install_property(gobject_class, PROP_CODEC_NAME,
-        g_param_spec_string("codecName", "Codec Name", "Name of audio codec",
-            "unspecified", G_PARAM_READWRITE));
+        g_param_spec_string("codecName", "Codec Name", "Name of video codec",
+            DEFAULT_CODEC_NAME, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
     g_object_class_install_property(gobject_class, PROP_NUM_CHANNELS,
         g_param_spec_int("numChannels",
             "Number of Channels",
             "Number of audio channels",
-            1, G_MAXINT32, 2, G_PARAM_WRITABLE));
+            1, G_MAXINT32, DEFAULT_NUM_CHANNELES, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_NUM_OUTPUT_BUFS,
         g_param_spec_int("numOutputBufs",
             "Number of Ouput Buffers",
             "Number of output buffers to allocate for codec",
-            2, G_MAXINT32, 2, G_PARAM_WRITABLE));
+            2, G_MAXINT32, DEFAULT_NUMOUTPUT_BUFS, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_DISPLAY_BUFFER,
         g_param_spec_boolean("displayBuffer", "Display Buffer",
             "Display circular buffer status while processing",
-            FALSE, G_PARAM_WRITABLE));
+            DEFAULT_DISPLAY_BUFFER, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_RTCODECTHREAD,
         g_param_spec_boolean("RTCodecThread", "Real time codec thread",
             "Exectue codec calls in real-time thread",
-            TRUE, G_PARAM_WRITABLE));
+            DEFAULT_RTCODECTHREAD, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_GEN_TIMESTAMPS,
         g_param_spec_boolean("genTimeStamps", "Generate Time Stamps",
             "Set timestamps on output buffers",
-            TRUE, G_PARAM_WRITABLE));
+            DEFAULT_GENTIMESTAMPS, G_PARAM_READWRITE));
 }
 
 /******************************************************************************
@@ -384,21 +399,21 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
     gst_element_add_pad(GST_ELEMENT(auddec1), auddec1->srcpad);
 
     /* Initialize TIAuddec1 state */
-    auddec1->engineName         = NULL;
-    auddec1->codecName          = NULL;
-    auddec1->displayBuffer      = FALSE;
-    auddec1->genTimeStamps      = TRUE;
+    g_object_set(auddec1, "engineName", DEFAULT_ENGINE_NAME, (gchar*)NULL);
+    g_object_set(auddec1, "codecName", DEFAULT_CODEC_NAME, (gchar*)NULL);
+    auddec1->displayBuffer      = DEFAULT_DISPLAY_BUFFER;
+    auddec1->genTimeStamps      = DEFAULT_GENTIMESTAMPS;
 
     auddec1->hEngine            = NULL;
     auddec1->hAd                = NULL;
-    auddec1->channels           = 0;
+    auddec1->channels           = DEFAULT_NUM_CHANNELES;
     auddec1->drainingEOS        = FALSE;
     auddec1->threadStatus       = 0UL;
 
     auddec1->waitOnDecodeThread = NULL;
     auddec1->waitOnDecodeDrain  = NULL;
     
-    auddec1->numOutputBufs      = 0UL;
+    auddec1->numOutputBufs      = DEFAULT_NUMOUTPUT_BUFS;
     auddec1->hOutBufTab         = NULL;
     auddec1->circBuf            = NULL;
 
@@ -409,7 +424,7 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
     auddec1->totalBytes         = 0;
     auddec1->sampleRate         = 0;
 
-    auddec1->rtCodecThread      = TRUE;
+    auddec1->rtCodecThread      = DEFAULT_RTCODECTHREAD;
 
     gst_tiauddec1_init_env(auddec1);
 }
@@ -514,6 +529,21 @@ static void gst_tiauddec1_get_property(GObject *object, guint prop_id,
             break;
         case PROP_CODEC_NAME:
             g_value_set_string(value, auddec1->codecName);
+            break;
+        case PROP_RTCODECTHREAD:
+            g_value_set_boolean(value, auddec1->rtCodecThread);
+            break;
+        case PROP_GEN_TIMESTAMPS:
+            g_value_set_boolean(value, auddec1->genTimeStamps);
+            break;
+        case PROP_DISPLAY_BUFFER:
+            g_value_set_boolean(value, auddec1->displayBuffer);
+            break;
+        case PROP_NUM_OUTPUT_BUFS:            
+            g_value_set_int(value, auddec1->numOutputBufs);
+            break;
+        case PROP_NUM_CHANNELS:            
+            g_value_set_int(value, auddec1->channels);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
