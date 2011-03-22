@@ -32,6 +32,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <gst/gst.h>
+#include <gst/video/gstvideosink.h>
+#include <gst/video/video.h>
 
 #include <ti/sdo/dmai/Dmai.h>
 #include <ti/sdo/dmai/VideoStd.h>
@@ -54,7 +56,39 @@
 GST_DEBUG_CATEGORY_STATIC (gst_tividenc1_debug);
 #define GST_CAT_DEFAULT gst_tividenc1_debug
 
-#define DEFAULT_BIT_RATE 2000000
+/* define property defaults */
+#define     DEFAULT_BIT_RATE            2000000
+#define     DEFAULT_RESOLUTION          "720x480"
+#define     DEFAULT_COLORSPACE          "UYVY"
+#define     DEFAULT_NUMOUTPUT_BUFS      3
+#define     DEFAULT_FRAMERATE_NUM       30000
+#define     DEFAULT_FRAMERATE_DEN       1001
+#define     DEFAULT_RATECTRL_PRESET     1
+#define     DEFAULT_BYTE_STREAM         FALSE
+#define     DEFAULT_CODEC_NAME          "h264enc"
+#define     DEFAULT_CONTIG_INPUT_BUF    FALSE
+#define     DEFAULT_GENTIMESTAMP        TRUE
+
+/* define platform specific defaults */
+#if defined(Platform_dm6446)
+    #define     DEFAULT_ENGINE_NAME     "encode"
+#else
+    #define     DEFAULT_ENGINE_NAME     "codecServer"
+#endif
+
+#if defined(Platform_dm365) || defined(Platform_dm368) || defined(Platform_dm6467) \
+    || defined(Platform_dm6467t)
+  #define SINK_CAPS	GST_VIDEO_CAPS_YUV("NV12")
+#else
+  #define SINK_CAPS	GST_VIDEO_CAPS_YUV("UYVY")
+#endif
+
+#if defined(Platform_dm365) || defined(Platform_dm368)
+    #define     DEFAULT_ENCODING_PRESET     3
+#else
+    #define     DEFAULT_ENCODING_PRESET     1
+#endif
+
 #define INVALID_DEVICE   Cpu_Device_COUNT
 
 /* Element property identifiers */
@@ -103,17 +137,9 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS
-    ("video/x-raw-yuv, "                        /* UYVY - YUV422 interleaved */
-         "format=(fourcc)UYVY, "                
-         "framerate=(fraction)[ 0, MAX ], "
-         "width=(int)[ 1, MAX ], "
-         "height=(int)[ 1, MAX ];"
-     "video/x-raw-yuv, "                        /* NV12 - YUV420 semi planar */
-         "format=(fourcc)NV12, "               
-         "framerate=(fraction)[ 0, MAX ], "
-         "width=(int)[ 1, MAX ], "
-         "height=(int)[ 1, MAX ]"
-    )
+   (
+    SINK_CAPS 
+   )
 );
 
 /* Declare a global pointer to our element base class */
@@ -252,28 +278,28 @@ static void gst_tividenc1_class_init(GstTIVidenc1Class *klass)
 
     g_object_class_install_property(gobject_class, PROP_ENGINE_NAME,
         g_param_spec_string("engineName", "Engine Name",
-            "Engine name used by Codec Engine", "unspecified",
-            G_PARAM_READWRITE));
+            "Engine name used by Codec Engine", DEFAULT_ENGINE_NAME,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
     g_object_class_install_property(gobject_class, PROP_CODEC_NAME,
         g_param_spec_string("codecName", "Codec Name", "Name of video codec",
-            "unspecified", G_PARAM_READWRITE));
+            DEFAULT_CODEC_NAME, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
     g_object_class_install_property(gobject_class, PROP_RESOLUTION,
         g_param_spec_string("resolution", "Input resolution", 
             "Input resolution for the input video ('width''x''height')",
-            "720x480", G_PARAM_READWRITE));
+            DEFAULT_RESOLUTION, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
     g_object_class_install_property(gobject_class, PROP_IN_COLORSPACE,
         g_param_spec_string("iColorSpace", "Input colorspace",
             "Input color space (UYVY, Y8C8, NV16 or NV12)",
-            "unspecified", G_PARAM_READWRITE));
+            DEFAULT_COLORSPACE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
     g_object_class_install_property(gobject_class, PROP_BITRATE,
         g_param_spec_int("bitRate",
             "encoder bitrate",
             "Set the video encoder bit rate",
-            1, G_MAXINT32, DEFAULT_BIT_RATE, G_PARAM_WRITABLE));
+            1, G_MAXINT32, DEFAULT_BIT_RATE, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_RATE_CTRL_PRESET,
         g_param_spec_int("rateControlPreset",
@@ -282,7 +308,7 @@ static void gst_tividenc1_class_init(GstTIVidenc1Class *klass)
             "\n\t\t\t1 - No rate control"
             "\n\t\t\t2 - Constant bit rate (CBR)"
             "\n\t\t\t3 - Variable bit rate (VBR)",
-            1, G_MAXINT32, 1, G_PARAM_WRITABLE));
+            1, G_MAXINT32, DEFAULT_RATECTRL_PRESET, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_ENCODING_PRESET,
         g_param_spec_int("encodingPreset",
@@ -291,28 +317,28 @@ static void gst_tividenc1_class_init(GstTIVidenc1Class *klass)
             "\n\t\t\t1 - Use codec default"
             "\n\t\t\t2 - High quality"
             "\n\t\t\t3 - High speed",
-            1, G_MAXINT32, 1, G_PARAM_WRITABLE));
+            1, G_MAXINT32, DEFAULT_ENCODING_PRESET, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_FRAMERATE,
         gst_param_spec_fraction("framerate", "frame rate of video",
             "Frame rate of the video expressed as a fraction.  A value "
             "of 0/1 indicates the framerate is not specified", 0, 1,
-            G_MAXINT, 1, 0, 1, G_PARAM_READWRITE));
+            G_MAXINT, 1, DEFAULT_FRAMERATE_NUM, DEFAULT_FRAMERATE_DEN, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_BYTE_STREAM,
         g_param_spec_boolean("byteStream", "byte stream",
             "Generate byte stream format of NALU",
-            TRUE, G_PARAM_WRITABLE));
+            DEFAULT_BYTE_STREAM, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_CONTIG_INPUT_BUF,
         g_param_spec_boolean("contiguousInputFrame", "Contiguous Input frame",
             "Set this if elemenet recieved contiguous input frame",
-            FALSE, G_PARAM_WRITABLE));
+            DEFAULT_CONTIG_INPUT_BUF, G_PARAM_READWRITE));
 
     g_object_class_install_property(gobject_class, PROP_GEN_TIMESTAMPS,
         g_param_spec_boolean("genTimeStamps", "Generate Time Stamps",
             "Set timestamps on output buffers",
-            TRUE, G_PARAM_WRITABLE));
+            DEFAULT_GENTIMESTAMP, G_PARAM_READWRITE));
 }
 
 /******************************************************************************
@@ -362,9 +388,9 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     }
 
     /* Initialize TIVidenc1 state */
-    videnc1->engineName             = NULL;
-    videnc1->codecName              = NULL;
-    videnc1->genTimeStamps          = TRUE;
+    g_object_set(videnc1, "engineName", DEFAULT_ENGINE_NAME, NULL);
+    g_object_set(videnc1, "codecName", DEFAULT_CODEC_NAME, NULL);
+    videnc1->genTimeStamps          = DEFAULT_GENTIMESTAMP;
 
     videnc1->hEngine                = NULL;
     videnc1->hVe1                   = NULL;
@@ -372,30 +398,30 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     videnc1->sinkAdapter            = NULL;
     videnc1->inBufMetadata          = NULL;
     videnc1->hEncOutBuf             = NULL;
-    videnc1->hContigInBuf           = NULL;
+    videnc1->hContigInBuf           = DEFAULT_CONTIG_INPUT_BUF;
     videnc1->hInBufRef              = NULL;
     videnc1->zeroCopyEncode         = FALSE;
 
     videnc1->width                  = 0;
     videnc1->height                 = 0;
-    videnc1->bitRate                = -1;
-    videnc1->colorSpace             = ColorSpace_NOTSET;
+    videnc1->bitRate                = DEFAULT_BIT_RATE;
+    g_object_set(videnc1, "iColorSpace", DEFAULT_COLORSPACE, NULL);
 
     videnc1->upstreamBufSize        = -1;
     videnc1->frameDuration          = GST_CLOCK_TIME_NONE;
     videnc1->hCcv                   = NULL;
     videnc1->hFc                    = NULL;
-    videnc1->rateControlPreset      = 1;
-    videnc1->contiguousInputFrame   = FALSE;
-    videnc1->encodingPreset         = 1;
-    videnc1->byteStream             = TRUE;
+    videnc1->rateControlPreset      = DEFAULT_RATECTRL_PRESET;
+    videnc1->contiguousInputFrame   = DEFAULT_CONTIG_INPUT_BUF;
+    videnc1->encodingPreset         = DEFAULT_ENCODING_PRESET;
+    videnc1->byteStream             = DEFAULT_BYTE_STREAM;
     videnc1->codec_data             = NULL;
 
     /* Initialize GValue members */
     memset(&videnc1->framerate, 0, sizeof(GValue));
     g_value_init(&videnc1->framerate, GST_TYPE_FRACTION);
     g_assert(GST_VALUE_HOLDS_FRACTION(&videnc1->framerate));
-    gst_value_set_fraction(&videnc1->framerate, 0, 1);
+    gst_value_set_fraction(&videnc1->framerate, DEFAULT_FRAMERATE_NUM, DEFAULT_FRAMERATE_DEN);
 
 }
 
@@ -536,6 +562,24 @@ static void gst_tividenc1_get_property(GObject *object, guint prop_id,
             break;
         case PROP_FRAMERATE:
             g_value_copy(&videnc1->framerate, value);
+            break;
+        case PROP_CONTIG_INPUT_BUF:
+            g_value_set_boolean(value, videnc1->contiguousInputFrame);
+            break;
+        case PROP_BYTE_STREAM:
+            g_value_set_boolean(value, videnc1->byteStream);
+            break;
+        case PROP_GEN_TIMESTAMPS:
+            g_value_set_boolean(value, videnc1->genTimeStamps);
+            break;
+        case PROP_ENCODING_PRESET:
+            g_value_set_int(value, videnc1->encodingPreset);
+            break;
+        case PROP_RATE_CTRL_PRESET:
+            g_value_set_int(value, videnc1->rateControlPreset);
+            break;
+        case PROP_BITRATE:
+            g_value_set_int(value, videnc1->bitRate);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
