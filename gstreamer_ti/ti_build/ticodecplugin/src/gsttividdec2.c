@@ -66,17 +66,20 @@
 #define     DEFAULT_GENTIMESTAMP    TRUE
 #define     DEFAULT_RTCODECTHREAD   TRUE
 #define     DEFAULT_DISPLAY_BUFFER  FALSE
-#define     DEFAULT_PADALLOC        FALSE
 
 /* define platform specific defaults */
 #if defined(Platform_dm365) || defined(Platform_dm368)
     #define     DEFAULT_ENGINE_NAME     "codecServer"
+    #define     DEFAULT_PADALLOC        TRUE
 #elif defined(Platform_dm3730) || defined(Platform_omap3530)
     #define     DEFAULT_ENGINE_NAME     "codecServer"
+    #define     DEFAULT_PADALLOC        TRUE
 #elif defined(Platform_dm6467) || defined(Platform_dm6467t)
     #define     DEFAULT_ENGINE_NAME     "codecServer"
+    #define     DEFAULT_PADALLOC        FALSE
 #else
     #define     DEFAULT_ENGINE_NAME     "decode"
+    #define     DEFAULT_PADALLOC        FALSE
 #endif
 
 /* Declare variable used to categorize GST_LOG output */
@@ -1473,6 +1476,14 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2,
 
     *padBuffer = NULL;
     if (viddec2->padAllocOutbufs) {
+        if (viddec2->width == 0 || viddec2->height == 0) {
+            g_object_set(viddec2, "padAllocOutbufs", 0, NULL);
+            GST_WARNING_OBJECT(viddec2, "upstream cap does not provide height and width, disabling peer-alloc."
+            "if you are decoding elemenatary stream then consider adding parses (h264parse,mpeg4parse,mpegvideoparse)");
+            *padBuffer = NULL;
+            goto alloc_buffer;
+        }
+
         if (gst_pad_alloc_buffer(viddec2->srcpad, 0,
             Vdec2_getOutBufSize(viddec2->hVd), GST_PAD_CAPS(viddec2->srcpad),
             padBuffer) != GST_FLOW_OK) {
@@ -1500,6 +1511,7 @@ static gboolean gst_tividdec2_codec_start (GstTIViddec2  *viddec2,
         }
     }
 
+    alloc_buffer:
     /* If we can't use pad-allocated buffers, allocate our own BufTab for
      * output buffers to push downstream.
      */
