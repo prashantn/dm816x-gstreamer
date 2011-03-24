@@ -389,9 +389,9 @@ static void gst_tiaudenc1_init(GstTIAudenc1 *audenc1, GstTIAudenc1Class *gclass)
 
     /* Initialize TIAudenc1 state */
     g_object_set(audenc1, "engineName", DEFAULT_ENGINE_NAME, (gchar*)NULL);
-    g_object_set(audenc1, "codecName", DEFAULT_CODEC_NAME, (gchar*)NULL);
     audenc1->displayBuffer      = DEFAULT_DISPLAY_BUFFER;
     audenc1->genTimeStamps      = DEFAULT_GENTIMESTAMPS;
+    audenc1->codecName          = NULL;
 
     audenc1->hEngine            = NULL;
     audenc1->hAe                = NULL;

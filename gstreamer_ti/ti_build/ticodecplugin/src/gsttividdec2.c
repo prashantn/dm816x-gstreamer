@@ -66,19 +66,16 @@
 #define     DEFAULT_GENTIMESTAMP    TRUE
 #define     DEFAULT_RTCODECTHREAD   TRUE
 #define     DEFAULT_DISPLAY_BUFFER  FALSE
+#define     DEFAULT_ENGINE_NAME     "unspecified"
 
 /* define platform specific defaults */
 #if defined(Platform_dm365) || defined(Platform_dm368)
-    #define     DEFAULT_ENGINE_NAME     "codecServer"
     #define     DEFAULT_PADALLOC        TRUE
 #elif defined(Platform_dm3730) || defined(Platform_omap3530)
-    #define     DEFAULT_ENGINE_NAME     "codecServer"
     #define     DEFAULT_PADALLOC        TRUE
 #elif defined(Platform_dm6467) || defined(Platform_dm6467t)
-    #define     DEFAULT_ENGINE_NAME     "codecServer"
     #define     DEFAULT_PADALLOC        FALSE
 #else
-    #define     DEFAULT_ENGINE_NAME     "decode"
     #define     DEFAULT_PADALLOC        FALSE
 #endif
 
@@ -468,7 +465,8 @@ static void gst_tividdec2_init(GstTIViddec2 *viddec2, GstTIViddec2Class *gclass)
     gst_element_add_pad(GST_ELEMENT(viddec2), viddec2->srcpad);
 
     /* Initialize TIViddec2 state */
-    g_object_set(viddec2, "engineName", DEFAULT_ENGINE_NAME, NULL);
+    viddec2->codecName          = NULL;
+    viddec2->engineName         = NULL;
     viddec2->displayBuffer      = DEFAULT_DISPLAY_BUFFER;
     viddec2->genTimeStamps      = DEFAULT_GENTIMESTAMP;
     viddec2->numOutputBufs      = DEFAULT_NUMOUTPUT_BUFS;

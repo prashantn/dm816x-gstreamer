@@ -65,16 +65,10 @@ GST_DEBUG_CATEGORY_STATIC (gst_tividenc1_debug);
 #define     DEFAULT_FRAMERATE_DEN       1001
 #define     DEFAULT_RATECTRL_PRESET     1
 #define     DEFAULT_BYTE_STREAM         FALSE
-#define     DEFAULT_CODEC_NAME          "h264enc"
+#define     DEFAULT_CODEC_NAME          "unspecified"
 #define     DEFAULT_CONTIG_INPUT_BUF    FALSE
 #define     DEFAULT_GENTIMESTAMP        TRUE
-
-/* define platform specific defaults */
-#if defined(Platform_dm6446)
-    #define     DEFAULT_ENGINE_NAME     "encode"
-#else
-    #define     DEFAULT_ENGINE_NAME     "codecServer"
-#endif
+#define     DEFAULT_ENGINE_NAME         "unspecified"
 
 #if defined(Platform_dm365) || defined(Platform_dm368) || defined(Platform_dm6467) \
     || defined(Platform_dm6467t)
@@ -388,8 +382,8 @@ static void gst_tividenc1_init(GstTIVidenc1 *videnc1, GstTIVidenc1Class *gclass)
     }
 
     /* Initialize TIVidenc1 state */
-    g_object_set(videnc1, "engineName", DEFAULT_ENGINE_NAME, NULL);
-    g_object_set(videnc1, "codecName", DEFAULT_CODEC_NAME, NULL);
+    videnc1->codecName              = NULL;
+    videnc1->engineName             = NULL;
     videnc1->genTimeStamps          = DEFAULT_GENTIMESTAMP;
 
     videnc1->hEngine                = NULL;

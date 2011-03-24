@@ -65,6 +65,7 @@ GST_DEBUG_CATEGORY_STATIC (gst_tiauddec1_debug);
 #define GST_CAT_DEFAULT gst_tiauddec1_debug
 
 /* define property defaults */
+#define     DEFAULT_ENGINE_NAME         "unspecified"
 #define     DEFAULT_CODEC_NAME          "unspecified"
 #define     DEFAULT_NUMOUTPUT_BUFS      3
 #define     DEFAULT_NUM_CHANNELES       2
@@ -72,13 +73,6 @@ GST_DEBUG_CATEGORY_STATIC (gst_tiauddec1_debug);
 #define     DEFAULT_GENTIMESTAMPS       TRUE
 #define     DEFAULT_RTCODECTHREAD       TRUE
 
-/* define platform specific defaults */
-#if defined(Platfrom_dm6446)
-    #define     DEFAULT_ENGINE_NAME         "decode"
-#else
-    #define     DEFAULT_ENGINE_NAME         "codecServer"
-#endif
-    
 /* Element property identifiers */
 enum
 {
@@ -399,12 +393,13 @@ static void gst_tiauddec1_init(GstTIAuddec1 *auddec1, GstTIAuddec1Class *gclass)
     gst_element_add_pad(GST_ELEMENT(auddec1), auddec1->srcpad);
 
     /* Initialize TIAuddec1 state */
-    g_object_set(auddec1, "engineName", DEFAULT_ENGINE_NAME, (gchar*)NULL);
-    g_object_set(auddec1, "codecName", DEFAULT_CODEC_NAME, (gchar*)NULL);
+    auddec1->engineName         = NULL;
+    auddec1->codecName          = NULL;
     auddec1->displayBuffer      = DEFAULT_DISPLAY_BUFFER;
     auddec1->genTimeStamps      = DEFAULT_GENTIMESTAMPS;
 
     auddec1->hEngine            = NULL;
+    auddec1->codecName          = NULL;
     auddec1->hAd                = NULL;
     auddec1->channels           = DEFAULT_NUM_CHANNELES;
     auddec1->drainingEOS        = FALSE;
