@@ -42,7 +42,7 @@
 DVSDK_INSTALL_DIR    = 
 TARGET_ROOT_DIR      = 
 GSTREAMER_DIR        = /opt/gstreamer
-CROSS_COMPILER       = 
+CROSS_COMPILER       =
 GST_TI_PLATFORM      =
 
 #------------------------------------------------------------------------------
@@ -51,7 +51,7 @@ GST_TI_PLATFORM      =
 #    VERBOSE 
 #        Set to "true" to see all build commands.     
 #------------------------------------------------------------------------------
-VERBOSE = false
+VERBOSE = true
 
 #------------------------------------------------------------------------------
 # Pull in build settings from the DVSDK, and error-check the settings we get.
@@ -75,8 +75,10 @@ ifndef GST_TI_PLATFORM
 endif
 
 # DVSDK 1.30 doesn't include DMAI, so make sure it gets added to the Rules.make
+ifneq ($(GST_TI_PLATFORM), dm816x)
 ifndef DMAI_INSTALL_DIR
    $(error please add setting for DMAI_INSTALL_DIR to the Rules.make in the DVSDK)
+endif
 endif
 
 # Ensure the target root directory is set.
@@ -103,6 +105,7 @@ export XDAIS_INSTALL_DIR
 export XDC_INSTALL_DIR
 export EDMA3_LLD_INSTALL_DIR
 export USER_XDC_PATH
+export LINUX_DEVKIT_DIR
 
 #------------------------------------------------------------------------------
 # Location of gstreamer installation on target
@@ -138,6 +141,9 @@ ifndef CROSS_COMPILER
         CROSS_COMPILER=CS_2009Q1
     endif
     ifeq ($(GST_TI_PLATFORM), dm3730)
+        CROSS_COMPILER=CS_2009Q1
+    endif
+    ifeq ($(GST_TI_PLATFORM), dm816x)
         CROSS_COMPILER=CS_2009Q1
     endif
 endif
@@ -258,6 +264,14 @@ ifeq ($(GST_TI_PLATFORM), omapl138)
     export ENABLE_TIDISPLAYSINK2 = true
 endif
 
+ifeq ($(GST_TI_PLATFORM), dm816x)
+    export MVTOOL_PREFIX = $(CSTOOL_PREFIX)
+    export MVTOOL_DIR    = $(CSTOOL_DIR)
+    export CROSS_COMPILE = $(CSTOOL_PREFIX)
+    export LINUXLIBS_INSTALL_DIR=$(LINUX_DEVKIT_DIR)/arm-none-linux-gnueabi/usr
+    export LIBTOOL_SYSROOT_PATH=$(LINUXLIBS_INSTALL_DIR)/..
+endif
+
 #------------------------------------------------------------------------------
 # CPPFLAGS/CFLAGS/LDFLAGS that should be used when building packages.
 #
@@ -296,6 +310,7 @@ CPPFLAGS_dm6467t   = -I$(LINUXLIBS_INSTALL_DIR)/include
 CPPFLAGS_omap3530  = -I$(LINUXLIBS_INSTALL_DIR)/include
 CPPFLAGS_dm3730    = -I$(LINUXLIBS_INSTALL_DIR)/include
 CPPFLAGS_omapl138  = -I$(LINUXLIBS_INSTALL_DIR)/include
+CPPFLAGS_dm816x    = -I$(LINUXLIBS_INSTALL_DIR)/include
 
 CFLAGS_all         = -O2
 CFLAGS_dm355       = -march=armv5te -mtune=arm926ej-s
@@ -309,6 +324,8 @@ CFLAGS_omap3530    = -march=armv7-a -mtune=cortex-a8
 CFLAGS_omap3530   += -mfpu=neon -mfloat-abi=softfp
 CFLAGS_dm3730      = -march=armv7-a -mtune=cortex-a8
 CFLAGS_dm3730     += -mfpu=neon -mfloat-abi=softfp
+CFLAGS_dm816x      = -march=armv7-a -mtune=cortex-a8
+CFLAGS_dm816x     += -mfpu=neon -mfloat-abi=softfp
 
 LDFLAGS_all        = -L$(TARGET_GSTREAMER_DIR)/lib
 LDFLAGS_dm355      = -L$(LINUXLIBS_INSTALL_DIR)/lib
@@ -318,6 +335,7 @@ LDFLAGS_dm6467t    = -L$(LINUXLIBS_INSTALL_DIR)/lib
 LDFLAGS_omap3530   = -L$(LINUXLIBS_INSTALL_DIR)/lib
 LDFLAGS_dm3730     = -L$(LINUXLIBS_INSTALL_DIR)/lib
 LDFLAGS_omapl138   = -L$(LINUXLIBS_INSTALL_DIR)/lib
+LDFLAGS_dm816x     = -L$(LINUXLIBS_INSTALL_DIR)/lib
 
 #------------------------------------------------------------------------------
 # Enable ALSA support based on the CROSS_COMPILER we're using

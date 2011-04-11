@@ -1,0 +1,199 @@
+# Packages.make
+#
+# Copyright (C) 2008-2010 Texas Instruments Incorporated - http://www.ti.com/
+#
+# This program is free software; you can redistribute it and/or modify 
+# it under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation version 2.1 of the License.
+#
+# This program is distributed #as is# WITHOUT ANY WARRANTY of any kind,
+# whether express or implied; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+
+#------------------------------------------------------------------------------
+# Packages processed by this build script.
+#------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------
+# Package glib
+#------------------------------------------------------------------------------
+PACKAGE_glib_BUILD_TARGET       = glib
+PACKAGE_glib_ARCHIVE_BASENAME   = glib-2.24.2
+PACKAGE_glib_PRECONFIG_PATCHES  =
+PACKAGE_glib_CONFIGURE_OPTS     = glib_cv_stack_grows=no glib_cv_uscore=no ac_cv_func_posix_getpwuid_r=yes ac_cv_func_posix_getgrgid_r=yes
+PACKAGE_glib_POSTCONFIG_PATCHES =
+PACKAGE_glib_BUILD_DIRS         =
+PACKAGE_glib_DESCRIPTION        = GLib library
+BASE_PACKAGES += $(PACKAGE_glib_BUILD_TARGET)
+
+#------------------------------------------------------------------------------
+# Package check
+#------------------------------------------------------------------------------
+PACKAGE_check_BUILD_TARGET       = check
+PACKAGE_check_ARCHIVE_BASENAME   = check-0.9.8
+PACKAGE_check_PRECONFIG_PATCHES  =
+PACKAGE_check_CONFIGURE_OPTS     = 
+PACKAGE_check_POSTCONFIG_PATCHES =
+PACKAGE_check_BUILD_DIRS         =
+PACKAGE_check_DESCRIPTION        = Check: a unit test framework for C
+BASE_PACKAGES += $(PACKAGE_check_BUILD_TARGET)
+
+#------------------------------------------------------------------------------
+# Package gstreamer
+#------------------------------------------------------------------------------
+PACKAGE_gstreamer_BUILD_TARGET       = gstreamer
+PACKAGE_gstreamer_ARCHIVE_BASENAME   = gstreamer-0.10.32
+PACKAGE_gstreamer_PRECONFIG_PATCHES  =  \
+    0001-gst-launch-add-loop-argument.patch \
+    0003-add-GstQueryBuffers-query.patch \
+    0004-Add-GstEventCrop-event.patch \
+    0005-basetransform-don-t-do-unnecessary-pad_alloc.patch 
+PACKAGE_gstreamer_CONFIGURE_OPTS     = --disable-loadsave --disable-tests --disable-examples
+PACKAGE_gstreamer_POSTCONFIG_PATCHES =
+PACKAGE_gstreamer_BUILD_DIRS         =
+PACKAGE_gstreamer_DESCRIPTION        = GStreamer library
+BASE_PACKAGES += $(PACKAGE_gstreamer_BUILD_TARGET)
+
+#------------------------------------------------------------------------------
+# Package libid3tag
+#------------------------------------------------------------------------------
+PACKAGE_id3tag_BUILD_TARGET        = id3tag
+PACKAGE_id3tag_ARCHIVE_BASENAME    = libid3tag-0.15.1b
+PACKAGE_id3tag_PRECONFIG_PATCHES   = \
+    0001-Converted-from-libid3tag1_0_15_1b.patch.patch
+PACKAGE_id3tag_CONFIGURE_OPTS      = 
+PACKAGE_id3tag_POSTCONFIG_PATCHES  =
+PACKAGE_id3tag_DESCRIPTION         = id3 tag library
+BASE_PACKAGES += $(PACKAGE_id3tag_BUILD_TARGET)
+
+#------------------------------------------------------------------------------
+# Package libmad
+#------------------------------------------------------------------------------
+PACKAGE_mad_BUILD_TARGET           = mad
+PACKAGE_mad_ARCHIVE_BASENAME       = libmad-0.15.1b
+PACKAGE_mad_PRECONFIG_PATCHES      = \
+    0001-Converted-from-libmad1_0_15_1b.patch \
+    0002-Remove-fforce-mem-option-when-building-with-O2.patch
+PACKAGE_mad_POSTCONFIG_PATCHES     =
+PACKAGE_mad_DESCRIPTION            = mpeg audio decoder library
+BASE_PACKAGES += $(PACKAGE_mad_BUILD_TARGET)
+
+#------------------------------------------------------------------------------
+# Package plugins_base
+#------------------------------------------------------------------------------
+PACKAGE_plugins_base_BUILD_TARGET       = plugins_base
+PACKAGE_plugins_base_ARCHIVE_BASENAME   = gst-plugins-base-0.10.32
+PACKAGE_plugins_base_PRECONFIG_PATCHES  = \
+    0001-add-rowstride-support-to-video-utility-functions.patch \
+    0002-stridetransform-skeletal-implementation-of-stridetra.patch \
+    0003-stridetransform-implement-caps-negotiation-and-relat.patch \
+    0004-stridetransform-implement-transform-function.patch \
+    0005-add-gst_stride_transform_transform_size.patch \
+    0006-fix-a-small-typo.-need-to-use-the-smaller-of-new_wid.patch \
+    0007-Add-NV12-support-in-stridetransform.patch \
+    0008-add-basic-support-for-I420-NV12-colorspace-conversio.patch \
+    0009-fix-to-avoid-parsing-caps-on-every-frame.patch \
+    0010-refactor-stridetransform-to-make-it-easier-to-add-ne.patch \
+    0011-add-some-neon.patch \
+    0012-add-support-to-convert-to-YUY2-YUYV-color-format.patch \
+    0013-Add-support-for-RGB565-to-stridetransform.patch \
+    0014-stridetransform-updates-for-new-extra-anal-compiler-.patch \
+    0015-stridetransform-fix-problem-transforming-caps-with-l.patch \
+    0016-modify-playbin-to-use-stridetransform.patch \
+    0017-playbin-disable-interlaced-support.patch \
+    0018-textoverlay-add-stride-support.patch \
+    0019-video-more-flexible-video-caps-utility.patch \
+    0020-video-fix-endianess-issue-for-16bit-RGB-formats.patch \
+    0021-stride-more-flexible-stride-color-conversion.patch \
+    0022-stride-support-for-32bit-RGB-formats.patch \
+    0023-ffmpegcolorspace-support-for-rowstride.patch \
+    0024-discoverer-rowstride-support.patch 
+PACKAGE_plugins_base_CONFIGURE_OPTS     = --disable-examples --disable-x --disable-ogg --disable-vorbis --disable-pango $(ALSA_SUPPORT)
+PACKAGE_plugins_base_POSTCONFIG_PATCHES =
+PACKAGE_plugins_base_BUILD_DIRS         =
+PACKAGE_plugins_base_DESCRIPTION        = GStreamer plugins base library
+BASE_PACKAGES += $(PACKAGE_plugins_base_BUILD_TARGET)
+
+#------------------------------------------------------------------------------
+# Package plugins_good
+#------------------------------------------------------------------------------
+PACKAGE_plugins_good_BUILD_TARGET        = plugins_good
+PACKAGE_plugins_good_ARCHIVE_BASENAME    = gst-plugins-good-0.10.27
+PACKAGE_plugins_good_PRECONFIG_PATCHES   = \
+    0001-v4l2-fix-handling-of-RGB32-BGR32-formats.patch \
+    0002-v4l2sink-Add-rotation-support.patch \
+    0003-v4l2sink-Add-flip-property.patch \
+    0004-v4l2sink-Add-support-for-omap24xxvout-driver.patch \
+    0005-v4l2sink-Add-support-for-omap_vout-driver.patch \
+    0006-v4l2-increase-v4l2sink-element-rank.patch \
+    0007-use-GstQueryBuffers-to-get-buffer-requirements.patch \
+    0008-add-rowstride-support.patch \
+    0009-use-GstEventCrop-to-get-crop-info.patch \
+    0010-v4l2-prefer-NV12.patch \
+    0011-v4l2sink-fix-issue-seen-with-autoconvert.patch
+PACKAGE_plugins_good_POSTCONFIG_PATCHES  =
+PACKAGE_plugins_good_BUILD_DIRS          = gst/avi
+PACKAGE_plugins_good_BUILD_DIRS         += gst/qtdemux
+PACKAGE_plugins_good_BUILD_DIRS         += sys/oss
+PACKAGE_plugins_good_BUILD_DIRS         += sys/v4l2
+PACKAGE_plugins_good_BUILD_DIRS         += gst/autodetect
+PACKAGE_plugins_good_BUILD_DIRS         += gst/rtp
+PACKAGE_plugins_good_BUILD_DIRS         += gst/rtsp
+PACKAGE_plugins_good_BUILD_DIRS         += gst/rtpmanager
+PACKAGE_plugins_good_BUILD_DIRS         += gst/udp
+PACKAGE_plugins_good_DESCRIPTION         = \
+    Select plugins from GStreamer good-plugins (avi, qtdemux, oss, v4l2)
+PLUGIN_PACKAGES += $(PACKAGE_plugins_good_BUILD_TARGET)
+
+#------------------------------------------------------------------------------
+# Package plugins_bad
+#------------------------------------------------------------------------------
+PACKAGE_plugins_bad_BUILD_TARGET        = plugins_bad
+PACKAGE_plugins_bad_ARCHIVE_BASENAME    = gst-plugins-bad-0.10.21
+PACKAGE_plugins_bad_PRECONFIG_PATCHES   = \
+    0001-freeze-Add-timeout-property.patch \
+    0002-fixes-to-mux-h264-stream-utilizing-ctts.patch \
+    0003-ugly-hack-to-avoid-a-memcpy.patch \
+    0004-h264parse-Add-workaround-for-separate-codec_config-a.patch \
+    0005-jpegparse-ignore-unhandled-application-markers.patch 
+PACKAGE_plugins_bad_POSTCONFIG_PATCHES  =
+PACKAGE_plugins_bad_BUILD_DIRS          = gst/mpegdemux
+PACKAGE_plugins_bad_BUILD_DIRS          += gst/rtpmux
+PACKAGE_plugins_bad_BUILD_DIRS          += gst/qtmux
+PACKAGE_plugins_bad_BUILD_DIRS          += gst/h264parse
+PACKAGE_plugins_bad_BUILD_DIRS          += gst/mpegvideoparse
+PACKAGE_plugins_bad_BUILD_DIRS          += gst/mpeg4videoparse
+
+PACKAGE_plugins_bad_DESCRIPTION         = \
+    Select plugins from GStreamer bad-plugins
+PLUGIN_PACKAGES += $(PACKAGE_plugins_bad_BUILD_TARGET)
+
+#-------------------------------------------------------------------------------
+# Package plugins_ugly
+#-------------------------------------------------------------------------------
+PACKAGE_plugins_ugly_BUILD_TARGET       = plugins_ugly
+PACKAGE_plugins_ugly_ARCHIVE_BASENAME   = gst-plugins-ugly-0.10.17
+PACKAGE_plugins_ugly_PRECONFIG_PATCHES  = 
+ifeq ($(ALSA_SUPPORT), --disable-alsa)
+    PACKAGE_plugins_ugly_PRECONFIG_PATCHES += \
+        0001-Optimize-the-mad-element-to-output-16-bit-samples-in.patch
+endif
+PACKAGE_plugins_ugly_CONFIGURE_OPTS     = --enable-lame
+PACKAGE_plugins_ugly_POSTCONFIG_PATCHES =
+PACKAGE_plugins_ugly_BUILD_DIRS         = ext/mad
+PACKAGE_plugins_ugly_BUILD_DIRS        += ext/lame
+PACKAGE_plugins_ugly_DESCRIPTION        = \
+        Selected plugins from Gstreamer ugly-plugins (id3tag, mad, lame)
+PLUGIN_PACKAGES += $(PACKAGE_plugins_ugly_BUILD_TARGET)
+
+#-------------------------------------------------------------------------------
+# Package lame
+#-------------------------------------------------------------------------------
+PACKAGE_lame_BUILD_TARGET       = lame
+PACKAGE_lame_ARCHIVE_BASENAME   = lame-398-2
+PACKAGE_lame_PRECONFIG_PATCHES  =
+PACKAGE_lame_CONFIGURE_OPTS     = 
+PACKAGE_lame_DESCRIPTION        = \
+        lame lib for encoding mp3
+PLUGIN_PACKAGES += $(PACKAGE_lame_BUILD_TARGET)

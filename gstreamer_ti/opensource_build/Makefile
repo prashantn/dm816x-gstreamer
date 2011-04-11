@@ -25,7 +25,12 @@ PATCHFILES_DIR=$(CURDIR)/patchfiles
 #------------------------------------------------------------------------------
 # Packages processed by this build script.
 #------------------------------------------------------------------------------
-include ./Packages.make
+ifeq ($(GST_TI_PLATFORM), dm816x)
+    include ./Packages.make.dm816x
+else
+    include ./Packages.make
+endif
+
 PACKAGES = $(BASE_PACKAGES) $(PLUGIN_PACKAGES)
 
 #------------------------------------------------------------------------------

@@ -1,0 +1,26 @@
+From 14d6f0fac0875981c418ac6577d23eafb5ff3f01 Mon Sep 17 00:00:00 2001
+From: Rob Clark <rob@ti.com>
+Date: Wed, 14 Apr 2010 03:29:20 -0500
+Subject: [PATCH 06/11] v4l2: increase v4l2sink element rank
+
+Increase rank so that it is autoplugged.
+---
+ sys/v4l2/gstv4l2.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/sys/v4l2/gstv4l2.c b/sys/v4l2/gstv4l2.c
+index 4a7056f..cba4157 100644
+--- a/sys/v4l2/gstv4l2.c
++++ b/sys/v4l2/gstv4l2.c
+@@ -55,7 +55,7 @@ plugin_init (GstPlugin * plugin)
+   if (!gst_element_register (plugin, "v4l2src", GST_RANK_PRIMARY,
+           GST_TYPE_V4L2SRC) ||
+ #ifdef HAVE_EXPERIMENTAL
+-      !gst_element_register (plugin, "v4l2sink", GST_RANK_NONE,
++      !gst_element_register (plugin, "v4l2sink", GST_RANK_PRIMARY,
+           GST_TYPE_V4L2SINK) ||
+ #endif
+       /*       !gst_element_register (plugin, "v4l2jpegsrc", */
+-- 
+1.7.0.4
+

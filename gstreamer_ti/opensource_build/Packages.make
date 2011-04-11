@@ -130,8 +130,13 @@ PLUGIN_PACKAGES += $(PACKAGE_plugins_good_BUILD_TARGET)
 # Package plugins_bad
 #------------------------------------------------------------------------------
 PACKAGE_plugins_bad_BUILD_TARGET        = plugins_bad
-PACKAGE_plugins_bad_ARCHIVE_BASENAME    = gst-plugins-bad-0.10.20
-PACKAGE_plugins_bad_PRECONFIG_PATCHES   = 
+PACKAGE_plugins_bad_ARCHIVE_BASENAME    = gst-plugins-bad-0.10.21
+PACKAGE_plugins_bad_PRECONFIG_PATCHES   = \
+    0001-freeze-Add-timeout-property.patch \
+    0002-fixes-to-mux-h264-stream-utilizing-ctts.patch \
+    0003-ugly-hack-to-avoid-a-memcpy.patch \
+    0004-h264parse-Add-workaround-for-separate-codec_config-a.patch \
+    0005-jpegparse-ignore-unhandled-application-markers.patch 
 PACKAGE_plugins_bad_POSTCONFIG_PATCHES  =
 PACKAGE_plugins_bad_BUILD_DIRS          = gst/mpegdemux
 PACKAGE_plugins_bad_BUILD_DIRS          += gst/rtpmux

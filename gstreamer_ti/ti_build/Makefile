@@ -34,7 +34,11 @@ endif
 # TI_PLUGINS
 #     list of subdirectories containing TI plugins
 #------------------------------------------------------------------------------
-TI_PLUGINS = ticodecplugin
+ifeq ($(GST_TI_PLATFORM), dm816x)
+ TI_PLUGINS = gst-openmax
+else
+ TI_PLUGINS = ticodecplugin
+endif
 
 #------------------------------------------------------------------------------
 # Build targets
