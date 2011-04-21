@@ -51,7 +51,7 @@ GST_TI_PLATFORM      =
 #    VERBOSE 
 #        Set to "true" to see all build commands.     
 #------------------------------------------------------------------------------
-VERBOSE = true
+VERBOSE = false
 
 #------------------------------------------------------------------------------
 # Pull in build settings from the DVSDK, and error-check the settings we get.
