@@ -51,23 +51,6 @@ AG_GST_CHECK_GST($GST_MAJORMINOR, [$GST_REQUIRED])
 AG_GST_CHECK_GST_BASE($GST_MAJORMINOR, [$GST_REQUIRED])
 AG_GST_CHECK_GST_CHECK($GST_MAJORMINOR, [$GST_REQUIRED], [no])
 
-dnl *** checks for OpenMAX ***
-dnl Check for OMX Core:
-PKG_CHECK_MODULES([OMXCORE], [libOMX_Core], [
-	echo "OMX Headers found.. using them!"
-	OMXCORE_CFLAGS="$OMXCORE_CFLAGS -DUSE_OMXTICORE"
-], [
-	echo "OMX Headers not found.. using my own OMX headers!"
-	OMXCORE_CFLAGS="-I\$(srcdir)/headers"
-])
-PKG_CHECK_MODULES([OMXTIAUDIODEC], [libOMX.TI.AUDIO.DECODE], [
-	echo "OMX TI Audio Decoder Headers found.. using them!"
-	USE_OMXTIAUDIODEC="-DUSE_OMXTIAUDIODEC"
-], [
-	echo "OMX TI Audio Decoder Headers not found, oh well!"
-])
-AC_SUBST(USE_OMXTIAUDIODEC)
-
 dnl ** finalize ***
 
 dnl set license and copyright notice
