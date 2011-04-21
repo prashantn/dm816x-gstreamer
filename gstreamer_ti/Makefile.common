@@ -42,8 +42,8 @@
 DVSDK_INSTALL_DIR    = 
 TARGET_ROOT_DIR      = 
 GSTREAMER_DIR        = /opt/gstreamer
-CROSS_COMPILER       =
-GST_TI_PLATFORM      =
+CROSS_COMPILER       = 
+GST_TI_PLATFORM      = 
 
 #------------------------------------------------------------------------------
 # Build configuration:
@@ -270,6 +270,19 @@ ifeq ($(GST_TI_PLATFORM), dm816x)
     export CROSS_COMPILE = $(CSTOOL_PREFIX)
     export LINUXLIBS_INSTALL_DIR=$(LINUX_DEVKIT_DIR)/arm-none-linux-gnueabi/usr
     export LIBTOOL_SYSROOT_PATH=$(LINUXLIBS_INSTALL_DIR)/..
+    export OMX_INSTALL_DIR
+    export SYSBIOS_INSTALL_DIR
+    export OSAL_INSTALL_DIR
+    export IPC_INSTALL_DIR
+    export SYSLINK_INSTALL_DIR
+    export IVAHD_HDVICP20API_INSTALL_DIR
+    export TMS470_CODEGEN_INSTALL_DIR
+    export HDVPSS_INSTALL_DIR
+    export XDC_TARGET    = gnu.targets.arm.GCArmv5T
+    export XDC_PLATFORM  = ti.platforms.evmTI816X
+    export PLATFORM_XDC  = $(XDC_PLATFORM)
+    export CROSS_COMPILE = $(CSTOOL_PREFIX)
+    export LINUXUTILS_INSTALL_DIR
 endif
 
 #------------------------------------------------------------------------------
