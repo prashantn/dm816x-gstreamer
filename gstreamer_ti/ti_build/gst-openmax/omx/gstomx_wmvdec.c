@@ -81,7 +81,7 @@ sink_setcaps (GstPad *pad,
         OMX_SetParameter (gomx->omx_handle, index, &file_type);
 
         GST_DEBUG_OBJECT (omx_base,
-                          "OMX_SetParameter OMX.TI.VideoDecode.Param.WMVFileType %" G_GUINT32_FORMAT,
+                          "OMX_SetParameter OMX.TI.VideoDecode.Param.WMVFileType %ld" G_GUINT32_FORMAT,
                           file_type);
     }
 
