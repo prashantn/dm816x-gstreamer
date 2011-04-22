@@ -129,8 +129,6 @@ sink_setcaps (GstPad *pad,
     GstOmxBaseVideoEnc *self;
     GstOmxBaseFilter *omx_base;
     GstQuery *query;
-    OMX_ERRORTYPE err;
-
     GstVideoFormat format;
     gint width, height, rowstride;
     const GValue *framerate = NULL;
@@ -203,6 +201,7 @@ sink_setcaps (GstPad *pad,
 #if 0
 #ifdef USE_OMXTICORE
         {
+    	    OMX_ERRORTYPE err;
             OMX_CONFIG_RECTTYPE rect;
             _G_OMX_INIT_PARAM (&rect);
 
