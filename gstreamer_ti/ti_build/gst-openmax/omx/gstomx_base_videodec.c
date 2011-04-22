@@ -359,7 +359,7 @@ src_query (GstPad *pad, GstQuery *query)
                 OMX_IndexParamPortDefinition, &param);
         g_assert (err == OMX_ErrorNone);
 
-        GST_DEBUG_OBJECT (self, "min buffers: %d", param.nBufferCountMin);
+        GST_DEBUG_OBJECT (self, "min buffers: %ld", param.nBufferCountMin);
 
         gst_query_set_buffers_count (query, param.nBufferCountMin);
 
@@ -372,7 +372,7 @@ src_query (GstPad *pad, GstQuery *query)
             err = OMX_GetParameter (omx_base->gomx->omx_handle,
                     OMX_TI_IndexParam2DBufferAllocDimension, &rect);
             if (err == OMX_ErrorNone) {
-                GST_DEBUG_OBJECT (self, "min dimensions: %dx%d",
+                GST_DEBUG_OBJECT (self, "min dimensions: %ldx%ld",
                         rect.nWidth, rect.nHeight);
                 gst_query_set_buffers_dimensions (query,
                         rect.nWidth, rect.nHeight);
