@@ -329,7 +329,7 @@ omx_setup (GstOmxBaseFilter *omx_base)
 
             h264enc = GST_OMX_H264ENC (omx_base);
             nal_format = h264enc->bytestream ? 0 : 1;
-            GST_DEBUG_OBJECT (omx_base, "setting 'OMX.TI.VideoEncode.Config.NALFormat' to %u", nal_format);
+            GST_DEBUG_OBJECT (omx_base, "setting 'OMX.TI.VideoEncode.Config.NALFormat' to %ld", nal_format);
 
             OMX_SetParameter (gomx->omx_handle, index, &nal_format);
         }
