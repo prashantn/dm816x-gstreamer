@@ -297,7 +297,7 @@ omx_setup (GstOmxBaseFilter *omx_base)
         OMX_AUDIO_PARAM_PCMMODETYPE param;
         G_OMX_PORT_GET_PARAM (omx_base->out_port, OMX_IndexParamAudioPcm, &param);
         param.nSamplingRate = base_audiodec->rate;
-        GST_DEBUG_OBJECT (omx_base, "PCM Sample Rate: %d", param.nSamplingRate);
+        GST_DEBUG_OBJECT (omx_base, "PCM Sample Rate: %ld", param.nSamplingRate);
         G_OMX_PORT_SET_PARAM (omx_base->out_port, OMX_IndexParamAudioPcm, &param);
     }
 
