@@ -199,6 +199,8 @@ sink_setcaps (GstPad *pad,
 
         gst_query_unref (query);
 
+/* REVISIT: OMX_TI_IndexParam2DBufferAllocDimension is not implemented */
+#if 0
 #ifdef USE_OMXTICORE
         {
             OMX_CONFIG_RECTTYPE rect;
@@ -215,6 +217,7 @@ sink_setcaps (GstPad *pad,
                                   rect.nWidth, rect.nHeight);
             }
         }
+#endif
 #endif
     }
 

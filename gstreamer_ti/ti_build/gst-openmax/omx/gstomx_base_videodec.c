@@ -363,6 +363,8 @@ src_query (GstPad *pad, GstQuery *query)
 
         gst_query_set_buffers_count (query, param.nBufferCountMin);
 
+/* REVISIT: OMX_TI_IndexParam2DBufferAllocDimension is not implemented in EZSDK OMX components */
+#if 0
 #ifdef USE_OMXTICORE
         {
             OMX_CONFIG_RECTTYPE rect;
@@ -378,6 +380,7 @@ src_query (GstPad *pad, GstQuery *query)
                         rect.nWidth, rect.nHeight);
             }
         }
+#endif
 #endif
 
         ret = TRUE;
