@@ -171,6 +171,10 @@ g_omx_port_prepare (GOmxPort *port)
 
     gst_buffer_unref (buf);
 
+/* REVISIT: In WBU code these macros are implemented in OMX_TI_Core.h and EZSDK is missing it hence
+   commenting out code for now
+  */
+#if 0
 #ifdef USE_OMXTICORE
     if (port->share_buffer)
     {
@@ -188,7 +192,7 @@ g_omx_port_prepare (GOmxPort *port)
         G_OMX_PORT_SET_CONFIG (port, OMX_TI_IndexConfigBufferRefCountNotification, &config);
     }
 #endif
-
+#endif
     DEBUG (port, "end");
 }
 

@@ -25,8 +25,11 @@
 
 #ifdef USE_OMXTICORE
 #  include <OMX_TI_Common.h>
-#  include <OMX_TI_Index.h>
+/* REVISIT: Header file is not available in EZSDK OMX components */
+#if 0
 #  include <OMX_TI_Core.h>
+#endif
+#  include <OMX_TI_Index.h>
 #endif
 
 #include <OMX_CoreExt.h>
