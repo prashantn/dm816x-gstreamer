@@ -43,13 +43,9 @@ libgstomx_la_SOURCES = gstomx.c gstomx.h \
 		       gstomx_base_src.c gstomx_base_src.h \
 		       gstomx_filereadersrc.c gstomx_filereadersrc.h
 
-libgstomx_la_CFLAGS = $(OMXCORE_CFLAGS) $(OMXTIAUDIODEC_CFLAGS) $(USE_OMXTIAUDIODEC) $(GST_CFLAGS) $(GST_BASE_CFLAGS) -I$(top_srcdir)/util
 libgstomx_la_LIBADD = $(OMXCORE_LIBS) $(GST_LIBS) $(GST_BASE_LIBS) -lgstvideo-0.10 $(top_builddir)/util/libutil.la
-libgstomx_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
-
-CFLAGS += -Dxdc_target_name__=GCArmv5T -Dxdc_target_types__=gnu/targets/arm/std.h -Dxdc__RESTRICT__
-
-CFLAGS += \
+libgstomx_la_CFLAGS = $(OMXCORE_CFLAGS) $(OMXTIAUDIODEC_CFLAGS) $(USE_OMXTIAUDIODEC) $(GST_CFLAGS) $(GST_BASE_CFLAGS) -I$(top_srcdir)/util \
+	-Dxdc_target_name__=GCArmv5T -Dxdc_target_types__=gnu/targets/arm/std.h -Dxdc__RESTRICT__ \
     	-I$(OMX_INSTALL_DIR)/packages/ti/omx/interfaces/openMaxv11 \
     	-I$(OMX_INSTALL_DIR)/packages \
     	-I$(OSAL_INSTALL_DIR)/sources \
@@ -61,4 +57,25 @@ CFLAGS += \
     	-I$(IPC_INSTALL_DIR)/packages \
     	-I$(SYSLINK_INSTALL_DIR) \
     	-I$(HDVPSS_INSTALL_DIR)/packages 
+libgstomx_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -pthread \
+	$(OSAL_INSTALL_DIR)/packages/linuxdist/build/lib/osal.a \
+	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/timmosal/lib/a8host/debug/timmosal.av5T \
+	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/omxutils/lib/a8host/debug/omxutils.av5T \
+	$(OMX_INSTALL_DIR)/rebuilt-binaries/vdec_snt/obj/ti816x-evm/a8host/debug/omxcore_cfg.ov5T \
+	$(OMX_INSTALL_DIR)/rebuilt-binaries/vdec_snt/obj/ti816x-evm/a8host/debug/domx_cfg.ov5T \
+	$(SYSLINK_INSTALL_DIR)/ti/syslink/lib/syslink.a_release \
+	$(FC_INSTALL_DIR)/packages/ti/sdo/rcm/lib/debug/rcm_syslink.av5T \
+	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/domx/delegates/shmem/lib/a8host/debug/domx_delegates_shmem.av5T \
+	$(FC_INSTALL_DIR)/packages/ti/sdo/fc/memutils/lib/release/memutils.av5T \
+	$(OSAL_INSTALL_DIR)/packages/linuxdist/cstubs/lib/cstubs.a \
+	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/domx/obj/a8host/debug/domxProxyWrappers.ov5T \
+	$(FC_INSTALL_DIR)/packages/ti/sdo/fc/global/lib/debug/fcsettings.av5T \
+	$(LINUXUTILS_INSTALL_DIR)/packages/ti/sdo/linuxutils/cmem/lib/cmem.a470MV \
+	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/domx/obj/a8host/debug/OmxRpcCbSkel.ov5T \
+	$(OMX_INSTALL_DIR)/rebuilt-binaries/vdec_snt/obj/ti816x-evm/a8host/debug/domx_delegates_shmem_cfg.ov5T \
+	$(OMX_INSTALL_DIR)/rebuilt-binaries/vdec_snt/obj/ti816x-evm/a8host/debug/omxbase_cfg.ov5T \
+	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/timmosal/lib/a8host/debug/timmosal.av5T  \
+	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/comp/omxbase/lib/a8host/debug/omxbase.av5T \
+	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/timmosal/lib/a8host/debug/timmosal.av5T \
+	$(SYSLINK_INSTALL_DIR)/ti/syslink/lib/syslink.a_release 
 
