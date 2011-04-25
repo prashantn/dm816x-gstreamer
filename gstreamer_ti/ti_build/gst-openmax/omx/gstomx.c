@@ -75,7 +75,7 @@ static TableItem element_table[] =
     { "omx_mpeg4dec",       "libOMX_Core.so",           "OMX.TI.DUCATI1.VIDEO.DECODER", "video_decoder.mpeg4",  GST_RANK_PRIMARY,   gst_omx_mpeg4dec_get_type },
     { "omx_h264dec",        "libOMX_Core.so",           "OMX.TI.DUCATI1.VIDEO.DECODER", "video_decoder.avc",    GST_RANK_PRIMARY,   gst_omx_h264dec_get_type },
     { "omx_h263dec",        "libOMX_Core.so",           "OMX.TI.DUCATI1.VIDEO.DECODER", "video_decoder.h263",   GST_RANK_PRIMARY,   gst_omx_h263dec_get_type },
-    { "omx_vp6dec",         "libOMX_Core.so",           "OMX.TI.DUCATI1.VIDEO.DECODER", "video_decoder.vp6",    GST_RANK_PRIMARY,   gst_omx_vp6dec_get_type },
+//    { "omx_vp6dec",         "libOMX_Core.so",           "OMX.TI.DUCATI1.VIDEO.DECODER", "video_decoder.vp6",    GST_RANK_PRIMARY,   gst_omx_vp6dec_get_type },
     { "omx_wmvdec",         "libOMX_Core.so",           "OMX.TI.Video.Decoder",         NULL,                   GST_RANK_NONE,      gst_omx_wmvdec_get_type },
     { "omx_mpeg4enc",       "libOMX_Core.so",           "OMX.TI.DUCATI1.VIDEO.MPEG4E",  NULL,                   GST_RANK_PRIMARY,   gst_omx_mpeg4enc_get_type },
     { "omx_h264enc",        "libOMX_Core.so",           "OMX.TI.DUCATI1.VIDEO.H264E",   NULL,                   GST_RANK_PRIMARY,   gst_omx_h264enc_get_type },
@@ -103,7 +103,7 @@ static TableItem element_table[] =
     { "omx_videosink",      "libomxil-bellagio.so.0",   "OMX.st.videosink",             NULL,                   GST_RANK_NONE,      gst_omx_videosink_get_type },
     { "omx_filereadersrc",  "libomxil-bellagio.so.0",   "OMX.st.audio_filereader",      NULL,                   GST_RANK_NONE,      gst_omx_filereadersrc_get_type },
     { "omx_volume",         "libomxil-bellagio.so.0",   "OMX.st.volume.component",      NULL,                   GST_RANK_NONE,      gst_omx_volume_get_type },
-    { "omx_camera",         "libOMX_Core.so",           "OMX.TI.DUCATI1.VIDEO.CAMERA",  NULL,                   GST_RANK_PRIMARY,   gst_omx_camera_get_type },
+//    { "omx_camera",         "libOMX_Core.so",           "OMX.TI.DUCATI1.VIDEO.CAMERA",  NULL,                   GST_RANK_PRIMARY,   gst_omx_camera_get_type },
     { NULL, NULL, NULL, NULL, 0, NULL },
 };
 
