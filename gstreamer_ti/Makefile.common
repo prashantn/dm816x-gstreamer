@@ -323,7 +323,8 @@ CPPFLAGS_dm6467t   = -I$(LINUXLIBS_INSTALL_DIR)/include
 CPPFLAGS_omap3530  = -I$(LINUXLIBS_INSTALL_DIR)/include
 CPPFLAGS_dm3730    = -I$(LINUXLIBS_INSTALL_DIR)/include
 CPPFLAGS_omapl138  = -I$(LINUXLIBS_INSTALL_DIR)/include
-CPPFLAGS_dm816x    = -I$(LINUXLIBS_INSTALL_DIR)/include
+CPPFLAGS_dm816x    = -I$(LINUXKERNEL_INSTALL_DIR)/include -I$(LINUXKERNEL_INSTALL_DIR)/arch/arm/include
+CPPFLAGS_dm816x    += -I$(LINUXLIBS_INSTALL_DIR)/include
 
 CFLAGS_all         = -O2
 CFLAGS_dm355       = -march=armv5te -mtune=arm926ej-s
