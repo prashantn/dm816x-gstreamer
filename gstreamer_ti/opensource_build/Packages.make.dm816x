@@ -180,3 +180,25 @@ PACKAGE_lame_CONFIGURE_OPTS     =
 PACKAGE_lame_DESCRIPTION        = \
         lame lib for encoding mp3
 PLUGIN_PACKAGES += $(PACKAGE_lame_BUILD_TARGET)
+
+#-------------------------------------------------------------------------------
+# Package faad
+#-------------------------------------------------------------------------------
+PACKAGE_faad_BUILD_TARGET       = faad
+PACKAGE_faad_ARCHIVE_BASENAME   = faad2-2.7
+PACKAGE_faad_PRECONFIG_PATCHES  =
+PACKAGE_faad_CONFIGURE_OPTS     = 
+PACKAGE_faad_DESCRIPTION        = \
+        faad lib for decoding AAC
+PLUGIN_PACKAGES += $(PACKAGE_faad_BUILD_TARGET)
+
+#-------------------------------------------------------------------------------
+# Package faac
+#-------------------------------------------------------------------------------
+PACKAGE_faac_BUILD_TARGET       = faac
+PACKAGE_faac_ARCHIVE_BASENAME   = faac-1.28
+PACKAGE_faac_PRECONFIG_PATCHES  =
+PACKAGE_faac_CONFIGURE_OPTS     = 
+PACKAGE_faac_DESCRIPTION        = \
+        faac lib for encoding AAC
+PLUGIN_PACKAGES += $(PACKAGE_faac_BUILD_TARGET)
