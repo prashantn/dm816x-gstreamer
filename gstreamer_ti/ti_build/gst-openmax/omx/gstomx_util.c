@@ -46,6 +46,9 @@ imp_new (const gchar *name)
 
     imp = g_new0 (GOmxImp, 1);
 
+    #ifdef USE_STATIC
+        imp->mutex = g_mutex_new ();
+    #else
     /* Load the OpenMAX IL symbols */
     {
         void *handle;
@@ -65,6 +68,7 @@ imp_new (const gchar *name)
         imp->sym_table.get_handle = dlsym (handle, "OMX_GetHandle");
         imp->sym_table.free_handle = dlsym (handle, "OMX_FreeHandle");
     }
+    #endif
 
     return imp;
 }
@@ -106,7 +110,11 @@ g_omx_request_imp (const gchar *name)
     if (imp->client_count == 0)
     {
         OMX_ERRORTYPE omx_error;
+        #ifdef USE_STATIC
+        omx_error = OMX_Init ();
+        #else
         omx_error = imp->sym_table.init ();
+        #endif
         if (omx_error)
         {
             g_mutex_unlock (imp->mutex);
@@ -126,7 +134,11 @@ g_omx_release_imp (GOmxImp *imp)
     imp->client_count--;
     if (imp->client_count == 0)
     {
+        #ifdef USE_STATIC
+        OMX_Deinit();
+        #else
         imp->sym_table.deinit ();
+        #endif
     }
     g_mutex_unlock (imp->mutex);
 }
