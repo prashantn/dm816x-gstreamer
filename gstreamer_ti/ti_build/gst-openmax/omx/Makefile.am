@@ -57,25 +57,22 @@ libgstomx_la_CFLAGS = $(OMXCORE_CFLAGS) $(OMXTIAUDIODEC_CFLAGS) $(USE_OMXTIAUDIO
     	-I$(IPC_INSTALL_DIR)/packages \
     	-I$(SYSLINK_INSTALL_DIR) \
     	-I$(HDVPSS_INSTALL_DIR)/packages 
+
 libgstomx_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -pthread \
-	$(OSAL_INSTALL_DIR)/packages/linuxdist/build/lib/osal.a \
-	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/timmosal/lib/a8host/debug/timmosal.av5T \
-	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/omxutils/lib/a8host/debug/omxutils.av5T \
-	$(OMX_INSTALL_DIR)/rebuilt-binaries/vdec_snt/obj/ti816x-evm/a8host/debug/omxcore_cfg.ov5T \
-	$(OMX_INSTALL_DIR)/rebuilt-binaries/vdec_snt/obj/ti816x-evm/a8host/debug/domx_cfg.ov5T \
-	$(SYSLINK_INSTALL_DIR)/ti/syslink/lib/syslink.a_release \
-	$(FC_INSTALL_DIR)/packages/ti/sdo/rcm/lib/debug/rcm_syslink.av5T \
-	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/domx/delegates/shmem/lib/a8host/debug/domx_delegates_shmem.av5T \
-	$(FC_INSTALL_DIR)/packages/ti/sdo/fc/memutils/lib/release/memutils.av5T \
-	$(OSAL_INSTALL_DIR)/packages/linuxdist/cstubs/lib/cstubs.a \
-	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/domx/obj/a8host/debug/domxProxyWrappers.ov5T \
-	$(FC_INSTALL_DIR)/packages/ti/sdo/fc/global/lib/debug/fcsettings.av5T \
-	$(LINUXUTILS_INSTALL_DIR)/packages/ti/sdo/linuxutils/cmem/lib/cmem.a470MV \
-	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/domx/obj/a8host/debug/OmxRpcCbSkel.ov5T \
-	$(OMX_INSTALL_DIR)/rebuilt-binaries/vdec_snt/obj/ti816x-evm/a8host/debug/domx_delegates_shmem_cfg.ov5T \
-	$(OMX_INSTALL_DIR)/rebuilt-binaries/vdec_snt/obj/ti816x-evm/a8host/debug/omxbase_cfg.ov5T \
-	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/timmosal/lib/a8host/debug/timmosal.av5T  \
-	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/comp/omxbase/lib/a8host/debug/omxbase.av5T \
-	$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/timmosal/lib/a8host/debug/timmosal.av5T \
-	$(SYSLINK_INSTALL_DIR)/ti/syslink/lib/syslink.a_release 
+	-Wl,$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/omxcore/lib/a8host/debug/omxcore.av5T \
+	-Wl,$(OMX_INSTALL_DIR)/rebuilt-binaries/vdec_snt/obj/ti816x-evm/a8host/debug/omxcore_cfg.ov5T \
+	-Wl,$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/domx/lib/a8host/debug/domx.av5T \
+	-Wl,$(OSAL_INSTALL_DIR)/packages/linuxdist/build/lib/osal.a \
+	-Wl,$(OMX_INSTALL_DIR)/rebuilt-binaries/vdec_snt/obj/ti816x-evm/a8host/debug/domx_cfg.ov5T \
+	-Wl,$(SYSLINK_INSTALL_DIR)/ti/syslink/lib/syslink.a_release \
+	-Wl,$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/omxutils/lib/a8host/debug/omxutils.av5T \
+	-Wl,$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/timmosal/lib/a8host/debug/timmosal.av5T \
+	-Wl,$(FC_INSTALL_DIR)/packages/ti/sdo/rcm/lib/debug/rcm_syslink.av5T \
+	-Wl,$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/domx/delegates/shmem/lib/a8host/debug/domx_delegates_shmem.av5T \
+	-Wl,$(FC_INSTALL_DIR)/packages/ti/sdo/fc/memutils/lib/release/memutils.av5T \
+	-Wl,$(OSAL_INSTALL_DIR)/packages/linuxdist/cstubs/lib/cstubs.a \
+	-Wl,$(OMX_INSTALL_DIR)/rebuilt-binaries/ti/omx/domx/lib/a8host/debug/domx.av5T \
+	-Wl,$(OMX_INSTALL_DIR)/rebuilt-binaries/vdec_snt/obj/ti816x-evm/a8host/debug/domx_delegates_shmem_cfg.ov5T \
+	-Wl,$(FC_INSTALL_DIR)/packages/ti/sdo/fc/global/lib/debug/fcsettings.av5T \
+	-Wl,$(LINUXUTILS_INSTALL_DIR)/packages/ti/sdo/linuxutils/cmem/lib/cmem.a470MV
 
