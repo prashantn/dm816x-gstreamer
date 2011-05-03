@@ -36,7 +36,7 @@ endif
 #------------------------------------------------------------------------------
 ifeq ($(GST_TI_PLATFORM), dm816x)
  TI_PLUGINS = gst-openmax
- CFLAGS_dm816x     += -DUSE_OMXTICORE -DUSE_STATIC
+ CFLAGS_dm816x     += -DUSE_OMXTICORE
 else
  TI_PLUGINS = ticodecplugin
 endif

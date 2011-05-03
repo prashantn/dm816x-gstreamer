@@ -25,6 +25,7 @@
 #include <string.h>
 
 #include "gstomx.h"
+#include <xdc/runtime/knl/Thread.h>
 
 GST_DEBUG_CATEGORY (gstomx_util_debug);
 
@@ -110,6 +111,11 @@ g_omx_request_imp (const gchar *name)
     if (imp->client_count == 0)
     {
         OMX_ERRORTYPE omx_error;
+
+	#ifdef USE_OMXTICORE
+	Thread_start(NULL);
+	#endif
+
         #ifdef USE_STATIC
         omx_error = OMX_Init ();
         #else
