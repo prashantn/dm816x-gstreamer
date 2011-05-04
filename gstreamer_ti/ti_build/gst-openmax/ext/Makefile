@@ -24,3 +24,6 @@ all:
 
 clean:
 	rm -rf lib/libOMX_Core.so
+
+install: all
+
