@@ -57,8 +57,8 @@ base:
 	$(CMD_PREFIX) $(MAKE) lame         $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) faad         $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) faac         $(BUILD_INSTALL)
-	$(CMD_PREFIX) $(MAKE) ffmpe        $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) plugins_base $(BUILD_INSTALL)
+	$(CMD_PREFIX) $(MAKE) ffmpeg       $(BUILD_INSTALL)
 
 plugins:     $(PLUGIN_PACKAGES)
 $(PACKAGES): % : %.build
