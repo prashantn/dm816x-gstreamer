@@ -282,6 +282,7 @@ ifeq ($(GST_TI_PLATFORM), dm816x)
     export XDC_PLATFORM  = ti.platforms.evmTI816X
     export PLATFORM_XDC  = $(XDC_PLATFORM)
     export CROSS_COMPILE = $(CSTOOL_PREFIX)
+    export OMTB_INSTALL_DIR
     export LINUXUTILS_INSTALL_DIR
 endif
 
@@ -397,6 +398,7 @@ endif
 # filesystem.
 #------------------------------------------------------------------------------
 CC_CONFIGURE_OPTS  = --build=i686-linux --host=arm-linux
+CC_CONFIGURE_OPTS  = --build=i686-linux --host=arm-none-linux-gnueabi
 CC_CONFIGURE_OPTS += --prefix=$(TARGET_GSTREAMER_DIR)
 CC_CONFIGURE_OPTS += NM=$(MVTOOL_PREFIX)nm
 CC_CONFIGURE_OPTS += RANLIB=$(MVTOOL_PREFIX)ranlib
