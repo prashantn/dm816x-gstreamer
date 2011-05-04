@@ -202,3 +202,14 @@ PACKAGE_faac_CONFIGURE_OPTS     =
 PACKAGE_faac_DESCRIPTION        = \
         faac lib for encoding AAC
 PLUGIN_PACKAGES += $(PACKAGE_faac_BUILD_TARGET)
+
+#-------------------------------------------------------------------------------
+# Package gst-ffmpeg
+#-------------------------------------------------------------------------------
+PACKAGE_ffmpeg_BUILD_TARGET       = ffmpeg
+PACKAGE_ffmpeg_ARCHIVE_BASENAME   = gst-ffmpeg-0.10.11
+PACKAGE_ffmpeg_CONFIGURE_OPTS     = --with-ffmpeg-extra-configure="--target-os=linux"
+PACKAGE_ffmpeg_PRECONFIG_PATCHES  =
+PACKAGE_ffmpeg_DESCRIPTION        = \
+        gst-ffmpeg lib
+PLUGIN_PACKAGES += $(PACKAGE_ffmpeg_BUILD_TARGET)
