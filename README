@@ -1,0 +1,35 @@
+Prerequisites
+=============
+- The EZSDK for the platform is installed on the Linux host. The latest EZSDK for the platform can be downloaded from ????
+- You are sucessfully able to build EZSDK components from top label Makefile (i.e make clean && make all)
+
+BUILDING
+========
+
+1) Run this command on host machine to fix libz.la file provided with EZSDK
+% sed -i 's/installed=no/installed=yes/' ${DVSDK}/linux-devkit/arm-none-linux-gnueabi/usr/lib/libz.la
+
+2) Change to the top level "gstreamer_ti" directory, and open the file named "Makefile.common" in your favorite editor (vi, emacs, etc.).
+   Set the following variables at the top of the file:
+
+    DVSDK_INSTALL_DIR:  Location of your EZSDK installation directory
+    TARGET_ROOT_DIR:    Location of the target filesystem's root directory
+                        on the Linux host machine.
+    CROSS_COMPILER:     Cross compiler being used.  A default is chosen based
+                        on the platform you are building for, but you can set
+                        it explicitly to one of these values:
+                            CS_2009Q1:  CodeSourcery v2009q1
+    PLATFORM:           Set the platform variable (**)
+
+** For DM816x/DM814x set PLATFORM=dm816x 
+
+3) Execute this command from the top-level "gstreamer_ti" directory:
+% make all install VERBOSE=true
+
+If you want less output during the build, you can omit the "VERBOSE=true"
+above.
+
+By default, the GStreamer binaries will be installed to "/opt/gstreamer" on
+the target, and some demonstration scripts will be installed to
+"/opt/gstreamer_demo".
+
