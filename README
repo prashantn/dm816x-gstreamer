@@ -1,6 +1,6 @@
 Prerequisites
 =============
-- The EZSDK for the platform is installed on the Linux host. The latest EZSDK for the platform can be downloaded from ????
+- The EZSDK for the platform is installed on the Linux host. The latest EZSDK for the platform can be downloaded from http://software-dl.ti.com/dsps/dsps_public_sw/ezsdk/latest/index_FDS.html
 - EZSDK components are built from top label Makefile using 'make all' command.
 
 BUILDING
