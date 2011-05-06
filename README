@@ -1,7 +1,7 @@
 Prerequisites
 =============
 - The EZSDK for the platform is installed on the Linux host. The latest EZSDK for the platform can be downloaded from ????
-- You are sucessfully able to build EZSDK components from top label Makefile (i.e make clean && make all)
+- EZSDK components are built from top label Makefile using 'make all' command.
 
 BUILDING
 ========
@@ -32,4 +32,17 @@ above.
 By default, the GStreamer binaries will be installed to "/opt/gstreamer" on
 the target, and some demonstration scripts will be installed to
 "/opt/gstreamer_demo".
+
+RUNNING
+=======
+
+Run the following commands on target board to export gstreamer environment variables:
+
+#export GST_REGISTRY=/tmp/gst_registry.bin
+#export LD_LIBRARY_PATH=/opt/gstreamer/lib
+#export GST_PLUGIN_PATH=/opt/gstreamer/lib/gstreamer-0.10
+#export PATH=/opt/gstreamer/bin:$PATH
+
+
+After this, run your favorite gstreamer pipeline examples
 
