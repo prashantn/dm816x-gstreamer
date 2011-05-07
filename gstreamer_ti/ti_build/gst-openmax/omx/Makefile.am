@@ -46,7 +46,7 @@ libgstomx_la_SOURCES = gstomx.c gstomx.h \
 libgstomx_la_LIBADD = $(OMXCORE_LIBS) $(GST_LIBS) $(GST_BASE_LIBS) -lgstvideo-0.10 $(top_builddir)/util/libutil.la
 libgstomx_la_CFLAGS = $(OMXCORE_CFLAGS) $(OMXTIAUDIODEC_CFLAGS) $(USE_OMXTIAUDIODEC) $(GST_CFLAGS) $(GST_BASE_CFLAGS) -I$(top_srcdir)/util \
 	-Dxdc_target_name__=GCArmv5T -Dxdc_target_types__=gnu/targets/arm/std.h -Dxdc__RESTRICT__ \
-    	-I$(OMX_INSTALL_DIR)/packages/ti/omx/interfaces/openMaxv11 \
+    	-I$(OMX_INSTALL_DIR)/include/openMaxv11 \
     	-I$(OMX_INSTALL_DIR)/packages \
     	-I$(OSAL_INSTALL_DIR)/sources \
     	-I$(CE_INSTALL_DIR)/packages \
