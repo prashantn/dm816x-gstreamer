@@ -23,7 +23,10 @@ BUILDING
 
 ** For DM816x/DM814x set PLATFORM=dm816x 
 
-3) Execute this command from the top-level "gstreamer_ti" directory:
+3) Export cross compiler location in your environment
+% export PATH=/home/user/arm-2009q1/bin:$PATH
+
+4) Execute this command from the top-level "gstreamer_ti" directory:
 % make all install VERBOSE=true
 
 If you want less output during the build, you can omit the "VERBOSE=true"
