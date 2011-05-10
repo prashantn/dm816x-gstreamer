@@ -26,8 +26,17 @@ BUILDING
 3) Export cross compiler location in your environment
 % export PATH=/home/user/arm-2009q1/bin:$PATH
 
-4) Execute this command from the top-level "gstreamer_ti" directory:
+4) Use OMX package from https://bksingh@github.com/bksingh/ezsdk-omx.git
+% git clone https://bksingh@github.com/bksingh/ezsdk-omx.git
+% export EZSDK_INSTALL_DIR=<SDK_INSTALL_LOCATION>
+% make 
+
+5) Update OMX_INSTALL_DIR variable in EZSDK Rules.make to point to above OMX package installation directory.
+
+6) Execute this command from the top-level "gstreamer_ti" directory:
 % make all install VERBOSE=true
+
+7) Copy libOMX_Core.so from gstreamer_ti/ti_build/gst-openmax/ext/lib to lib directory on target root filesystem.
 
 If you want less output during the build, you can omit the "VERBOSE=true"
 above.
@@ -46,6 +55,9 @@ Run the following commands on target board to export gstreamer environment varia
 #export GST_PLUGIN_PATH=/opt/gstreamer/lib/gstreamer-0.10
 #export PATH=/opt/gstreamer/bin:$PATH
 
+For the first time, you need to run ldconfig command to ensure that ld cache is updated to point to libOMX_Core.so file
+
+# ldconfig 
 
 After this, run your favorite gstreamer pipeline examples
 
