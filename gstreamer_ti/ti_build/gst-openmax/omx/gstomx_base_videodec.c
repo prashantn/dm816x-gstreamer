@@ -175,6 +175,17 @@ sink_setcaps (GstPad *pad,
         }
     }
 
+    /* REVISIT: to use OMX package from EZSDK you need to configure ports  */
+    #ifdef USE_OMXTICORE
+    {
+        if (self->initialize_port) {
+            self->extendedParams.width = width;
+            self->extendedParams.height = height;
+            self->initialize_port(omx_base);
+        }
+    }
+    #endif
+
     /* Input port configuration. */
     {
         OMX_PARAM_PORTDEFINITIONTYPE param;

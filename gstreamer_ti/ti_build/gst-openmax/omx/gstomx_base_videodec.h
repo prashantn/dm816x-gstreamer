@@ -35,6 +35,14 @@ typedef struct GstOmxBaseVideoDecClass GstOmxBaseVideoDecClass;
 
 #include "gstomx_base_filter.h"
 
+struct _extendedParams 
+{
+    gint width;
+    gint height;
+    gint framerate_num;
+    gint framerate_denom;
+};
+
 struct GstOmxBaseVideoDec
 {
     GstOmxBaseFilter omx_base;
@@ -44,6 +52,8 @@ struct GstOmxBaseVideoDec
     gint framerate_denom;
     gboolean inport_configured;
     GstPadSetCapsFunction sink_setcaps;
+    GstOmxBaseFilterCb initialize_port;
+    struct _extendedParams extendedParams;
 
     gint rowstride;     /**< rowstride of output buffer */
 };
