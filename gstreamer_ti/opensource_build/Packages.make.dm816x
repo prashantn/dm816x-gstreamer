@@ -119,7 +119,7 @@ BASE_PACKAGES += $(PACKAGE_plugins_base_BUILD_TARGET)
 #------------------------------------------------------------------------------
 PACKAGE_plugins_good_BUILD_TARGET        = plugins_good
 PACKAGE_plugins_good_ARCHIVE_BASENAME    = gst-plugins-good-0.10.27
-PACKAGE_plugins_good_CONFIGURE_OPTS     = --disable-x --disable-shout2 --enable-experimental
+PACKAGE_plugins_good_CONFIGURE_OPTS     = --disable-x --disable-shout2 --enable-experimental --disable-aalib 
 PACKAGE_plugins_good_PRECONFIG_PATCHES   = \
     0001-v4l2-fix-handling-of-RGB32-BGR32-formats.patch \
     0002-v4l2sink-Add-rotation-support.patch \
