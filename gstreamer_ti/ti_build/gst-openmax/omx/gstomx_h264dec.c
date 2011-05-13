@@ -87,12 +87,13 @@ initialize_port (GstOmxBaseFilter *omx_base)
     OMX_ERRORTYPE err;
     OMX_PARAM_PORTDEFINITIONTYPE paramPort;
     gint width, height;
+    GOmxPort *port;
         
     self = GST_OMX_BASE_VIDEODEC (omx_base);
     gomx = (GOmxCore *) omx_base->gomx;
 
     GST_INFO_OBJECT (omx_base, "begin");
-
+   
     _G_OMX_INIT_PARAM (&param);
     param.nPorts = 2;
     param.nStartPortNumber = 0;
@@ -101,7 +102,6 @@ initialize_port (GstOmxBaseFilter *omx_base)
     g_assert (err == OMX_ErrorNone);
     GST_DEBUG_OBJECT (self, "OMX_IndexParamVideoInit");
 
-    /* Output port configuration. */
     GST_DEBUG_OBJECT (self, "G_OMX_PORT_GET_DEFINITION (output)");
     G_OMX_PORT_GET_DEFINITION (omx_base->out_port, &paramPort);
 
@@ -124,7 +124,7 @@ initialize_port (GstOmxBaseFilter *omx_base)
     paramPort.format.video.nStride = ((width + (2 * 32) + 127) & 0xFFFFFF80);
     paramPort.format.video.nSliceHeight = 0;
 
-    paramPort.format.video.nBitrate = 25000000; //25000000;
+    paramPort.format.video.nBitrate = 25000000;
     paramPort.format.video.xFramerate = 60 << 16;
     paramPort.format.video.bFlagErrorConcealment = OMX_FALSE;
     paramPort.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
@@ -132,6 +132,20 @@ initialize_port (GstOmxBaseFilter *omx_base)
 
     GST_DEBUG_OBJECT (self, "G_OMX_PORT_SET_DEFINITION (output)");
     G_OMX_PORT_SET_DEFINITION (omx_base->out_port, &paramPort);
+
+    port = g_omx_core_get_port (gomx, "input", 0);
+
+    GST_DEBUG_OBJECT(self, "SendCommand(PortEnable, %d)", port->port_index);
+    OMX_SendCommand (g_omx_core_get_handle (port->core),
+            OMX_CommandPortEnable, port->port_index, NULL);
+    g_sem_down (port->core->port_sem);
+
+    port = g_omx_core_get_port (gomx, "output", 1);
+
+    GST_DEBUG_OBJECT(self, "SendCommand(PortEnable, %d)", port->port_index);
+    OMX_SendCommand (g_omx_core_get_handle (port->core),
+            OMX_CommandPortEnable, port->port_index, NULL);
+    g_sem_down (port->core->port_sem);
 
     GST_INFO_OBJECT (omx_base, "end");
 }
