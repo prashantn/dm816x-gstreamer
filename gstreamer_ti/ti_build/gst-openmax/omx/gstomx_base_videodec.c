@@ -441,9 +441,9 @@ type_instance_init (GTypeInstance *instance,
     omx_base->gomx->settings_changed_cb = settings_changed_cb;
 
     omx_base->in_port->omx_allocate = TRUE;
-    omx_base->out_port->omx_allocate = FALSE;
+    omx_base->out_port->omx_allocate = TRUE;
     omx_base->in_port->share_buffer = FALSE;
-    omx_base->out_port->share_buffer = TRUE;
+    omx_base->out_port->share_buffer = FALSE;
 
     gst_pad_set_setcaps_function (omx_base->sinkpad,
             GST_DEBUG_FUNCPTR (sink_setcaps));
