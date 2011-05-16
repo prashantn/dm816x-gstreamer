@@ -319,8 +319,9 @@ src_setcaps (GstPad *pad, GstCaps *caps)
 
         G_OMX_PORT_GET_DEFINITION (omx_base->out_port, &param);
 
+        /* REVISIT: if rowstride is not defined then use the one from output params */
         if (!rowstride)
-            rowstride = gst_video_format_get_component_width (format, 0, width);
+            rowstride = param.format.video.nStride;
 
         param.format.video.eColorFormat = g_omx_fourcc_to_colorformat (
                 gst_video_format_to_fourcc (format));
