@@ -629,9 +629,7 @@ g_omx_port_recv (GOmxPort *port)
                     gst_buffer_unref (buf);
 
                 buf = buffer_alloc (port, omx_buffer->nFilledLen);
-                memcpy (GST_BUFFER_DATA (buf),
-                        omx_buffer->pBuffer + omx_buffer->nOffset,
-                        omx_buffer->nFilledLen);
+                memcpy (GST_BUFFER_DATA (buf), omx_buffer->pBuffer, omx_buffer->nFilledLen);
             }
             else if (buf)
             {
