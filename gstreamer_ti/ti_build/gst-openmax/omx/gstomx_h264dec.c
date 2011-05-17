@@ -112,6 +112,7 @@ initialize_port (GstOmxBaseFilter *omx_base)
     paramPort.nPortIndex = 1;
     paramPort.eDir = OMX_DirOutput;
     paramPort.nBufferCountMin = 1;
+    paramPort.nBufferCountActual = 8;
     paramPort.bEnabled = OMX_TRUE;
     paramPort.bPopulated = OMX_FALSE;
     paramPort.eDomain = OMX_PortDomainVideo;
