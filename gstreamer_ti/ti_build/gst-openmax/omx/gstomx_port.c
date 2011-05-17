@@ -668,6 +668,10 @@ g_omx_port_recv (GOmxPort *port)
             DEBUG (port, "empty buffer %p", omx_buffer); /* keep looping */
         }
 
+/* REVISIT: I don't know why but EZSDK OMX component sets this read-only 
+   flag for resolution > QVGA
+ */
+#if 0
 #ifdef USE_OMXTICORE
         if (omx_buffer->nFlags & OMX_TI_BUFFERFLAG_READONLY)
         {
@@ -705,6 +709,7 @@ g_omx_port_recv (GOmxPort *port)
             release_buffer (port, omx_buffer);
         }
         else
+#endif
 #endif
         {
             setup_shared_buffer (port, omx_buffer);
