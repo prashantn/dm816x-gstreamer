@@ -61,3 +61,8 @@ For the first time, you need to run ldconfig command to ensure that ld cache is 
 
 After this, run your favorite gstreamer pipeline examples
 
+NOTE:
+
+1) by default fbdev is enabled for RGB888 mode but fbdevsink sink does not support this. And to change to RGB565 use the below command on target board
+   # fbset -depth 24 -rgba 5/11,6/5,5/0,0/0
+
