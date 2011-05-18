@@ -23,6 +23,7 @@
 #define GSTOMX_H
 
 #include <gst/gst.h>
+#include <stdio.h>
 
 G_BEGIN_DECLS
 
