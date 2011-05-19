@@ -114,7 +114,8 @@ CONFIGURE_PACKAGES   = $(addsuffix .configure, $(PACKAGES))
 .PHONY: $(CONFIGURE_PACKAGES)
 $(CONFIGURE_PACKAGES): %.configure : %.patch_preconfig
 	@echo "***** Configuring $(basename $@)"
-	$(CMD_PREFIX) cd $(PACKAGE_$(basename $@)_ARCHIVE_BASENAME); ./configure $(CONFIGURE_VERBOSE) $(CC_CONFIGURE_OPTS) $(PACKAGE_$(basename $@)_CONFIGURE_OPTS)
+	$(CMD_PREFIX) if [ "$(PACKAGE_$(basename $@)_RUN_AUTOGEN)" = "true" ]; then cd $(PACKAGE_$(basename $@)_ARCHIVE_BASENAME) && ./autogen.sh --disable-gtk-doc --noconfigure; fi
+	$(CMD_PREFIX) cd $(PACKAGE_$(basename $@)_ARCHIVE_BASENAME) && ./configure $(CONFIGURE_VERBOSE) $(CC_CONFIGURE_OPTS) $(PACKAGE_$(basename $@)_CONFIGURE_OPTS)
 
 #------------------------------------------------------------------------------
 # Apply patch files to a package before the configure step

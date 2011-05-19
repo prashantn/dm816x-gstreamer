@@ -109,6 +109,7 @@ PACKAGE_plugins_base_PRECONFIG_PATCHES  = \
     0022-stride-support-for-32bit-RGB-formats.patch \
     0023-ffmpegcolorspace-support-for-rowstride.patch \
     0024-discoverer-rowstride-support.patch 
+PACKAGE_plugins_base_RUN_AUTOGEN        = true
 PACKAGE_plugins_base_CONFIGURE_OPTS     = --disable-examples --disable-x --disable-ogg --disable-vorbis --disable-pango $(ALSA_SUPPORT)
 PACKAGE_plugins_base_POSTCONFIG_PATCHES =
 PACKAGE_plugins_base_DESCRIPTION        = GStreamer plugins base library
