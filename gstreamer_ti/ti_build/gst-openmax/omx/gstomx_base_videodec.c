@@ -333,6 +333,11 @@ src_setcaps (GstPad *pad, GstCaps *caps)
         GST_INFO_OBJECT (omx_base,"G_OMX_PORT_SET_DEFINITION");
     }
 
+    /* save the src caps later needed by omx transport buffer */
+    if (omx_base->out_port->caps)
+        gst_caps_unref (omx_base->out_port->caps);
+    omx_base->out_port->caps = gst_caps_copy (caps);
+
     return TRUE;
 }
 
@@ -444,7 +449,9 @@ type_instance_init (GTypeInstance *instance,
     omx_base->in_port->omx_allocate = TRUE;
     omx_base->out_port->omx_allocate = TRUE;
     omx_base->in_port->share_buffer = FALSE;
+    omx_base->in_port->always_copy  = TRUE;
     omx_base->out_port->share_buffer = FALSE;
+    omx_base->out_port->always_copy = FALSE;
 
     gst_pad_set_setcaps_function (omx_base->sinkpad,
             GST_DEBUG_FUNCPTR (sink_setcaps));

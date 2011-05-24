@@ -26,6 +26,7 @@
 #include "gstomx_port.h"
 #include "gstomx.h"
 #include "gstomx_base_filter.h"
+#include "gstomx_buffertransport.h"
 
 #ifdef USE_OMXTICORE
 #  include <OMX_TI_Common.h>
@@ -628,8 +629,13 @@ g_omx_port_recv (GOmxPort *port)
                 if (buf)
                     gst_buffer_unref (buf);
 
-                buf = buffer_alloc (port, omx_buffer->nFilledLen);
-                memcpy (GST_BUFFER_DATA (buf), omx_buffer->pBuffer, omx_buffer->nFilledLen);
+                if (port->always_copy) {
+                    buf = buffer_alloc (port, omx_buffer->nFilledLen);
+                    memcpy (GST_BUFFER_DATA (buf), omx_buffer->pBuffer, omx_buffer->nFilledLen);
+                }
+                else {
+                    buf = gst_omxbuffertransport_new (port, omx_buffer);
+                }
             }
             else if (buf)
             {
@@ -713,7 +719,8 @@ g_omx_port_recv (GOmxPort *port)
 #endif
         {
             setup_shared_buffer (port, omx_buffer);
-            release_buffer (port, omx_buffer);
+            if (port->always_copy) 
+                release_buffer (port, omx_buffer);
         }
     }
 

@@ -120,7 +120,7 @@ static void gst_omxbuffertransport_finalize(GstBuffer *gstbuffer)
     GST_LOG("end finalize\n");
 }
 
-GstBuffer* gst_omxbuffertransport_new(GOmxPort *port, OMX_BUFFERHEADERTYPE *buffer)
+GstBuffer* gst_omxbuffertransport_new (GOmxPort *port, OMX_BUFFERHEADERTYPE *buffer)
 {
     GstOmxBufferTransport *tdt_buf;
 
@@ -131,6 +131,7 @@ GstBuffer* gst_omxbuffertransport_new(GOmxPort *port, OMX_BUFFERHEADERTYPE *buff
 
     GST_BUFFER_SIZE(tdt_buf) = buffer->nFilledLen;
     GST_BUFFER_DATA(tdt_buf) = buffer->pBuffer;
+    gst_buffer_set_caps(GST_BUFFER (tdt_buf), port->caps);
 
     if (GST_BUFFER_DATA(tdt_buf) == NULL) {
         gst_mini_object_unref(GST_MINI_OBJECT(tdt_buf));

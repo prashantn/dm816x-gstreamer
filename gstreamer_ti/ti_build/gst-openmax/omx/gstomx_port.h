@@ -69,6 +69,12 @@ struct GOmxPort
 
     /** variable to indicate if the conversion from elementary to intermediate video data is done */
     gboolean vp6_hack;  /* only needed for vp6 */
+
+    /** varaible to indicate if we need to perform memcpy of incoming or outgoing gstreamer buffer into OMX buffer. */
+    gboolean always_copy;
+
+    /** variable to store caps for sinkpad */
+    GstCaps *caps;
 };
 
 /* Macros. */

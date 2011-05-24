@@ -80,6 +80,11 @@ setup_ports (GstOmxBaseFilter *self)
         self->in_port->share_buffer = FALSE;
         self->out_port->share_buffer = FALSE;
     }
+    else if (g_getenv ("OMX_ALWAYS_COPY_OUTPUT")) {
+        GST_DEBUG_OBJECT (self, "OMX_ALWAYS_COPY_OUTPUT");
+        self->out_port->always_copy = TRUE;
+
+    }
 
     GST_DEBUG_OBJECT (self, "in_port->omx_allocate=%d, out_port->omx_allocate=%d",
             self->in_port->omx_allocate, self->out_port->omx_allocate);
