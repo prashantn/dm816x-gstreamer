@@ -1,12 +1,32 @@
+/*
+ * Copyright (C) 2011-2012 Texas Instruments Inc
+ *
+ * Author: Brijesh Singh <bksingh@ti.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation
+ * version 2.1 of the License.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
 
 #ifndef __GST_PERF_H__
 #define __GST_PERF_H__
 
 #include <pthread.h>
-
+#include <stdio.h>
+#include <string.h>
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
-
 
 G_BEGIN_DECLS
 
@@ -39,19 +59,12 @@ struct _Gstperf
   GstClockTime start_ts;
   GstClockTime last_ts;
   GstClockTime interval_ts;
-  guint data_probe_id;
 
   gboolean print_fps, print_arm_load, fps_update_interval;
-  gboolean  print_throughput;
-
-/*
-  gboolean sync;
-  gboolean use_text_overlay;
-  gboolean signal_measurements;
-  GstClockTime fps_update_interval;
-  gdouble max_fps;
-  gdouble min_fps;
-*/
+  unsigned long int  total;
+  unsigned long int  prevTotal;
+  unsigned long int userTime;
+  unsigned long int  prevuserTime;
 };
 
 /* _GstperfClass object */
