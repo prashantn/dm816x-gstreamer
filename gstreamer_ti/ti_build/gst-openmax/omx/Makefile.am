@@ -44,7 +44,8 @@ libgstomx_la_SOURCES = gstomx.c gstomx.h \
 		       gstomx_filereadersrc.c gstomx_filereadersrc.h \
                swcsc.c swcsc.h \
                gstperf.c gstperf.h  \
-               gstomx_buffertransport.c gstomx_buffertransport.h
+               gstomx_buffertransport.c gstomx_buffertransport.h \
+               gstomx_ctrl.c gstomx_ctrl.h 
 
 libgstomx_la_LIBADD = $(OMXCORE_LIBS) $(GST_LIBS) $(GST_BASE_LIBS) -lgstvideo-0.10 $(top_builddir)/util/libutil.la
 libgstomx_la_CFLAGS = $(OMXCORE_CFLAGS) $(OMXTIAUDIODEC_CFLAGS) $(USE_OMXTIAUDIODEC) $(GST_CFLAGS) $(GST_BASE_CFLAGS) -I$(top_srcdir)/util \
@@ -59,7 +60,10 @@ libgstomx_la_CFLAGS = $(OMXCORE_CFLAGS) $(OMXTIAUDIODEC_CFLAGS) $(USE_OMXTIAUDIO
     	-I$(XDC_INSTALL_DIR)/packages \
     	-I$(IPC_INSTALL_DIR)/packages \
     	-I$(SYSLINK_INSTALL_DIR) \
-    	-I$(HDVPSS_INSTALL_DIR)/packages 
+    	-I$(HDVPSS_INSTALL_DIR)/packages \
+    	-I$(OMX_INSTALL_DIR)/include \
+    	-I$(OMX_INSTALL_DIR)/packages/ti/omx/comp/ctrl
+        
 
 libgstomx_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -L../ext/lib -lOMX_Core -pthread 
 

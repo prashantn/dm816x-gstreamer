@@ -33,6 +33,8 @@ enum
     ARG_X_SCALE,
     ARG_Y_SCALE,
     ARG_ROTATION,
+    ARG_TOP,
+    ARG_LEFT,
 };
 
 static GstCaps *
@@ -125,99 +127,16 @@ setcaps (GstBaseSink *gst_sink,
 
     {
         GstStructure *structure;
-        const GValue *framerate = NULL;
         gint width;
         gint height;
-        OMX_COLOR_FORMATTYPE color_format = OMX_COLOR_FormatUnused;
 
         structure = gst_caps_get_structure (caps, 0);
 
         gst_structure_get_int (structure, "width", &width);
         gst_structure_get_int (structure, "height", &height);
 
-        if (strcmp (gst_structure_get_name (structure), "video/x-raw-yuv") == 0)
-        {
-            guint32 fourcc;
-
-            framerate = gst_structure_get_value (structure, "framerate");
-
-            if (gst_structure_get_fourcc (structure, "format", &fourcc))
-            {
-                color_format = g_omx_fourcc_to_colorformat (fourcc);
-            }
-        }
-
-        {
-            OMX_PARAM_PORTDEFINITIONTYPE param;
-
-            memset (&param, 0, sizeof (param));
-            param.nSize = sizeof (OMX_PARAM_PORTDEFINITIONTYPE);
-            param.nVersion.s.nVersionMajor = 1;
-            param.nVersion.s.nVersionMinor = 1;
-
-            param.nPortIndex = 0;
-            OMX_GetParameter (gomx->omx_handle, OMX_IndexParamPortDefinition, &param);
-
-            switch (color_format)
-            {
-                case OMX_COLOR_FormatYUV420PackedPlanar:
-                    param.nBufferSize = (width * height * 1.5);
-                    break;
-                case OMX_COLOR_FormatYCbYCr:
-                case OMX_COLOR_FormatCbYCrY:
-                    param.nBufferSize = (width * height * 2);
-                    break;
-                default:
-                  break;
-            }
-
-            param.format.video.nFrameWidth = width;
-            param.format.video.nFrameHeight = height;
-            param.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
-            param.format.video.eColorFormat = color_format;
-            if (framerate)
-            {
-                /* convert to Q.16 */
-                param.format.video.xFramerate =
-                    (gst_value_get_fraction_numerator (framerate) << 16) /
-                    gst_value_get_fraction_denominator (framerate);
-            }
-
-            OMX_SetParameter (gomx->omx_handle, OMX_IndexParamPortDefinition, &param);
-        }
-
-        {
-            OMX_CONFIG_ROTATIONTYPE config;
-
-            memset (&config, 0, sizeof (config));
-            config.nSize = sizeof (OMX_CONFIG_ROTATIONTYPE);
-            config.nVersion.s.nVersionMajor = 1;
-            config.nVersion.s.nVersionMinor = 1;
-
-            config.nPortIndex = 0;
-            OMX_GetConfig (gomx->omx_handle, OMX_IndexConfigCommonScale, &config);
-
-            config.nRotation = self->rotation;
-
-            OMX_SetConfig (gomx->omx_handle, OMX_IndexConfigCommonRotate, &config);
-        }
-
-        {
-            OMX_CONFIG_SCALEFACTORTYPE config;
-
-            memset (&config, 0, sizeof (config));
-            config.nSize = sizeof (OMX_CONFIG_SCALEFACTORTYPE);
-            config.nVersion.s.nVersionMajor = 1;
-            config.nVersion.s.nVersionMinor = 1;
-
-            config.nPortIndex = 0;
-            OMX_GetConfig (gomx->omx_handle, OMX_IndexConfigCommonScale, &config);
-
-            config.xWidth = self->x_scale;
-            config.xHeight = self->y_scale;
-
-            OMX_SetConfig (gomx->omx_handle, OMX_IndexConfigCommonScale, &config);
-        }
+        omx_base->width = width;
+        omx_base->height = height;
     }
 
     return TRUE;
@@ -243,6 +162,12 @@ set_property (GObject *object,
             break;
         case ARG_ROTATION:
             self->rotation = g_value_get_uint (value);
+            break;
+        case ARG_TOP:
+            self->top = g_value_get_uint (value);
+            break;
+        case ARG_LEFT:
+            self->left = g_value_get_uint (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -271,6 +196,12 @@ get_property (GObject *object,
         case ARG_ROTATION:
             g_value_set_uint (value, self->rotation);
             break;
+        case ARG_LEFT:
+            g_value_set_uint (value, self->left);
+            break;
+        case ARG_TOP:
+            g_value_set_uint (value, self->top);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
             break;
@@ -292,6 +223,7 @@ type_class_init (gpointer g_class,
     gobject_class->set_property = set_property;
     gobject_class->get_property = get_property;
 
+    #if 0
     g_object_class_install_property (gobject_class, ARG_X_SCALE,
                                      g_param_spec_uint ("x-scale", "X Scale",
                                                         "How much to scale the image in the X axis (100 means nothing)",
@@ -306,6 +238,16 @@ type_class_init (gpointer g_class,
                                      g_param_spec_uint ("rotation", "Rotation",
                                                         "Rotation angle",
                                                         0, G_MAXUINT, 360, G_PARAM_READWRITE));
+    #endif
+
+    g_object_class_install_property (gobject_class, ARG_TOP,
+                                     g_param_spec_uint ("top", "Top",
+                                                        "The top most co-ordinate on video display",
+                                                        0, G_MAXUINT, 100, G_PARAM_READWRITE));
+    g_object_class_install_property (gobject_class, ARG_LEFT,
+                                     g_param_spec_uint ("left", "left",
+                                                        "The left most co-ordinate on video display",
+                                                        0, G_MAXUINT, 100, G_PARAM_READWRITE));
 }
 
 static void

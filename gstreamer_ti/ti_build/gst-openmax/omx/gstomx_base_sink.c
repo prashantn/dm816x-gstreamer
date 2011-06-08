@@ -25,8 +25,14 @@
 #include "gstomx_base_sink.h"
 #include "gstomx.h"
 #include "gstomx_interface.h"
+#include "gstomx_ctrl.h"
 
 #include <string.h> /* for memset, memcpy */
+
+#include <xdc/std.h>
+#include <OMX_TI_Index.h>
+#include <OMX_TI_Common.h>
+#include <omx_vfdc.h>
 
 static inline gboolean omx_init (GstOmxBaseSink *self);
 
@@ -41,13 +47,109 @@ enum
 static void init_interfaces (GType type);
 GSTOMX_BOILERPLATE_FULL (GstOmxBaseSink, gst_omx_base_sink, GstBaseSink, GST_TYPE_BASE_SINK, init_interfaces);
 
+static gboolean 
+configure_input_port (GstBaseSink *gst_sink)
+{
+    GstOmxBaseSink *omx_base, *self;
+    GOmxCore *gomx;
+    OMX_PARAM_PORTDEFINITIONTYPE param;
+    OMX_PARAM_VFDC_DRIVERINSTID driverId;
+    OMX_PARAM_VFDC_CREATEMOSAICLAYOUT mosaicLayout;
+    OMX_CONFIG_VFDC_MOSAICLAYOUT_PORT2WINMAP port2Winmap;
+    OMX_PARAM_BUFFER_MEMORYTYPE memTypeCfg;
+    gint width, height;
+
+    self = omx_base = GST_OMX_BASE_SINK (gst_sink);
+    gomx = (GOmxCore *) omx_base->gomx;
+    width = self->width;
+    height = self->height;
+
+    /* if port is already configured before then no need to
+     * configure again.
+     */
+    if (self->port_initialized)
+        return TRUE;
+
+    
+    /* set the video mode */
+    {
+        GstOmxCtrl *omx_ctrl;
+
+        omx_ctrl = g_object_new (gst_omxctrl_get_type (), NULL);
+        g_object_set (omx_ctrl, "library-name" "libOMX_Core.so", (gchar*)NULL);
+        g_object_set (omx_ctrl, "component-name" "OMX.TI.VPSS3M.CTRL.DC", (gchar*)NULL);
+        g_object_set (omx_ctrl, "component-role" "", (gchar*)NULL);
+
+        gstomx_ctrl_set_dc_mode (omx_ctrl, "1080");
+    }
+
+    /* set input port definition */
+    G_OMX_PORT_GET_DEFINITION (omx_base->in_port, &param);
+
+    param.nBufferSize = (width * height * 2);
+    param.format.video.nFrameWidth = width;
+    param.format.video.nFrameHeight = height;
+    param.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
+    param.format.video.eColorFormat = OMX_COLOR_FormatYCbYCr;
+    param.nBufferCountActual = 5;
+
+    G_OMX_PORT_SET_DEFINITION (omx_base->in_port, &param);
+    g_omx_port_setup (omx_base->in_port, &param);
+ 
+    /* set display driver mode */
+    _G_OMX_INIT_PARAM (&driverId);
+    driverId.nDrvInstID = 0; /* on chip HDMI */
+    driverId.eDispVencMode = OMX_DC_MODE_1080P_60;
+
+    OMX_SetParameter (gomx->omx_handle, (OMX_INDEXTYPE) OMX_TI_IndexParamVFDCDriverInstId, &driverId);
+
+    /* set mosiac window information */
+    _G_OMX_INIT_PARAM (&mosaicLayout);
+    mosaicLayout.nPortIndex = 0;
+    mosaicLayout.sMosaicWinFmt[0].winStartX = 0;
+    mosaicLayout.sMosaicWinFmt[0].winStartY = 0;
+    mosaicLayout.sMosaicWinFmt[0].winWidth = width;
+    mosaicLayout.sMosaicWinFmt[0].winHeight = height;
+    mosaicLayout.sMosaicWinFmt[0].pitch[VFDC_YUV_INT_ADDR_IDX] = width * 2;
+    mosaicLayout.sMosaicWinFmt[0].dataFormat =  VFDC_DF_YUV422I_YVYU;
+    mosaicLayout.sMosaicWinFmt[0].bpp = VFDC_BPP_BITS16;
+    mosaicLayout.sMosaicWinFmt[0].priority = 0;
+    mosaicLayout.nDisChannelNum = 0;
+    mosaicLayout.nNumWindows = 1;
+
+    OMX_SetParameter (gomx->omx_handle, (OMX_INDEXTYPE) OMX_TI_IndexParamVFDCCreateMosaicLayout, 
+        &mosaicLayout);
+
+    /* set port to window mapping */
+    _G_OMX_INIT_PARAM (&port2Winmap);
+    port2Winmap.nLayoutId = 0; 
+    port2Winmap.numWindows = 1; 
+    port2Winmap.omxPortList[0] = OMX_VFDC_INPUT_PORT_START_INDEX + 0;
+
+    OMX_SetConfig (gomx->omx_handle, (OMX_INDEXTYPE) OMX_TI_IndexConfigVFDCMosaicPort2WinMap, &port2Winmap);
+
+    /* set default input memory to Raw */
+    _G_OMX_INIT_PARAM (&memTypeCfg);
+    memTypeCfg.nPortIndex = 0;
+    memTypeCfg.eBufMemoryType = OMX_BUFFER_MEMORY_DEFAULT;
+    
+    OMX_SetParameter (gomx->omx_handle, OMX_TI_IndexParamBuffMemType, &memTypeCfg);
+ 
+    /* enable the input port */
+    OMX_SendCommand (gomx->omx_handle, OMX_CommandPortEnable, omx_base->in_port->port_index, NULL);
+    g_sem_down (omx_base->in_port->core->port_sem);
+
+    self->port_initialized = TRUE;
+
+    return TRUE;
+}
+
 static void
 setup_ports (GstOmxBaseSink *self)
 {
     OMX_PARAM_PORTDEFINITIONTYPE param;
 
     /* Input port configuration. */
-
     self->in_port = g_omx_core_get_port (self->gomx, "in", 0);
     G_OMX_PORT_GET_DEFINITION (self->in_port, &param);
     g_omx_port_setup (self->in_port, &param);
@@ -80,11 +182,13 @@ change_state (GstElement *element,
                 self->initialized = TRUE;
             }
 
-            g_omx_core_prepare (self->gomx);
+            if (self->port_initialized)
+                g_omx_core_prepare (self->gomx);
             break;
 
         case GST_STATE_CHANGE_READY_TO_PAUSED:
-            g_omx_core_start (self->gomx);
+            if (self->port_initialized)
+                g_omx_core_start (self->gomx);
             break;
 
         case GST_STATE_CHANGE_PAUSED_TO_READY:
@@ -155,6 +259,11 @@ render (GstBaseSink *gst_base,
 
     GST_LOG_OBJECT (self, "begin");
     PRINT_BUFFER (self, buf);
+
+    if (!self->port_initialized)
+    {
+        configure_input_port (gst_base);   
+    }
 
     GST_LOG_OBJECT (self, "state: %d", gomx->omx_state);
 
