@@ -237,7 +237,7 @@ src_getcaps (GstPad *pad)
 
         caps = gst_caps_new_empty ();
 
-        for (i=0; i<2; i++)
+        for (i=1; i<2; i++)
         {
             GstStructure *struc = gst_structure_new (
                     (i ? "video/x-raw-yuv-strided" : "video/x-raw-yuv"),
