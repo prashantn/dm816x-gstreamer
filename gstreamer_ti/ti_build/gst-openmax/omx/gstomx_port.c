@@ -232,7 +232,11 @@ g_omx_port_allocate_buffers (GOmxPort *port)
         {
             gpointer buffer_data = NULL;
 
-            if (! port->share_buffer)
+            if (!port->always_copy)
+            {
+                buffer_data = port->share_buffer_info->pBuffer[i];
+            }
+            else if (! port->share_buffer)
             {
                 buffer_data = g_malloc (size);
             }
@@ -254,7 +258,7 @@ g_omx_port_allocate_buffers (GOmxPort *port)
             }
         }
     }
-
+    
     DEBUG (port, "end");
 }
 
@@ -323,7 +327,8 @@ g_omx_port_start_buffers (GOmxPort *port)
          * the queue, otherwise send to omx for processing (fill it up). */
         if (port->type == GOMX_PORT_INPUT)
         {
-            g_omx_core_got_buffer (port->core, port, omx_buffer);
+            if (port->always_copy)
+                g_omx_core_got_buffer (port->core, port, omx_buffer);
         }
         else
         {
@@ -339,6 +344,12 @@ void
 g_omx_port_push_buffer (GOmxPort *port,
                         OMX_BUFFERHEADERTYPE *omx_buffer)
 {
+    if (!port->always_copy && omx_buffer->pAppPrivate)
+    {
+        gst_buffer_unref (omx_buffer->pAppPrivate);
+        omx_buffer->pAppPrivate = NULL;
+    }
+
     async_queue_push (port->queue, omx_buffer);
 }
 
@@ -424,8 +435,11 @@ send_prep_codec_data (GOmxPort *port, OMX_BUFFERHEADERTYPE *omx_buffer, GstBuffe
         omx_buffer->pBuffer = malloc (omx_buffer->nFilledLen);
     }
 
-    memcpy (omx_buffer->pBuffer + omx_buffer->nOffset,
+    if (port->always_copy) 
+    {
+        memcpy (omx_buffer->pBuffer + omx_buffer->nOffset,
             GST_BUFFER_DATA (buf), omx_buffer->nFilledLen);
+    }
 }
 
 static void
@@ -446,8 +460,11 @@ send_prep_buffer_data (GOmxPort *port, OMX_BUFFERHEADERTYPE *omx_buffer, GstBuff
     }
     else
     {
-        omx_buffer->nFilledLen = MIN (GST_BUFFER_SIZE (buf),
+        if (port->always_copy)
+        {
+            omx_buffer->nFilledLen = MIN (GST_BUFFER_SIZE (buf),
                 omx_buffer->nAllocLen - omx_buffer->nOffset);
+        }
 
         if (G_UNLIKELY (port->vp6_hack))
         {
@@ -467,8 +484,11 @@ send_prep_buffer_data (GOmxPort *port, OMX_BUFFERHEADERTYPE *omx_buffer, GstBuff
         }
         else
         {
-            memcpy (omx_buffer->pBuffer + omx_buffer->nOffset,
+            if (port->always_copy) 
+            {
+                memcpy (omx_buffer->pBuffer + omx_buffer->nOffset,
                     GST_BUFFER_DATA (buf), omx_buffer->nFilledLen);
+            }
         }
     }
 
@@ -503,6 +523,40 @@ send_prep_eos_event (GOmxPort *port, OMX_BUFFERHEADERTYPE *omx_buffer, GstEvent 
     }
 }
 
+static gint
+omxbuffer_index (GOmxPort *port, OMX_U8 *pBuffer)
+{
+    int i;
+    
+    for (i=0; i < port->num_buffers; i++) 
+        if (port->buffers[i]->pBuffer == pBuffer)
+            return i;
+
+    return 0; 
+}
+
+/* we are configured not copy the input buffer then update the pBuffer
+ * to point to the recieved buffer and save the gstreamer buffer reference
+ * in pAppPrivate so that it can be later freed up.
+ */
+static OMX_BUFFERHEADERTYPE *
+get_input_buffer_header (GOmxPort *port, GstBuffer *src)
+{
+    OMX_BUFFERHEADERTYPE *omx_buffer;
+    int index;
+
+    index = omxbuffer_index(port, GST_BUFFER_DATA (src));
+     
+    omx_buffer = port->buffers[index];
+
+    omx_buffer->pBuffer = GST_BUFFER_DATA(src);
+    omx_buffer->nOffset = GST_GET_OMXBUFFER(src)->nOffset;
+    omx_buffer->nFilledLen = GST_BUFFER_SIZE (src);
+    omx_buffer->pAppPrivate = gst_buffer_ref (src);
+
+    return omx_buffer;
+}
+
 /**
  * Send a buffer/event to the OMX component.  This handles conversion of
  * GST buffer, codec-data, and EOS events to the equivalent OMX buffer.
@@ -520,8 +574,8 @@ g_omx_port_send (GOmxPort *port, gpointer obj)
 
     if (GST_IS_BUFFER (obj))
     {
-        if (G_UNLIKELY (GST_BUFFER_FLAG_IS_SET (obj, GST_BUFFER_FLAG_IN_CAPS)))
-            send_prep = (SendPrep)send_prep_codec_data;
+        if (G_UNLIKELY (GST_BUFFER_FLAG_IS_SET (obj, GST_BUFFER_FLAG_IN_CAPS))) 
+            send_prep = (SendPrep)send_prep_codec_data;            
         else
             send_prep = (SendPrep)send_prep_buffer_data;
     }
@@ -534,30 +588,42 @@ g_omx_port_send (GOmxPort *port, gpointer obj)
     if (G_LIKELY (send_prep))
     {
         gint ret;
-        OMX_BUFFERHEADERTYPE *omx_buffer = request_buffer (port);
+        OMX_BUFFERHEADERTYPE *omx_buffer = NULL;
 
-        if (!omx_buffer)
+        if (port->always_copy) 
         {
-            DEBUG (port, "null buffer");
-            return -1;
+            omx_buffer = request_buffer (port);
+
+            if (!omx_buffer)
+            {
+                DEBUG (port, "null buffer");
+                return -1;
+            }
+
+            /* don't assume OMX component clears flags!
+             */
+            omx_buffer->nFlags = 0;
+
+            /* if buffer sharing is enabled, pAppPrivate might hold the ref to
+             * a buffer that is no longer required and should be unref'd.  We
+             * do this check here, rather than in send_prep_buffer_data() so
+             * we don't keep the reference live in case, for example, this time
+             * the buffer is used for an EOS event.
+             */
+            if (omx_buffer->pAppPrivate)
+            {
+                GstBuffer *old_buf = omx_buffer->pAppPrivate;
+                gst_buffer_unref (old_buf);
+                omx_buffer->pAppPrivate = NULL;
+                omx_buffer->pBuffer = NULL;     /* just to ease debugging */
+            }
         }
-
-        /* don't assume OMX component clears flags!
-         */
-        omx_buffer->nFlags = 0;
-
-        /* if buffer sharing is enabled, pAppPrivate might hold the ref to
-         * a buffer that is no longer required and should be unref'd.  We
-         * do this check here, rather than in send_prep_buffer_data() so
-         * we don't keep the reference live in case, for example, this time
-         * the buffer is used for an EOS event.
-         */
-        if (omx_buffer->pAppPrivate)
+        else
         {
-            GstBuffer *old_buf = omx_buffer->pAppPrivate;
-            gst_buffer_unref (old_buf);
-            omx_buffer->pAppPrivate = NULL;
-            omx_buffer->pBuffer = NULL;     /* just to ease debugging */
+            if (GST_IS_OMXBUFFERTRANSPORT (obj)) 
+                omx_buffer = get_input_buffer_header (port, obj);
+            else
+                return -1; /* something went wrong */
         }
 
         send_prep (port, omx_buffer, obj);
@@ -565,10 +631,10 @@ g_omx_port_send (GOmxPort *port, gpointer obj)
         ret = omx_buffer->nFilledLen;
 
         release_buffer (port, omx_buffer);
-
+        
         return ret;
     }
-
+   
     WARNING (port, "unknown obj type");
     return -1;
 }

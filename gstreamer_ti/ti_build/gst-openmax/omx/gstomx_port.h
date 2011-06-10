@@ -33,6 +33,7 @@ G_BEGIN_DECLS
 /* Typedefs. */
 
 typedef enum GOmxPortType GOmxPortType;
+typedef struct OmxBufferInfo OmxBufferInfo;
 
 /* Enums. */
 
@@ -40,6 +41,15 @@ enum GOmxPortType
 {
     GOMX_PORT_INPUT,
     GOMX_PORT_OUTPUT
+};
+
+struct OmxBufferInfo 
+{
+    /** number of pBuffer pointer */
+    guint num_buffers;
+    
+    /* arrary of OMX pBuffer pointer */
+    OMX_U8 **pBuffer;
 };
 
 struct GOmxPort
@@ -75,6 +85,9 @@ struct GOmxPort
 
     /** variable to store caps for sinkpad */
     GstCaps *caps;
+
+    /** if omx_allocate flag is not set then structure will contain upstream omx buffer pointer information */
+    OmxBufferInfo *share_buffer_info;   
 };
 
 /* Macros. */

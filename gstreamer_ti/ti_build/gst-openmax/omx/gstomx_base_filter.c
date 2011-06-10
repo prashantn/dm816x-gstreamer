@@ -22,6 +22,7 @@
 #include "gstomx_base_filter.h"
 #include "gstomx.h"
 #include "gstomx_interface.h"
+#include "gstomx_buffertransport.h"
 
 enum
 {
@@ -80,16 +81,51 @@ setup_ports (GstOmxBaseFilter *self)
         self->in_port->share_buffer = FALSE;
         self->out_port->share_buffer = FALSE;
     }
-    else if (g_getenv ("OMX_ALWAYS_COPY_OUTPUT")) {
-        GST_DEBUG_OBJECT (self, "OMX_ALWAYS_COPY_OUTPUT");
-        self->out_port->always_copy = TRUE;
-
-    }
 
     GST_DEBUG_OBJECT (self, "in_port->omx_allocate=%d, out_port->omx_allocate=%d",
             self->in_port->omx_allocate, self->out_port->omx_allocate);
     GST_DEBUG_OBJECT (self, "in_port->share_buffer=%d, out_port->share_buffer=%d",
             self->in_port->share_buffer, self->out_port->share_buffer);
+}
+
+static void
+setup_input_buffer (GstOmxBaseFilter *self, GstBuffer *buf)
+{
+    if (GST_IS_OMXBUFFERTRANSPORT (buf))
+    {
+        OMX_PARAM_PORTDEFINITIONTYPE param;
+        GOmxPort *port, *in_port;
+        gint i;
+
+        /* retrieve incoming buffer port information */
+        port = GST_GET_OMXPORT (buf);
+
+        /* configure input buffer size to match with upstream buffer */
+        G_OMX_PORT_GET_DEFINITION (self->in_port, &param);
+        param.nBufferSize =  GST_BUFFER_SIZE (buf);
+        param.nBufferCountActual = port->num_buffers;
+        G_OMX_PORT_SET_DEFINITION (self->in_port, &param);
+
+        /* allocate resource to save the incoming buffer port pBuffer pointer in
+         * OmxBufferInfo structure.
+         */
+        in_port =  self->in_port;
+        in_port->share_buffer_info = malloc (sizeof(OmxBufferInfo));
+        in_port->share_buffer_info->pBuffer = malloc (sizeof(int) * port->num_buffers);
+        for (i=0; i < port->num_buffers; i++) {
+            in_port->share_buffer_info->pBuffer[i] = port->buffers[i]->pBuffer;
+        }
+
+        /* disable omx_allocate alloc flag, so that we can fall back to shared method */
+        self->in_port->omx_allocate = FALSE;
+        self->in_port->always_copy = FALSE;
+    }
+    else
+    {
+        /* ask openmax to allocate input buffer */
+        self->in_port->omx_allocate = TRUE;
+        self->in_port->always_copy = TRUE;
+    }
 }
 
 static GstStateChangeReturn
@@ -478,12 +514,14 @@ pad_chain (GstPad *pad,
         g_mutex_lock (self->ready_lock);
 
         GST_INFO_OBJECT (self, "omx: prepare");
-
+        
         /** @todo this should probably go after doing preparations. */
         if (self->omx_setup)
         {
             self->omx_setup (self);
         }
+
+        setup_input_buffer (self, buf);
 
         setup_ports (self);
 
@@ -504,7 +542,7 @@ pad_chain (GstPad *pad,
     in_port = self->in_port;
 
     if (G_LIKELY (in_port->enabled))
-    {
+    {        
         if (G_UNLIKELY (gomx->omx_state == OMX_StateIdle))
         {
             GST_INFO_OBJECT (self, "omx: play");
