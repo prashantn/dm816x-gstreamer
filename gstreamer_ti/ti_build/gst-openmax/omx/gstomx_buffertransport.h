@@ -48,8 +48,11 @@ typedef struct _GstOmxBufferTransport      GstOmxBufferTransport;
 typedef struct _GstOmxBufferTransportClass GstOmxBufferTransportClass;
 
 /* Utility macros for GST_TYPE_OMXBUFFERTRANSPORT */
-#define GST_OMXBUFFERTRANSPORT_DMAIBUF(obj) \
+#define GST_GET_OMXBUFFER(obj) \
     ((obj) ? GST_OMXBUFFERTRANSPORT(obj)->omxbuffer : NULL)
+#define GST_GET_OMXPORT(obj) \
+    ((obj) ? GST_OMXBUFFERTRANSPORT(obj)->port : NULL)
+
 
 /* _GstOmxBufferTransport object */
 struct _GstOmxBufferTransport {
