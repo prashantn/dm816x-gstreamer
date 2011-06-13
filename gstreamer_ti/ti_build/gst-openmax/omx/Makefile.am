@@ -46,7 +46,8 @@ libgstomx_la_SOURCES = gstomx.c gstomx.h \
                gstperf.c gstperf.h  \
                gstomx_buffertransport.c gstomx_buffertransport.h \
                gstomx_base_vfpc.c gstomx_base_vfpc.h \
-               gstomx_colorconv.c gstomx_colorconv.h 
+               gstomx_colorconv.c gstomx_colorconv.h  \
+               gstomx_base_ctrl.c gstomx_base_ctrl.h 
 
 libgstomx_la_LIBADD = $(OMXCORE_LIBS) $(GST_LIBS) $(GST_BASE_LIBS) -lgstvideo-0.10 $(top_builddir)/util/libutil.la
 libgstomx_la_CFLAGS = $(OMXCORE_CFLAGS) $(OMXTIAUDIODEC_CFLAGS) $(USE_OMXTIAUDIODEC) $(GST_CFLAGS) $(GST_BASE_CFLAGS) -I$(top_srcdir)/util \

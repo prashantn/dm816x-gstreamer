@@ -263,6 +263,13 @@ g_omx_core_init (GOmxCore *core)
         core->omx_state = OMX_StateLoaded;
 }
 
+void 
+g_omx_core_change_state (GOmxCore *core, OMX_STATETYPE state)
+{
+    change_state (core, state);
+    wait_for_state (core, state);
+}
+
 void
 g_omx_core_deinit (GOmxCore *core)
 {

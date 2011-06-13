@@ -27,6 +27,9 @@
 #include <omx_vfdc.h>
 #include <omx_ctrl.h>
 
+//G_DEFINE_TYPE (GstOmxCtrl, gstomx_ctrl, GST_TYPE_OBJECT)
+//GSTOMX_BOILERPLATE (GstOmxCtrl, gstomx_ctrl, GstObject, GST_TYPE_OMXCTRL);
+
 enum
 {
     ARG_0,
@@ -34,8 +37,6 @@ enum
     ARG_COMPONENT_NAME,
     ARG_LIBRARY_NAME
 };
-
-G_DEFINE_TYPE (GstOmxCtrl, gstomx_ctrl, G_TYPE_OBJECT)
 
 static gint
 gstomx_ctrl_convert_string_to_dc_mode (gchar *str)
@@ -53,15 +54,17 @@ gstomx_ctrl_set_dc_mode (GstOmxCtrl *self, char *mode)
     OMX_ERRORTYPE err;
     GOmxCore *gomx;
 
-    if (!self->port_initialized)
+    printf (" *** begin \n");
+    if (!self->port_initialized) {
         g_omx_core_init (self->gomx);
+    }
 
     gomx = (GOmxCore*) self->gomx;
 
     _G_OMX_INIT_PARAM (&driverId);
     driverId.nDrvInstID = 0; /* on chip HDMI */
     driverId.eDispVencMode = gstomx_ctrl_convert_string_to_dc_mode (mode);
-
+    
     err = OMX_SetParameter (gomx->omx_handle, (OMX_INDEXTYPE) OMX_TI_IndexParamVFDCDriverInstId, 
         &driverId);
     if(err != OMX_ErrorNone)
@@ -72,11 +75,13 @@ gstomx_ctrl_set_dc_mode (GstOmxCtrl *self, char *mode)
     return TRUE;
 }
 
+#if 0
 static void 
 gstomx_ctrl_init (GstOmxCtrl * foo)
 {
     /* nothing to do */
 }
+#endif
 
 static void
 get_property (GObject * object, guint prop_id, GValue * value,
@@ -146,10 +151,28 @@ finalize (GObject *obj)
     g_free (self->omx_library);
 }
 
+#if 0
 static void
-gstomx_ctrl_class_init (GstOmxCtrlClass * klass)
+instance_init (GTypeInstance *instance,
+                    gpointer g_class)
 {
-    GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+    GstOmxCtrl *self;
+
+    self = GST_OMXCTRL (instance);
+
+    GST_LOG_OBJECT (self, "begin");
+
+    /* GOmx */
+    self->gomx = g_omx_core_new (self, g_class);
+
+}
+#endif
+
+//gstomx_ctrl_class_init (GstOmxCtrlClass * klass)
+static void
+gstomx_ctrl_class_init (gpointer g_class, gpointer class_data)
+{
+    GObjectClass *gobject_class = G_OBJECT_CLASS (g_class);
 
     gobject_class->finalize = finalize;
     gobject_class->set_property = set_property;
@@ -169,5 +192,41 @@ gstomx_ctrl_class_init (GstOmxCtrlClass * klass)
                                      g_param_spec_string ("library-name", "Library name",
                                                          "Name of the OpenMAX IL implementation library to use",
                                                           NULL, G_PARAM_READWRITE));
+}
+
+static void
+type_instance_init (GTypeInstance *instance,
+                    gpointer g_class)
+{
+    GstOmxCtrl *self;
+    GstObjectClass *element_class;
+
+    element_class = GST_OBJECT_CLASS (g_class);
+
+    self = GST_OMXCTRL (instance);
+
+    GST_LOG_OBJECT (self, "begin");
+
+    /* GOmx */
+    self->gomx = g_omx_core_new (self, g_class);
+    self->in_port = g_omx_core_get_port (self->gomx, "in", 0);
+}
+
+GType
+gstomx_ctrl_get_type (void)
+{
+  static GType type;
+
+  if (G_UNLIKELY (type == 0)) {
+    static const GTypeInfo info = {
+      .class_size = sizeof (GstObjectClass),
+      .class_init = gstomx_ctrl_class_init,
+      .instance_init = type_instance_init,
+      .instance_size = sizeof (GstOmxCtrl),
+    };
+    type = g_type_register_static (GST_TYPE_OBJECT,
+        "GstOmxCtrl", &info, 0);
+  }
+  return type;
 }
 

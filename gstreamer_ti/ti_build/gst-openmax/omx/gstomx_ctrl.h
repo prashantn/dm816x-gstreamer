@@ -28,9 +28,13 @@
 
 G_BEGIN_DECLS
 
+#define GST_OMX_BASE_CTRL(obj) (GstOmxBaseCtrlDc *) (obj)
+#define GST_OMX_BASE_CTRL_TYPE (gst_omx_base_ctrldc_get_type ())
+#define GST_OMX_BASE_CTRL_CLASS(obj) (GstOmxBaseCtrlDcClass *) (obj)
+
 /* Type macros for GST_TYPE_OMXCTRL */
 #define GST_TYPE_OMXCTRL \
-    (gst_omxctrl_get_type())
+    (gstomx_ctrl_get_type())
 #define GST_OMXCTRL(obj) \
     (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_OMXCTRL, \
     GstOmxCtrl))
@@ -48,7 +52,7 @@ typedef struct _GstOmxCtrlClass GstOmxCtrlClass;
 
 /* _GstOmxCtrl object */
 struct _GstOmxCtrl {
-    GObject object;
+    GstObject parent;
 
     GOmxCore *gomx;
     GOmxPort *in_port;
@@ -61,11 +65,11 @@ struct _GstOmxCtrl {
 };
 
 struct _GstOmxCtrlClass {
-    GObjectClass gobject_class;
+    GstObjectClass gobject_class;
 };
 
 /* External function declarations */
-GType  gst_omxctrl_get_type(void);
+GType  gstomx_ctrl_get_type(void);
 gboolean gstomx_ctrl_set_dc_mode (GstOmxCtrl *self, char *mode_string);
 
 G_END_DECLS 

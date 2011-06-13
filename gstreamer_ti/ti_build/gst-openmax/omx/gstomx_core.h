@@ -106,6 +106,7 @@ void g_omx_core_flush_start (GOmxCore *core);
 void g_omx_core_flush_stop (GOmxCore *core);
 OMX_HANDLETYPE g_omx_core_get_handle (GOmxCore *core);
 GOmxPort *g_omx_core_get_port (GOmxCore *core, const gchar *name, guint index);
+void g_omx_core_change_state (GOmxCore *core, OMX_STATETYPE state);
 
 /* Friend:  helpers used by GOmxPort */
 void g_omx_core_got_buffer (GOmxCore *core,
