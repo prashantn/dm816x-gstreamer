@@ -6,13 +6,12 @@ export LD_LIBRARY_PATH=/opt/gstreamer/lib
 export GST_PLUGIN_PATH=/opt/gstreamer/lib/gstreamer-0.10
 export PATH=/opt/gstreamer/bin:$PATH
 
-# setup fbdev in RBG565 24-bit mode - this mainly because fbdevsink does not like RBG888
-fbset -depth 24 -rgba 5/11,6/5,5/0,0/0
+# disable the graphics plane so that we can see video
+echo 0 > /sys/devices/platform/vpss/graphics0/enabled
 
 # pipeline decode elemenatry H.264 stream
-gst-launch filesrc location=sample.264 ! typefind ! h264parse access-unit=true ! omx_h264dec ! swcsc ! ffmpegcolorspace ! gstperf ! fbdevsink  -v
+gst-launch filesrc location=sample.264  ! typefind ! h264parse access-unit=true ! omx_h264dec ! omx_colorconv ! omx_ctrl display-mode=OMX_DC_MODE_1080P_60 ! gstperf ! omx_videosink -v
 
-# pipeline to decode video from MP4 container
-gst-launch filesrc location=sample.mp4 ! typefind ! qtdemux name=demux demux.video_00 ! nal2bytestream_h264 ! omx_h264dec ! swcsc ! ffmpegcolorspace ! gstperf ! fbdevsink -v
-
+# pipeline to decode MP4 container (H.264 + AAC). Note that currently AV is disabled.
+gst-launch -v filesrc location=sample.mp4 ! qtdemux name=demux demux.audio_00 ! queue max-size-buffers=8000 max-size-time=0 max-size-bytes=0 ! faad ! alsasink sync=false demux.video_00 ! queue !  nal2bytestream_h264  !  omx_h264dec ! omx_colorconv ! omx_ctrl display-mode=OMX_DC_MODE_1080P_60  ! gstperf ! omx_videosink sync=false
 
