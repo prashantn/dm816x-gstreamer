@@ -33,7 +33,7 @@ G_BEGIN_DECLS
 
 typedef struct GstOmxBaseSink GstOmxBaseSink;
 typedef struct GstOmxBaseSinkClass GstOmxBaseSinkClass;
-typedef void (*GstOmxBaseSinkCb) (GstOmxBaseSink *self);
+typedef void (*GstOmxSinkCb) (GstBaseSink *self, GstCaps *caps);
 
 #include <gstomx_util.h>
 
@@ -54,8 +54,7 @@ struct GstOmxBaseSink
     GstPadActivateModeFunction base_activatepush;
     gboolean initialized;
     gboolean port_initialized;
-    
-    gint width, height;
+    GstOmxSinkCb omx_setup;
 };
 
 struct GstOmxBaseSinkClass
