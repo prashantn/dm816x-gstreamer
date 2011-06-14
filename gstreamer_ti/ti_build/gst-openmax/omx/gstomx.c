@@ -104,7 +104,7 @@ static TableItem element_table[] =
     { "omx_jpegenc",        "libOMX_Core.so",           "OMX.TI.JPEG.encoder",          NULL,                   GST_RANK_NONE,   gst_omx_jpegenc_get_type },
     { "omx_jpegdec",        "libOMX_Core.so",           "OMX.TI.DUCATI1.IMAGE.JPEGD",   NULL,                   GST_RANK_NONE,   gst_omx_jpegdec_get_type },
     { "omx_audiosink",      "libomxil-bellagio.so.0",   "OMX.st.alsa.alsasink",         NULL,                   GST_RANK_NONE,      gst_omx_audiosink_get_type },
-    { "omx_videosink",      "libomxil-bellagio.so.0",   "OMX.st.videosink",             NULL,                   GST_RANK_NONE,      gst_omx_videosink_get_type },
+    { "omx_videosink",      "libOMX_Core.so",   "OMX.TI.VPSSM3.VFDC",             NULL,              GST_RANK_PRIMARY,      gst_omx_videosink_get_type },
     { "omx_filereadersrc",  "libomxil-bellagio.so.0",   "OMX.st.audio_filereader",      NULL,                   GST_RANK_NONE,      gst_omx_filereadersrc_get_type },
     { "omx_volume",         "libomxil-bellagio.so.0",   "OMX.st.volume.component",      NULL,                   GST_RANK_NONE,      gst_omx_volume_get_type },
     { "swcsc",         "libOMX_Core.so",   NULL,      NULL,                   GST_RANK_PRIMARY,      gst_swcsc_get_type },

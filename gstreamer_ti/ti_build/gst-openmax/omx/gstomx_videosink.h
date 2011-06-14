@@ -42,6 +42,8 @@ struct GstOmxVideoSink
     guint rotation;
     guint top;
     guint left;
+    guint width;
+    guint height;
 };
 
 struct GstOmxVideoSinkClass

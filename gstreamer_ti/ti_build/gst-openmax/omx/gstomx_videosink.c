@@ -25,6 +25,11 @@
 
 #include <string.h> /* for memset, strcmp */
 
+#include <xdc/std.h>
+#include <OMX_TI_Index.h>
+#include <OMX_TI_Common.h>
+#include <omx_vfdc.h>
+
 GSTOMX_BOILERPLATE (GstOmxVideoSink, gst_omx_videosink, GstOmxBaseSink, GST_OMX_BASE_SINK_TYPE);
 
 enum
@@ -59,16 +64,16 @@ generate_sink_template (void)
 
         g_value_init (&list, GST_TYPE_LIST);
         g_value_init (&val, GST_TYPE_FOURCC);
-
+#if 0
         gst_value_set_fourcc (&val, GST_MAKE_FOURCC ('I', '4', '2', '0'));
         gst_value_list_append_value (&list, &val);
-
+#endif
         gst_value_set_fourcc (&val, GST_MAKE_FOURCC ('Y', 'U', 'Y', '2'));
         gst_value_list_append_value (&list, &val);
-
+#if 0
         gst_value_set_fourcc (&val, GST_MAKE_FOURCC ('U', 'Y', 'V', 'Y'));
         gst_value_list_append_value (&list, &val);
-
+#endif
         gst_structure_set_value (struc, "format", &list);
 
         g_value_unset (&val);
@@ -109,6 +114,87 @@ type_base_init (gpointer g_class)
     }
 }
 
+static void
+omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
+{
+    GstOmxBaseSink *omx_base, *self;
+    GOmxCore *gomx;
+    OMX_PARAM_PORTDEFINITIONTYPE param;
+    OMX_PARAM_VFDC_DRIVERINSTID driverId;
+    OMX_PARAM_VFDC_CREATEMOSAICLAYOUT mosaicLayout;
+    OMX_CONFIG_VFDC_MOSAICLAYOUT_PORT2WINMAP port2Winmap;
+    OMX_PARAM_BUFFER_MEMORYTYPE memTypeCfg;
+    GstStructure *structure;
+    gint width;
+    gint height;
+
+    self = omx_base = GST_OMX_BASE_SINK (gst_sink);
+    gomx = (GOmxCore *) omx_base->gomx;
+
+    structure = gst_caps_get_structure (caps, 0);
+
+    gst_structure_get_int (structure, "width", &width);
+    gst_structure_get_int (structure, "height", &height);
+
+    /* set input port definition */
+    G_OMX_PORT_GET_DEFINITION (omx_base->in_port, &param);
+
+    param.nBufferSize = (width * height * 2);
+    param.format.video.nFrameWidth = width;
+    param.format.video.nFrameHeight = height;
+    param.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
+    param.format.video.eColorFormat = OMX_COLOR_FormatYCbYCr;
+
+    G_OMX_PORT_SET_DEFINITION (omx_base->in_port, &param);
+    g_omx_port_setup (omx_base->in_port, &param);
+ 
+    /* set display driver mode */
+    _G_OMX_INIT_PARAM (&driverId);
+    driverId.nDrvInstID = 0; /* on chip HDMI */
+    driverId.eDispVencMode = OMX_DC_MODE_1080P_60;
+
+    OMX_SetParameter (gomx->omx_handle, (OMX_INDEXTYPE) OMX_TI_IndexParamVFDCDriverInstId, &driverId);
+
+    /* set mosiac window information */
+    _G_OMX_INIT_PARAM (&mosaicLayout);
+    mosaicLayout.nPortIndex = 0;
+    mosaicLayout.sMosaicWinFmt[0].winStartX = 0;
+    mosaicLayout.sMosaicWinFmt[0].winStartY = 0;
+    mosaicLayout.sMosaicWinFmt[0].winWidth = width;
+    mosaicLayout.sMosaicWinFmt[0].winHeight = height;
+    mosaicLayout.sMosaicWinFmt[0].pitch[VFDC_YUV_INT_ADDR_IDX] = width * 2;
+    mosaicLayout.sMosaicWinFmt[0].dataFormat =  VFDC_DF_YUV422I_YVYU;
+    mosaicLayout.sMosaicWinFmt[0].bpp = VFDC_BPP_BITS16;
+    mosaicLayout.sMosaicWinFmt[0].priority = 0;
+    mosaicLayout.nDisChannelNum = 0;
+    mosaicLayout.nNumWindows = 1;
+
+    OMX_SetParameter (gomx->omx_handle, (OMX_INDEXTYPE) OMX_TI_IndexParamVFDCCreateMosaicLayout, 
+        &mosaicLayout);
+
+    /* set port to window mapping */
+    _G_OMX_INIT_PARAM (&port2Winmap);
+    port2Winmap.nLayoutId = 0; 
+    port2Winmap.numWindows = 1; 
+    port2Winmap.omxPortList[0] = OMX_VFDC_INPUT_PORT_START_INDEX + 0;
+
+    OMX_SetConfig (gomx->omx_handle, (OMX_INDEXTYPE) OMX_TI_IndexConfigVFDCMosaicPort2WinMap, &port2Winmap);
+
+    /* set default input memory to Raw */
+    _G_OMX_INIT_PARAM (&memTypeCfg);
+    memTypeCfg.nPortIndex = 0;
+    memTypeCfg.eBufMemoryType = OMX_BUFFER_MEMORY_DEFAULT;
+    
+    OMX_SetParameter (gomx->omx_handle, OMX_TI_IndexParamBuffMemType, &memTypeCfg);
+ 
+    /* enable the input port */
+    OMX_SendCommand (gomx->omx_handle, OMX_CommandPortEnable, omx_base->in_port->port_index, NULL);
+    g_sem_down (omx_base->in_port->core->port_sem);
+
+    return;
+}
+
+
 static gboolean
 setcaps (GstBaseSink *gst_sink,
          GstCaps *caps)
@@ -125,19 +211,7 @@ setcaps (GstBaseSink *gst_sink,
 
     g_return_val_if_fail (gst_caps_get_size (caps) == 1, FALSE);
 
-    {
-        GstStructure *structure;
-        gint width;
-        gint height;
-
-        structure = gst_caps_get_structure (caps, 0);
-
-        gst_structure_get_int (structure, "width", &width);
-        gst_structure_get_int (structure, "height", &height);
-
-        omx_base->width = width;
-        omx_base->height = height;
-    }
+    omx_setup (gst_sink, caps);
 
     return TRUE;
 }
@@ -257,6 +331,7 @@ type_instance_init (GTypeInstance *instance,
     GstOmxBaseSink *omx_base;
 
     omx_base = GST_OMX_BASE_SINK (instance);
+    omx_base->omx_setup = omx_setup;
 
     GST_DEBUG_OBJECT (omx_base, "start");
 }
