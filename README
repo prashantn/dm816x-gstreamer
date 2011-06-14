@@ -36,7 +36,10 @@ BUILDING
 6) Execute this command from the top-level "gstreamer_ti" directory:
 % make all install VERBOSE=true
 
-7) Copy libOMX_Core.so from gstreamer_ti/ti_build/gst-openmax/ext/lib to lib directory on target root filesystem.
+7) Copy libOMX_Core.so from gstreamer_ti/ti_build/gst-openmax/ext/lib to /lib directory on target root filesystem.
+
+8) Copy dm816xbm_m3video.xem3 and dm816xbm_m3vpss.xem3 firmware binary from ezsdk-omx package to /usr/share/ti/ti-media-controller-utils on 
+   target filesystem.
 
 If you want less output during the build, you can omit the "VERBOSE=true"
 above.
@@ -47,22 +50,9 @@ the target, and some demonstration scripts will be installed to
 
 RUNNING
 =======
-
-Run the following commands on target board to export gstreamer environment variables:
-
-#export GST_REGISTRY=/tmp/gst_registry.bin
-#export LD_LIBRARY_PATH=/opt/gstreamer/lib
-#export GST_PLUGIN_PATH=/opt/gstreamer/lib/gstreamer-0.10
-#export PATH=/opt/gstreamer/bin:$PATH
-
 For the first time, you need to run ldconfig command to ensure that ld cache is updated to point to libOMX_Core.so file
 
 # ldconfig 
 
 After this, run your favorite gstreamer pipeline examples
-
-NOTE:
-
-1) by default fbdev is enabled for RGB888 mode but fbdevsink sink does not support this. And to change to RGB565 use the below command on target board
-   # fbset -depth 24 -rgba 5/11,6/5,5/0,0/0
 
