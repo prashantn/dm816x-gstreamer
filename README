@@ -1,7 +1,6 @@
 Prerequisites
 =============
-- The EZSDK for the platform is installed on the Linux host. The latest EZSDK for the platform can be downloaded from http://software-dl.ti.com/dsps/dsps_public_sw/ezsdk/latest/index_FDS.html
-- EZSDK components are built from top label Makefile using 'make all' command.
+- The EZSDK 5.01.01.80 is installed on the Linux host. The EZSDK can be downloaded from http://software-dl.ti.com/dsps/dsps_public_sw/ezsdk/latest/index_FDS.html
 
 BUILDING
 ========
@@ -28,8 +27,6 @@ BUILDING
 
 4) Use OMX package from https://bksingh@github.com/bksingh/ezsdk-omx.git
 % git clone https://bksingh@github.com/bksingh/ezsdk-omx.git
-% export EZSDK_INSTALL_DIR=<SDK_INSTALL_LOCATION>
-% make 
 
 5) Update OMX_INSTALL_DIR variable in EZSDK Rules.make to point to above OMX package installation directory.
 
@@ -43,9 +40,6 @@ BUILDING
 
 8) Copy libOMX_Core.so from gstreamer_ti/ti_build/gst-openmax/ext/lib to /lib directory on target root filesystem.
 
-9) Copy dm816xbm_m3video.xem3 and dm816xbm_m3vpss.xem3 firmware binary from ezsdk-omx package to /usr/share/ti/ti-media-controller-utils on 
-   target filesystem.
-
 If you want less output during the build, you can omit the "VERBOSE=true"
 above.
 
@@ -55,9 +49,11 @@ the target, and some demonstration scripts will be installed to
 
 RUNNING
 =======
-For the first time, you need to run ldconfig command to ensure that ld cache is updated to point to libOMX_Core.so file
 
-# ldconfig 
+NOTES:
+
+ 1) For the first time, you need to run ldconfig command to ensure that ld cache is updated to point to libOMX_Core.so file
+   # ldconfig 
 
 After this, run your favorite gstreamer pipeline examples
 
