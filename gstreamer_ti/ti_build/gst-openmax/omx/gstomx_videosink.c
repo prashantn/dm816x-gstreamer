@@ -118,6 +118,7 @@ static void
 omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
 {
     GstOmxBaseSink *omx_base, *self;
+    GstOmxVideoSink *sink;
     GOmxCore *gomx;
     OMX_PARAM_PORTDEFINITIONTYPE param;
     OMX_PARAM_VFDC_DRIVERINSTID driverId;
@@ -128,6 +129,7 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
     gint width;
     gint height;
 
+    sink = GST_OMX_VIDEOSINK (gst_sink);
     self = omx_base = GST_OMX_BASE_SINK (gst_sink);
     gomx = (GOmxCore *) omx_base->gomx;
 
@@ -158,8 +160,8 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
     /* set mosiac window information */
     _G_OMX_INIT_PARAM (&mosaicLayout);
     mosaicLayout.nPortIndex = 0;
-    mosaicLayout.sMosaicWinFmt[0].winStartX = 0;
-    mosaicLayout.sMosaicWinFmt[0].winStartY = 0;
+    mosaicLayout.sMosaicWinFmt[0].winStartX = sink->left;
+    mosaicLayout.sMosaicWinFmt[0].winStartY = sink->top;
     mosaicLayout.sMosaicWinFmt[0].winWidth = width;
     mosaicLayout.sMosaicWinFmt[0].winHeight = height;
     mosaicLayout.sMosaicWinFmt[0].pitch[VFDC_YUV_INT_ADDR_IDX] = width * 2;
