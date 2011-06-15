@@ -5,6 +5,7 @@ export GST_REGISTRY=/tmp/gst_registry.bin
 export LD_LIBRARY_PATH=/opt/gstreamer/lib
 export GST_PLUGIN_PATH=/opt/gstreamer/lib/gstreamer-0.10
 export PATH=/opt/gstreamer/bin:$PATH
+export GST_PLUGIN_SCANNER=/opt/gstreamer/libexec/gstreamer-0.10/gst-plugin-scanner
 
 # disable the graphics plane so that we can see video
 echo 0 > /sys/devices/platform/vpss/graphics0/enabled
