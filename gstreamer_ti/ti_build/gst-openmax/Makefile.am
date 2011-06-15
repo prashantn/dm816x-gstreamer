@@ -1,4 +1,4 @@
-SUBDIRS = ext util omx tests m4
+SUBDIRS = ext util omx m4
 
 include $(top_srcdir)/build-aux/release.mak
 

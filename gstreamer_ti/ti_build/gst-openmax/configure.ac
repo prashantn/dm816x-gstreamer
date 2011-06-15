@@ -103,7 +103,6 @@ AC_CONFIG_FILES([shave shave-libtool])
 AC_CONFIG_FILES([Makefile \
 		 omx/Makefile \
 		 util/Makefile \
-		 tests/Makefile \
 		 m4/Makefile])
 
 AC_OUTPUT
