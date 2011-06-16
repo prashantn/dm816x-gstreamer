@@ -1,0 +1,66 @@
+From 2bd13191434843c675318aa4fd300f609ee7580c Mon Sep 17 00:00:00 2001
+From: Brijesh Singh <bksingh@ti.com>
+Date: Thu, 16 Jun 2011 15:06:52 -0500
+Subject: [PATCH 25/25] playsink: link omx_colorconv to do HW accel color conversion and link omx_ctrl to set the video display mode to 1080P@60
+
+---
+ gst/playback/gstplaysink.c |   32 ++++++++++++++++++++++++++++----
+ 1 files changed, 28 insertions(+), 4 deletions(-)
+
+diff --git a/gst/playback/gstplaysink.c b/gst/playback/gstplaysink.c
+index 957f288..7279ca0 100644
+--- a/gst/playback/gstplaysink.c
++++ b/gst/playback/gstplaysink.c
+@@ -81,6 +81,7 @@ typedef struct
+   GstElement *queue;
+   GstElement *conv;
+   GstElement *scale;
++  GstElement *ctrl;
+   GstElement *sink;
+   gboolean async;
+   GstElement *ts_offset;
+@@ -1266,14 +1267,37 @@ gen_video_chain (GstPlaySink * playsink, gboolean raw, gboolean async)
+     head = prev = chain->queue;
+   }
+ 
++  {
++    GST_DEBUG_OBJECT (playsink, "creating omx_ctrl");
++    chain->ctrl = gst_element_factory_make ("omx_ctrl", "omxctrl");
++
++    if (chain->ctrl == NULL) {
++      post_missing_element_message (playsink, "omx_ctrl");
++      GST_ELEMENT_WARNING (playsink, CORE, MISSING_PLUGIN,
++          (_("Missing element '%s' - check your GStreamer installation."),
++              "omx_ctrl"), ("video rendering might fail"));
++    } else {
++      gst_bin_add (bin, chain->ctrl);
++      g_object_set(G_OBJECT(chain->ctrl), "display-mode", "OMX_DC_MODE_1080P_60"  ,NULL);
++      if (prev) {
++        if (!gst_element_link_pads_full (prev, "src", chain->ctrl, "sink",
++              GST_PAD_LINK_CHECK_TEMPLATE_CAPS))
++            goto link_failed;
++        } else {
++            head = chain->ctrl;
++    }
++     prev = chain->ctrl;
++    }
++  }
++
+   if (raw && !(playsink->flags & GST_PLAY_FLAG_NATIVE_VIDEO)) {
+-    GST_DEBUG_OBJECT (playsink, "creating stridetransform");
+-    chain->conv = gst_element_factory_make ("stridetransform", "vconv");
++    GST_DEBUG_OBJECT (playsink, "creating omx_colorconv");
++    chain->conv = gst_element_factory_make ("omx_colorconv", "vconv");
+     if (chain->conv == NULL) {
+-      post_missing_element_message (playsink, "stridetransform");
++      post_missing_element_message (playsink, "omx_colorconv");
+       GST_ELEMENT_WARNING (playsink, CORE, MISSING_PLUGIN,
+           (_("Missing element '%s' - check your GStreamer installation."),
+-              "stridetransform"), ("video rendering might fail"));
++              "omx_colorconv"), ("video rendering might fail"));
+     } else {
+       gst_bin_add (bin, chain->conv);
+       if (prev) {
+-- 
+1.7.0.4
+
