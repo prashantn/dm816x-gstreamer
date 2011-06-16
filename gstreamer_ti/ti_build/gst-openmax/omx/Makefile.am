@@ -54,17 +54,10 @@ libgstomx_la_CFLAGS = $(OMXCORE_CFLAGS) $(OMXTIAUDIODEC_CFLAGS) $(USE_OMXTIAUDIO
 	-Dxdc_target_name__=GCArmv5T -Dxdc_target_types__=gnu/targets/arm/std.h -Dxdc__RESTRICT__ \
     	-I$(OMX_INSTALL_DIR)/include/openMaxv11 \
     	-I$(OMX_INSTALL_DIR)/packages \
-    	-I$(OSAL_INSTALL_DIR)/sources \
-    	-I$(CE_INSTALL_DIR)/packages \
-    	-I$(XDAIS_INSTALL_DIR)/packages  \
-    	-I$(CODEC_INSTALL_DIR)/packages  \
-    	-I$(SYSBIOS_INSTALL_DIR)/packages \
     	-I$(XDC_INSTALL_DIR)/packages \
-    	-I$(IPC_INSTALL_DIR)/packages \
-    	-I$(SYSLINK_INSTALL_DIR) \
-    	-I$(HDVPSS_INSTALL_DIR)/packages \
     	-I$(OMX_INSTALL_DIR)/include \
-    	-I$(OMX_INSTALL_DIR)/packages/ti/omx/comp/ctrl
+    	-I$(OMX_INSTALL_DIR)/packages/ti/omx/comp/ctrl \
+        -I${LINUX_INSTALL_DIR}/include -I${LINUX_INSTALL_DIR}/arch/arm/include
         
 
 libgstomx_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -L../ext/lib -lOMX_Core -pthread 

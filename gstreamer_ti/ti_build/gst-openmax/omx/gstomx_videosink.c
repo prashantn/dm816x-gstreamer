@@ -30,6 +30,17 @@
 #include <OMX_TI_Common.h>
 #include <omx_vfdc.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/fb.h>
+#include <linux/ti81xxfb.h>
+#include <unistd.h>
+
+#define MAXWIDTH 1920
+#define MAXHEIGHT 1080
+
 GSTOMX_BOILERPLATE (GstOmxVideoSink, gst_omx_videosink, GstOmxBaseSink, GST_OMX_BASE_SINK_TYPE);
 
 enum
@@ -113,6 +124,49 @@ type_base_init (gpointer g_class)
         gst_element_class_add_pad_template (element_class, template);
     }
 }
+static int
+gstomx_videosink_enable_transparency ()
+{
+	struct fb_fix_screeninfo fixinfo;
+	struct fb_var_screeninfo varinfo;
+    int fd = 0, ret = -1;
+    struct ti81xxfb_region_params regp;
+
+	fd = open("/dev/fb0", O_RDWR);
+
+	if (fd <= 0) {
+        return -1;
+	}
+
+	ret = ioctl(fd, FBIOGET_FSCREENINFO, &fixinfo);
+	if (ret < 0) {        
+        goto exit;
+	}
+    
+	ret = ioctl(fd, FBIOGET_VSCREENINFO, &varinfo);
+	if (ret < 0) {
+        goto exit;
+	}
+
+	ret = ioctl(fd, TIFB_GET_PARAMS, &regp);
+	if (ret < 0) {
+        goto exit;
+	}
+
+    regp.transen = TI81XXFB_FEATURE_ENABLE;
+
+	ret = ioctl(fd, TIFB_SET_PARAMS, &regp);
+	if (ret < 0) {
+        goto exit;
+	}
+
+    ret = 0;
+exit:
+    if (fd)
+        close(fd);
+
+    return ret;
+}
 
 static void
 omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
@@ -157,6 +211,14 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
 
     OMX_SetParameter (gomx->omx_handle, (OMX_INDEXTYPE) OMX_TI_IndexParamVFDCDriverInstId, &driverId);
 
+    /* center the video */
+    if (!sink->left && !sink->top)
+    {
+        sink->left = ((MAXWIDTH - width) / 2) & ~1;         
+        sink->top = ((MAXHEIGHT - height) / 2) & ~1;
+        printf ("Setting sink left=%d, top=%d\n", sink->left, sink->top);
+    }
+
     /* set mosiac window information */
     _G_OMX_INIT_PARAM (&mosaicLayout);
     mosaicLayout.nPortIndex = 0;
@@ -192,6 +254,9 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
     /* enable the input port */
     OMX_SendCommand (gomx->omx_handle, OMX_CommandPortEnable, omx_base->in_port->port_index, NULL);
     g_sem_down (omx_base->in_port->core->port_sem);
+
+    /* enable transparency in framebuffer so that we can see the video plane */
+    gstomx_videosink_enable_transparency ();
 
     return;
 }
