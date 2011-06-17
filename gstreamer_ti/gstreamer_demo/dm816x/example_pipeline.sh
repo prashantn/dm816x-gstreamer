@@ -7,9 +7,6 @@ export GST_PLUGIN_PATH=/opt/gstreamer/lib/gstreamer-0.10
 export PATH=/opt/gstreamer/bin:$PATH
 export GST_PLUGIN_SCANNER=/opt/gstreamer/libexec/gstreamer-0.10/gst-plugin-scanner
 
-# disable the graphics plane so that we can see video
-echo 0 > /sys/devices/platform/vpss/graphics0/enabled
-
 # pipeline decode elemenatry H.264 stream
 gst-launch filesrc location=sample.264  ! typefind ! h264parse access-unit=true ! omx_h264dec ! omx_colorconv ! omx_ctrl display-mode=OMX_DC_MODE_1080P_60 ! gstperf ! omx_videosink sync=false -v
 
