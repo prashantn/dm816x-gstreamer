@@ -19,4 +19,9 @@ gst-launch -v videotestsrc ! omx_ctrl display-mode=OMX_DC_MODE_1080P_60  ! omx_v
 # pipeline to color convert videotestsrc pattern from NV12 to YUY2 using HW accelerated omx element and then display using omx sink
 gst-launch -v videotestsrc ! omx_colorconv ! omx_ctrl display-mode=OMX_DC_MODE_1080P_60  ! omx_videosink sync=false
 
+# pipeline to scale the decoded video to 720P using omx_scaler element
+gst-launch filesrc location=sample.264  ! typefind ! h264parse access-unit=true ! omx_h264dec ! omx_scaler ! 'video/x-raw-yuv,width=1280,height=720' ! omx_ctrl display-mode=OMX_DC_MODE_1080P_60 ! gstperf ! omx_videosink sync=false -v
+
+# pipeline to scale the QVGA video test pattern to VGA
+gst-launch -v videotestsrc ! 'video/x-raw-yuv,width=320,height=240' ! omx_scaler ! 'video/x-raw-yuv,width=640,height=480' ! omx_ctrl display-mode=OMX_DC_MODE_1080P_60 ! omx_videosink sync=false -v
 
