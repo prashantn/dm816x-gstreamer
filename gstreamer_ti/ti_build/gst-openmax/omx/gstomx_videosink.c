@@ -200,6 +200,7 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
     param.format.video.nFrameHeight = height;
     param.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
     param.format.video.eColorFormat = OMX_COLOR_FormatYCbYCr;
+    param.nBufferCountActual = 5;
 
     G_OMX_PORT_SET_DEFINITION (omx_base->in_port, &param);
     g_omx_port_setup (omx_base->in_port, &param);
