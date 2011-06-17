@@ -216,7 +216,6 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
     {
         sink->left = ((MAXWIDTH - width) / 2) & ~1;         
         sink->top = ((MAXHEIGHT - height) / 2) & ~1;
-        printf ("Setting sink left=%d, top=%d\n", sink->left, sink->top);
     }
 
     /* set mosiac window information */
