@@ -90,34 +90,6 @@ push_buffer (GstOmxBaseFilter *omx_base, GstBuffer *buf)
     return parent_class->push_buffer (omx_base, buf);
 }
 
-static void
-settings_changed_cb (GOmxCore *core)
-{
-    GstOmxBaseFilter *omx_base;
-    GstOmxBaseVfpc *self;
-    GstCaps *new_caps;
-
-    omx_base = core->object;
-    self = GST_OMX_BASE_VFPC (omx_base);
-
-    GST_DEBUG_OBJECT (omx_base, "settings changed");
-
-    new_caps = gst_caps_intersect (gst_pad_get_caps (omx_base->srcpad),
-           gst_pad_peer_get_caps (omx_base->srcpad));
-
-    if (!gst_caps_is_fixed (new_caps))
-    {
-        gst_caps_do_simplify (new_caps);
-        GST_INFO_OBJECT (omx_base, "pre-fixated caps: %" GST_PTR_FORMAT, new_caps);
-        gst_pad_fixate_caps (omx_base->srcpad, new_caps);
-    }
-
-    GST_INFO_OBJECT (omx_base, "caps are: %" GST_PTR_FORMAT, new_caps);
-    GST_INFO_OBJECT (omx_base, "old caps are: %" GST_PTR_FORMAT, GST_PAD_CAPS (omx_base->srcpad));
-
-    gst_pad_set_caps (omx_base->srcpad, new_caps);
-}
-
 static gboolean 
 setup_ports (GstOmxBaseFilter *omx_base)
 {
@@ -295,71 +267,10 @@ sink_setcaps (GstPad *pad,
     if (!self->in_stride)
         self->in_stride = self->in_width;
 
-    /* we assume no scaling unless src caps requests */
-    self->out_width = self->in_width;
-    self->out_height = self->in_height;
-    self->out_stride = self->out_width * 2;
-    
     if (self->sink_setcaps)
         self->sink_setcaps (pad, caps);
 
     return gst_pad_set_caps (pad, caps);
-}
-
-static GstCaps *
-src_getcaps (GstPad *pad)
-{
-    GstCaps *caps;
-    GstOmxBaseVfpc *self   = GST_OMX_BASE_VFPC (GST_PAD_PARENT (pad));
-    GstOmxBaseFilter *omx_base = GST_OMX_BASE_FILTER (self);
-
-    if (omx_base->gomx->omx_state > OMX_StateLoaded)
-    {
-        /* currently, we cannot change caps once out of loaded..  later this
-         * could possibly be supported by enabling/disabling the port..
-         */
-        GST_DEBUG_OBJECT (self, "cannot getcaps in %d state", omx_base->gomx->omx_state);
-        return GST_PAD_CAPS (pad);
-    }
-
-    if (self->port_configured)
-    {
-        /* if we already have src-caps, we want to take the already configured
-         * width/height/etc.  But we can still support any option of rowstride,
-         * so we still don't want to return fixed caps
-         */
-        OMX_PARAM_PORTDEFINITIONTYPE param;
-        GstStructure *struc;
-
-        G_OMX_PORT_GET_DEFINITION (omx_base->out_port, &param);
-
-        caps = gst_caps_new_empty ();
-
-        struc = gst_structure_new (("video/x-raw-yuv"),
-            "width",  G_TYPE_INT, param.format.video.nFrameWidth,
-            "height", G_TYPE_INT, param.format.video.nFrameHeight,
-            "format", GST_TYPE_FOURCC, GST_MAKE_FOURCC ('Y', 'U', 'Y', '2'),
-            NULL);
-
-        if (self->framerate_denom)
-        {
-            gst_structure_set (struc,
-                "framerate", GST_TYPE_FRACTION, self->framerate_num, self->framerate_denom,
-                NULL);
-        }
-
-        gst_caps_append_structure (caps, struc);
-    }
-    else
-    {
-        /* we don't have valid width/height/etc yet, so just use the template.. */
-        caps = gst_static_pad_template_get_caps (&src_template);
-        GST_DEBUG_OBJECT (self, "caps=%"GST_PTR_FORMAT, caps);
-    }
-
-    GST_DEBUG_OBJECT (self, "caps=%"GST_PTR_FORMAT, caps);
-
-    return caps;
 }
 
 static gboolean
@@ -368,23 +279,27 @@ src_setcaps (GstPad *pad, GstCaps *caps)
     GstOmxBaseVfpc *self;
     GstOmxBaseFilter *omx_base;
     GstVideoFormat format;
+    GstStructure *structure;
 
     self = GST_OMX_BASE_VFPC (GST_PAD_PARENT (pad));
     omx_base = GST_OMX_BASE_FILTER (self);
+    structure = gst_caps_get_structure (caps, 0);
 
     GST_INFO_OBJECT (omx_base, "setcaps (src): %" GST_PTR_FORMAT, caps);
     g_return_val_if_fail (caps, FALSE);
     g_return_val_if_fail (gst_caps_is_fixed (caps), FALSE);
 
-    if (!gst_video_format_parse_caps(caps,
-            &format, &self->out_width, &self->out_height))
+    if (!(gst_structure_get_int (structure, "width", &self->out_width) &&
+            gst_structure_get_int (structure, "height", &self->out_height)))
     {
-        GST_DEBUG_OBJECT (self, "failed to get source resolution" );
+        GST_WARNING_OBJECT (self, "width and/or height not set in caps: %dx%d",
+                self->in_width, self->in_height);
         self->out_width = self->in_width;
         self->out_height = self->in_height;
+        return FALSE;
     }
 
-    self->out_stride = self->out_width;
+    self->out_stride = self->out_width * 2;
 
     /* save the src caps later needed by omx transport buffer */
     if (omx_base->out_port->caps)
@@ -436,6 +351,55 @@ get_property (GObject *obj,
     }
 }
 
+static GstCaps*
+create_src_caps (GstOmxBaseFilter *omx_base)
+{
+    GstCaps *caps;    
+    GstOmxBaseVfpc *self;
+    int width, height;
+    GstStructure *struc;
+
+    self = GST_OMX_BASE_VFPC (omx_base);
+    caps = gst_pad_peer_get_caps (omx_base->srcpad);
+
+    if (gst_caps_is_empty (caps))
+    {
+        width = self->in_width;
+        height = self->in_height;
+    }
+    else
+    {
+        GstStructure *s;
+
+        s = gst_caps_get_structure (caps, 0);
+
+        if (!(gst_structure_get_int (s, "width", &width) &&
+            gst_structure_get_int (s, "height", &height)))
+        {
+            width = self->in_width;
+            height = self->in_height;    
+        }
+    }
+
+    caps = gst_caps_new_empty ();
+    struc = gst_structure_new (("video/x-raw-yuv"),
+            "width",  G_TYPE_INT, width,
+            "height", G_TYPE_INT, height,
+            "format", GST_TYPE_FOURCC, GST_MAKE_FOURCC ('Y', 'U', 'Y', '2'),
+            NULL);
+
+    if (self->framerate_denom)
+    {
+        gst_structure_set (struc,
+        "framerate", GST_TYPE_FRACTION, self->framerate_num, self->framerate_denom, NULL);
+    }
+
+    gst_caps_append_structure (caps, struc);
+
+    return caps;
+}
+
+
 static void
 omx_setup (GstOmxBaseFilter *omx_base)
 {
@@ -448,6 +412,9 @@ omx_setup (GstOmxBaseFilter *omx_base)
 
     GST_INFO_OBJECT (omx_base, "begin");
 
+    /* set the output cap */
+    gst_pad_set_caps (omx_base->srcpad, create_src_caps (omx_base));
+    
     /* configure input and output port information */
     setup_ports (omx_base);
 
@@ -465,8 +432,6 @@ omx_setup (GstOmxBaseFilter *omx_base)
 
     /* indicate the port is now configured */
     self->port_configured = TRUE;
-
-    settings_changed_cb (gomx);
 
     GST_INFO_OBJECT (omx_base, "end");
 }
@@ -502,8 +467,6 @@ type_instance_init (GTypeInstance *instance,
 
     omx_base->omx_setup = omx_setup;
 
-    omx_base->gomx->settings_changed_cb = settings_changed_cb;
-
     /* GOmx */
     g_omx_core_free (omx_base->gomx);
     g_omx_port_free (omx_base->in_port);
@@ -526,8 +489,6 @@ type_instance_init (GTypeInstance *instance,
 
     gst_pad_set_setcaps_function (omx_base->sinkpad,
             GST_DEBUG_FUNCPTR (sink_setcaps));
-    gst_pad_set_getcaps_function (omx_base->srcpad,
-            GST_DEBUG_FUNCPTR (src_getcaps));
     gst_pad_set_setcaps_function (omx_base->srcpad,
             GST_DEBUG_FUNCPTR (src_setcaps));
 }
