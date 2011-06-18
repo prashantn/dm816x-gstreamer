@@ -42,7 +42,7 @@ static GstStaticPadTemplate sink_template =
                 GST_PAD_SINK,
                 GST_PAD_ALWAYS,
                 GST_STATIC_CAPS (GST_VIDEO_CAPS_YUV_STRIDED (
-                        GSTOMX_ALL_FORMATS, "[ 0, max ]"))
+                        "{ NV12 }", "[ 0, max ]"))
         );
 
 static gboolean pad_event (GstPad *pad, GstEvent *event);
@@ -161,10 +161,11 @@ sink_setcaps (GstPad *pad,
 
         G_OMX_PORT_GET_DEFINITION (omx_base->in_port, &param);
 
-        param.format.video.eColorFormat = g_omx_fourcc_to_colorformat (
-                gst_video_format_to_fourcc (format));
+        param.format.video.eColorFormat = OMX_COLOR_FormatYUV420SemiPlanar ;
         param.format.video.nFrameWidth  = width;
         param.format.video.nFrameHeight = height;
+        if (!rowstride)
+            rowstride = (width + 15) & 0xFFFFFFF0;
         param.format.video.nStride      = self->rowstride = rowstride;
 
         if (framerate)
@@ -179,46 +180,8 @@ sink_setcaps (GstPad *pad,
         }
 
         G_OMX_PORT_SET_DEFINITION (omx_base->out_port, &param);
-
-        /* query to find if anyone upstream using these buffers has any
-         * minimum requirements:
-         */
-        query = gst_query_new_buffers (caps);
-
-        if (gst_element_query (GST_ELEMENT (omx_base), query))
-        {
-            gint  min_width, min_height;
-            gst_query_parse_buffers_dimensions (query, &min_width, &min_height);
-            if (min_width > width)
-                width = min_width;
-            if (min_height > height)
-                height = min_height;
-        }
-
-        gst_query_unref (query);
-
-/* REVISIT: OMX_TI_IndexParam2DBufferAllocDimension is not implemented */
-#if 0
-#ifdef USE_OMXTICORE
-        {
-    	    OMX_ERRORTYPE err;
-            OMX_CONFIG_RECTTYPE rect;
-            _G_OMX_INIT_PARAM (&rect);
-
-            rect.nPortIndex = omx_base->in_port->port_index;
-            rect.nWidth = width;
-            rect.nHeight = height;
-            err = OMX_SetParameter (omx_base->gomx->omx_handle,
-                OMX_TI_IndexParam2DBufferAllocDimension, &rect);
-            if (err == OMX_ErrorNone)
-            {
-                GST_DEBUG_OBJECT (self, "updated dimensions: %dx%d",
-                                  rect.nWidth, rect.nHeight);
-            }
-        }
-#endif
-#endif
     }
+
 
     return TRUE;
 }
@@ -260,13 +223,13 @@ omx_setup (GstOmxBaseFilter *omx_base)
                 width = param.format.video.nFrameWidth;
                 height = param.format.video.nFrameHeight;
                 framerate = param.format.video.xFramerate;
-
+                
                 /* this is against the standard; nBufferSize is read-only. */
-                fourcc = g_omx_colorformat_to_fourcc (param.format.video.eColorFormat);
+                fourcc = GST_MAKE_FOURCC ('N', 'V', '1', '2');
                 param.nBufferSize = gst_video_format_get_size_strided (
                         gst_video_format_from_fourcc (fourcc),
-                        width, height, param.format.video.nStride);
 
+                        width, height, param.format.video.nStride);
                 G_OMX_PORT_SET_DEFINITION (omx_base->in_port, &param);
             }
 
@@ -282,6 +245,24 @@ omx_setup (GstOmxBaseFilter *omx_base)
                 param.format.video.xFramerate = framerate;
 
                 G_OMX_PORT_SET_DEFINITION (omx_base->out_port, &param);
+            }
+
+            /* the component should do this instead */
+            {
+                GOmxPort *port;
+
+                /* enable input port */
+                port = omx_base->in_port;
+                OMX_SendCommand (g_omx_core_get_handle (port->core), OMX_CommandPortEnable, 
+                    port->port_index, NULL);
+                g_sem_down (port->core->port_sem);
+
+                /* enable output port */
+                port = omx_base->out_port;
+                OMX_SendCommand (g_omx_core_get_handle (port->core), OMX_CommandPortEnable, 
+                    port->port_index, NULL);
+                g_sem_down (port->core->port_sem);
+
             }
         }
     }
@@ -333,10 +314,12 @@ type_instance_init (GTypeInstance *instance,
 
     omx_base->omx_setup = omx_setup;
 
-    omx_base->in_port->omx_allocate = FALSE;
-    omx_base->out_port->omx_allocate = FALSE;
-    omx_base->in_port->share_buffer = TRUE;
-    omx_base->out_port->share_buffer = TRUE;
+    omx_base->in_port->omx_allocate = TRUE;
+    omx_base->out_port->omx_allocate = TRUE;
+    omx_base->in_port->share_buffer = FALSE;
+    omx_base->out_port->share_buffer = FALSE;
+    omx_base->out_port->always_copy = FALSE;
+    omx_base->in_port->always_copy = TRUE;
 
     gst_pad_set_setcaps_function (omx_base->sinkpad, sink_setcaps);
 
