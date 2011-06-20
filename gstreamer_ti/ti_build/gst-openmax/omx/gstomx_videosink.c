@@ -38,9 +38,6 @@
 #include <linux/ti81xxfb.h>
 #include <unistd.h>
 
-#define MAXWIDTH 1920
-#define MAXHEIGHT 1080
-
 GSTOMX_BOILERPLATE (GstOmxVideoSink, gst_omx_videosink, GstOmxBaseSink, GST_OMX_BASE_SINK_TYPE);
 
 enum
@@ -51,6 +48,8 @@ enum
     ARG_ROTATION,
     ARG_TOP,
     ARG_LEFT,
+    ARG_DISPLAY_MODE,
+    ARG_ENABLE_TRANS,
 };
 
 static GstCaps *
@@ -75,16 +74,8 @@ generate_sink_template (void)
 
         g_value_init (&list, GST_TYPE_LIST);
         g_value_init (&val, GST_TYPE_FOURCC);
-#if 0
-        gst_value_set_fourcc (&val, GST_MAKE_FOURCC ('I', '4', '2', '0'));
-        gst_value_list_append_value (&list, &val);
-#endif
         gst_value_set_fourcc (&val, GST_MAKE_FOURCC ('Y', 'U', 'Y', '2'));
         gst_value_list_append_value (&list, &val);
-#if 0
-        gst_value_set_fourcc (&val, GST_MAKE_FOURCC ('U', 'Y', 'V', 'Y'));
-        gst_value_list_append_value (&list, &val);
-#endif
         gst_structure_set_value (struc, "format", &list);
 
         g_value_unset (&val);
@@ -124,8 +115,9 @@ type_base_init (gpointer g_class)
         gst_element_class_add_pad_template (element_class, template);
     }
 }
+
 static int
-gstomx_videosink_enable_transparency ()
+gstomx_videosink_transparency (gboolean enable)
 {
 	struct fb_fix_screeninfo fixinfo;
 	struct fb_var_screeninfo varinfo;
@@ -153,7 +145,7 @@ gstomx_videosink_enable_transparency ()
         goto exit;
 	}
 
-    regp.transen = TI81XXFB_FEATURE_ENABLE;
+    regp.transen = enable ? TI81XXFB_FEATURE_ENABLE : TI81XXFB_FEATURE_DISABLE;
 
 	ret = ioctl(fd, TIFB_SET_PARAMS, &regp);
 	if (ret < 0) {
@@ -167,6 +159,61 @@ exit:
 
     return ret;
 }
+
+static int
+get_display_mode_from_string (char *str, int *mode, int *maxWidth, int *maxHeight)
+{
+    if (!strcmp (str, "OMX_DC_MODE_1080P_30"))
+    {
+        *mode = OMX_DC_MODE_1080P_30;
+        *maxWidth = 1920;
+        *maxHeight = 1080;
+        return;
+    }
+    
+    if (!strcmp (str, "OMX_DC_MODE_1080I_60"))
+    {
+        *mode = OMX_DC_MODE_1080I_60;
+        *maxWidth = 1920;
+        *maxHeight = 1080;
+        return;
+    }
+
+    if (!strcmp (str, "OMX_DC_MODE_720P_60"))
+    {
+        *mode = OMX_DC_MODE_720P_60;
+        *maxWidth = 1280;
+        *maxHeight = 720;
+        return;
+    }
+
+    if (!strcmp (str, "OMX_DC_MODE_1080P_60"))
+    {
+        *mode = OMX_DC_MODE_1080P_60;
+        *maxWidth = 1920;
+        *maxHeight = 1080;
+        return;
+    }
+   
+    if (!strcmp (str, "OMX_DC_MODE_PAL"))
+    {
+        *mode = OMX_DC_MODE_PAL;
+        *maxWidth = 720;
+        *maxHeight = 576;
+        return;
+    }
+
+    if (!strcmp (str, "OMX_DC_MODE_NTSC"))
+    {
+        *mode = OMX_DC_MODE_NTSC;
+        *maxWidth = 720;
+        *maxHeight = 480;
+        return;
+    }
+
+    return;
+}
+
 
 static void
 omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
@@ -182,6 +229,7 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
     GstStructure *structure;
     gint width;
     gint height;
+    gint maxWidth, maxHeight, mode;
 
     sink = GST_OMX_VIDEOSINK (gst_sink);
     self = omx_base = GST_OMX_BASE_SINK (gst_sink);
@@ -204,19 +252,22 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
 
     G_OMX_PORT_SET_DEFINITION (omx_base->in_port, &param);
     g_omx_port_setup (omx_base->in_port, &param);
- 
+
+    /* get the display mode set via property */
+    get_display_mode_from_string (sink->display_mode, &mode, &maxWidth, &maxHeight);
+
     /* set display driver mode */
     _G_OMX_INIT_PARAM (&driverId);
     driverId.nDrvInstID = 0; /* on chip HDMI */
-    driverId.eDispVencMode = OMX_DC_MODE_1080P_60;
+    driverId.eDispVencMode = mode;
 
     OMX_SetParameter (gomx->omx_handle, (OMX_INDEXTYPE) OMX_TI_IndexParamVFDCDriverInstId, &driverId);
 
     /* center the video */
     if (!sink->left && !sink->top)
     {
-        sink->left = ((MAXWIDTH - width) / 2) & ~1;         
-        sink->top = ((MAXHEIGHT - height) / 2) & ~1;
+        sink->left = ((maxWidth - width) / 2) & ~1;         
+        sink->top = ((maxHeight - height) / 2) & ~1;
     }
 
     /* set mosiac window information */
@@ -254,9 +305,6 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
     /* enable the input port */
     OMX_SendCommand (gomx->omx_handle, OMX_CommandPortEnable, omx_base->in_port->port_index, NULL);
     g_sem_down (omx_base->in_port->core->port_sem);
-
-    /* enable transparency in framebuffer so that we can see the video plane */
-    gstomx_videosink_enable_transparency ();
 
     return;
 }
@@ -310,6 +358,14 @@ set_property (GObject *object,
         case ARG_LEFT:
             self->left = g_value_get_uint (value);
             break;
+        case ARG_ENABLE_TRANS:
+            self->enable_trans = g_value_get_boolean (value);
+            gstomx_videosink_transparency (self->enable_trans);
+            break;
+        case ARG_DISPLAY_MODE:
+            g_free (self->display_mode);
+            self->display_mode = g_value_dup_string (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
             break;
@@ -343,6 +399,12 @@ get_property (GObject *object,
         case ARG_TOP:
             g_value_set_uint (value, self->top);
             break;
+        case ARG_ENABLE_TRANS:
+            g_value_set_boolean (value, self->enable_trans);
+            break;
+        case ARG_DISPLAY_MODE:
+            g_value_set_string (value, self->display_mode);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
             break;
@@ -364,23 +426,6 @@ type_class_init (gpointer g_class,
     gobject_class->set_property = set_property;
     gobject_class->get_property = get_property;
 
-    #if 0
-    g_object_class_install_property (gobject_class, ARG_X_SCALE,
-                                     g_param_spec_uint ("x-scale", "X Scale",
-                                                        "How much to scale the image in the X axis (100 means nothing)",
-                                                        0, G_MAXUINT, 100, G_PARAM_READWRITE));
-
-    g_object_class_install_property (gobject_class, ARG_Y_SCALE,
-                                     g_param_spec_uint ("y-scale", "Y Scale",
-                                                        "How much to scale the image in the Y axis (100 means nothing)",
-                                                        0, G_MAXUINT, 100, G_PARAM_READWRITE));
-
-    g_object_class_install_property (gobject_class, ARG_ROTATION,
-                                     g_param_spec_uint ("rotation", "Rotation",
-                                                        "Rotation angle",
-                                                        0, G_MAXUINT, 360, G_PARAM_READWRITE));
-    #endif
-
     g_object_class_install_property (gobject_class, ARG_TOP,
                                      g_param_spec_uint ("top", "Top",
                                                         "The top most co-ordinate on video display",
@@ -389,6 +434,20 @@ type_class_init (gpointer g_class,
                                      g_param_spec_uint ("left", "left",
                                                         "The left most co-ordinate on video display",
                                                         0, G_MAXUINT, 100, G_PARAM_READWRITE));
+    g_object_class_install_property (gobject_class, ARG_ENABLE_TRANS,
+                                     g_param_spec_boolean ("transparency", "Enable transparency",
+                                                        "Enable transparency",
+                                                        TRUE, G_PARAM_READWRITE));
+    g_object_class_install_property (gobject_class, ARG_DISPLAY_MODE,
+                                    g_param_spec_string ("display-mode", "Display mode", 
+            "Display driver configuration mode (see below)"
+            "\n\t\t\t OMX_DC_MODE_NTSC "
+            "\n\t\t\t OMX_DC_MODE_PAL "
+            "\n\t\t\t OMX_DC_MODE_1080P_60 "
+            "\n\t\t\t OMX_DC_MODE_720P_60 "
+            "\n\t\t\t OMX_DC_MODE_1080I_60 "
+            "\n\t\t\t OMX_DC_MODE_1080P_30", 
+            "OMX_DC_MODE_1080P_60", G_PARAM_READWRITE));
 }
 
 static void
@@ -396,9 +455,13 @@ type_instance_init (GTypeInstance *instance,
                     gpointer g_class)
 {
     GstOmxBaseSink *omx_base;
+    GstOmxVideoSink *self;
 
     omx_base = GST_OMX_BASE_SINK (instance);
-    omx_base->omx_setup = omx_setup;
-
-    GST_DEBUG_OBJECT (omx_base, "start");
+    self = GST_OMX_VIDEOSINK (instance);
+    omx_base->omx_setup = omx_setup;    
+    
+    g_object_set (self, "transparency", TRUE, NULL);
+    g_object_set (self, "display-mode", "OMX_DC_MODE_1080P_60", NULL);
 }
+

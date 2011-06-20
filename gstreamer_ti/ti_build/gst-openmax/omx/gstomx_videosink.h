@@ -44,6 +44,9 @@ struct GstOmxVideoSink
     guint left;
     guint width;
     guint height;
+    gboolean enable_trans;
+    gchar *display_mode;
+    guint maxWidth, maxHeight;
 };
 
 struct GstOmxVideoSinkClass

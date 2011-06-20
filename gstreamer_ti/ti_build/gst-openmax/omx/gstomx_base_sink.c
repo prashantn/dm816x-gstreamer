@@ -25,7 +25,6 @@
 #include "gstomx_base_sink.h"
 #include "gstomx.h"
 #include "gstomx_interface.h"
-#include "gstomx_ctrl.h"
 #include "gstomx_buffertransport.h"
 
 #include <string.h> /* for memset, memcpy */
