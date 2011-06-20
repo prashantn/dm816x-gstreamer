@@ -49,15 +49,15 @@ index 957f288..7279ca0 100644
    if (raw && !(playsink->flags & GST_PLAY_FLAG_NATIVE_VIDEO)) {
 -    GST_DEBUG_OBJECT (playsink, "creating stridetransform");
 -    chain->conv = gst_element_factory_make ("stridetransform", "vconv");
-+    GST_DEBUG_OBJECT (playsink, "creating omx_colorconv");
-+    chain->conv = gst_element_factory_make ("omx_colorconv", "vconv");
++    GST_DEBUG_OBJECT (playsink, "creating omx_scaler");
++    chain->conv = gst_element_factory_make ("omx_scaler", "vconv");
      if (chain->conv == NULL) {
 -      post_missing_element_message (playsink, "stridetransform");
-+      post_missing_element_message (playsink, "omx_colorconv");
++      post_missing_element_message (playsink, "omx_scaler");
        GST_ELEMENT_WARNING (playsink, CORE, MISSING_PLUGIN,
            (_("Missing element '%s' - check your GStreamer installation."),
 -              "stridetransform"), ("video rendering might fail"));
-+              "omx_colorconv"), ("video rendering might fail"));
++              "omx_scaler"), ("video rendering might fail"));
      } else {
        gst_bin_add (bin, chain->conv);
        if (prev) {

@@ -46,7 +46,6 @@ libgstomx_la_SOURCES = gstomx.c gstomx.h \
                gstperf.c gstperf.h  \
                gstomx_buffertransport.c gstomx_buffertransport.h \
                gstomx_base_vfpc.c gstomx_base_vfpc.h \
-               gstomx_colorconv.c gstomx_colorconv.h  \
                gstomx_base_ctrl.c gstomx_base_ctrl.h \
                gstomx_scaler.c gstomx_scaler.h  
 

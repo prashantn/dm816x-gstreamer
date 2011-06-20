@@ -21,7 +21,6 @@
 
 #include "gstomx_base_vfpc.h"
 #include "gstomx.h"
-
 #include <gst/video/video.h>
 
 #include <OMX_TI_Index.h>
@@ -35,13 +34,6 @@ enum
 };
 
 GSTOMX_BOILERPLATE (GstOmxBaseVfpc, gst_omx_base_vfpc, GstOmxBaseFilter, GST_OMX_BASE_FILTER_TYPE);
-
-static GstStaticPadTemplate src_template =
-        GST_STATIC_PAD_TEMPLATE ("src",
-                GST_PAD_SRC,
-                GST_PAD_ALWAYS,
-                GST_STATIC_CAPS (GST_VIDEO_CAPS_YUV ( "{YUY2}" ))
-        );
 
 static GstFlowReturn push_buffer (GstOmxBaseFilter *self, GstBuffer *buf);
 
@@ -78,9 +70,6 @@ type_base_init (gpointer g_class)
 
     element_class = GST_ELEMENT_CLASS (g_class);
 
-    gst_element_class_add_pad_template (element_class,
-        gst_static_pad_template_get (&src_template));
-
     bfilter_class->pad_event = pad_event;
 }
 
@@ -90,141 +79,19 @@ push_buffer (GstOmxBaseFilter *omx_base, GstBuffer *buf)
     return parent_class->push_buffer (omx_base, buf);
 }
 
-static gboolean 
-setup_ports (GstOmxBaseFilter *omx_base)
+static gint
+gstomx_calculate_stride (int width, GstVideoFormat format)
 {
-    GOmxCore *gomx;
-    OMX_ERRORTYPE err;
-    OMX_PARAM_PORTDEFINITIONTYPE paramPort;
-    OMX_PARAM_BUFFER_MEMORYTYPE memTypeCfg;
-    OMX_PARAM_VFPC_NUMCHANNELPERHANDLE numChannels;
-    OMX_CONFIG_VIDCHANNEL_RESOLUTION chResolution;
-    OMX_CONFIG_ALG_ENABLE algEnable;
-    GstOmxBaseVfpc *self;
-    gboolean ret = FALSE;
-
-    gomx = (GOmxCore *) omx_base->gomx;
-    self = GST_OMX_BASE_VFPC (omx_base);
-
-    GST_LOG_OBJECT (self, "begin");
-    
-    /* Setting Memory type at input port to Raw Memory */
-    GST_LOG_OBJECT (self, "Setting input port to Raw memory");
-
-    _G_OMX_INIT_PARAM (&memTypeCfg);
-    memTypeCfg.nPortIndex = OMX_VFPC_INPUT_PORT_START_INDEX + self->channel_index;
-    memTypeCfg.eBufMemoryType = OMX_BUFFER_MEMORY_DEFAULT;    
-    err = OMX_SetParameter (gomx->omx_handle, OMX_TI_IndexParamBuffMemType, &memTypeCfg);
-
-    if (err != OMX_ErrorNone)
-        return ret;
-
-    /* Setting Memory type at output port to Raw Memory */
-    GST_LOG_OBJECT (self, "Setting output port to Raw memory");
-
-    _G_OMX_INIT_PARAM (&memTypeCfg);
-    memTypeCfg.nPortIndex = OMX_VFPC_OUTPUT_PORT_START_INDEX + self->channel_index;
-    memTypeCfg.eBufMemoryType = OMX_BUFFER_MEMORY_DEFAULT;
-    err = OMX_SetParameter (gomx->omx_handle, OMX_TI_IndexParamBuffMemType, &memTypeCfg);
-
-    if (err != OMX_ErrorNone)
-        return ret;
-
-    /* Input port configuration. */
-    GST_LOG_OBJECT (self, "Setting port definition (input)");
-
-    G_OMX_PORT_GET_DEFINITION (omx_base->in_port, &paramPort);
-    paramPort.format.video.nFrameWidth = self->in_width;
-    paramPort.format.video.nFrameHeight = self->in_height;
-    paramPort.format.video.nStride = self->in_stride;
-    paramPort.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
-    paramPort.format.video.eColorFormat = OMX_COLOR_FormatYUV420SemiPlanar;
-    paramPort.nBufferSize =  self->in_stride * self->in_height * 1.5;
-    paramPort.nBufferAlignment = 0;
-    paramPort.bBuffersContiguous = 0;
-    G_OMX_PORT_SET_DEFINITION (omx_base->in_port, &paramPort);
-    g_omx_port_setup (omx_base->in_port, &paramPort);
-
-    /* Output port configuration. */
-    GST_LOG_OBJECT (self, "Setting port definition (output)");
-
-    G_OMX_PORT_GET_DEFINITION (omx_base->out_port, &paramPort);
-    paramPort.format.video.nFrameWidth = self->out_width;
-    paramPort.format.video.nFrameHeight = self->out_height;
-    paramPort.format.video.nStride = self->out_stride;
-    paramPort.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
-    paramPort.format.video.eColorFormat = OMX_COLOR_FormatYCbYCr;
-    paramPort.nBufferSize =  self->out_stride * self->out_height;
-    paramPort.nBufferCountActual = 8;
-    paramPort.nBufferAlignment = 0;
-    paramPort.bBuffersContiguous = 0;
-    G_OMX_PORT_SET_DEFINITION (omx_base->out_port, &paramPort);
-    g_omx_port_setup (omx_base->out_port, &paramPort);
-
-    /* Set number of channles */
-    GST_LOG_OBJECT (self, "Setting number of channels");
-
-    _G_OMX_INIT_PARAM (&numChannels);
-    numChannels.nNumChannelsPerHandle = 1;    
-    err = OMX_SetParameter (gomx->omx_handle, 
-        (OMX_INDEXTYPE) OMX_TI_IndexParamVFPCNumChPerHandle, &numChannels);
-
-    if (err != OMX_ErrorNone)
-        return ret;
-
-    /* Set input channel resolution */
-    GST_LOG_OBJECT (self, "Setting channel resolution (input)");
-
-    _G_OMX_INIT_PARAM (&chResolution);
-    chResolution.Frm0Width = self->in_width;
-    chResolution.Frm0Height = self->in_height;
-    chResolution.Frm0Pitch = self->in_stride;
-    chResolution.Frm1Width = 0;
-    chResolution.Frm1Height = 0;
-    chResolution.Frm1Pitch = 0;
-    chResolution.FrmStartX = self->left;
-    chResolution.FrmStartY = self->top;
-    chResolution.FrmCropWidth = 0;
-    chResolution.FrmCropHeight = 0;
-    chResolution.eDir = OMX_DirInput;
-    chResolution.nChId = 0;
-    err = OMX_SetConfig (gomx->omx_handle, OMX_TI_IndexConfigVidChResolution, &chResolution);
-
-    if (err != OMX_ErrorNone)
-        return ret;
-
-    /* Set output channel resolution */
-    GST_LOG_OBJECT (self, "Setting channel resolution (output)");
-
-    _G_OMX_INIT_PARAM (&chResolution);
-    chResolution.Frm0Width = self->out_width;
-    chResolution.Frm0Height = self->out_height;
-    chResolution.Frm0Pitch = self->out_stride;
-    chResolution.Frm1Width = 0;
-    chResolution.Frm1Height = 0;
-    chResolution.Frm1Pitch = 0;
-    chResolution.FrmStartX = 0;
-    chResolution.FrmStartY = 0;
-    chResolution.FrmCropWidth = 0;
-    chResolution.FrmCropHeight = 0;
-    chResolution.eDir = OMX_DirOutput;
-    chResolution.nChId = 0;
-    err = OMX_SetConfig (gomx->omx_handle, OMX_TI_IndexConfigVidChResolution, &chResolution);
-
-    if (err != OMX_ErrorNone)
-        return ret;
-
-    _G_OMX_INIT_PARAM (&algEnable);
-    algEnable.nPortIndex = 0;
-    algEnable.nChId = 0;
-    algEnable.bAlgBypass = OMX_FALSE;
-
-    err = OMX_SetConfig (gomx->omx_handle, (OMX_INDEXTYPE) OMX_TI_IndexConfigAlgEnable, &algEnable);
-
-    if (err != OMX_ErrorNone)
-        return ret;
-
-    return TRUE;
+    switch (format)
+    {
+        case GST_VIDEO_FORMAT_NV12:
+            return width;
+        case GST_VIDEO_FORMAT_YUY2:
+            return width * 2;
+        default:
+            GST_ERROR ("unsupported color format");
+    }
+    return -1;
 }
 
 static gboolean
@@ -235,6 +102,7 @@ sink_setcaps (GstPad *pad,
     GstOmxBaseVfpc *self;
     GstOmxBaseFilter *omx_base;
     GOmxCore *gomx;
+    GstVideoFormat format;
 
     self = GST_OMX_BASE_VFPC (GST_PAD_PARENT (pad));
     omx_base = GST_OMX_BASE_FILTER (self);
@@ -250,22 +118,17 @@ sink_setcaps (GstPad *pad,
 
     g_return_val_if_fail (structure, FALSE);
 
-    if (!(gst_structure_get_int (structure, "width", &self->in_width) &&
-            gst_structure_get_int (structure, "height", &self->in_height)))
+    if (!gst_video_format_parse_caps_strided (caps,
+            &format, &self->in_width, &self->in_height, &self->in_stride))
     {
-        GST_WARNING_OBJECT (self, "width and/or height not set in caps: %dx%d",
-                self->in_width, self->in_height);
+        GST_WARNING_OBJECT (self, "width and/or height is not set in caps");
         return FALSE;
     }
 
-    if (!(gst_structure_get_int (structure, "rowstride", &self->in_stride)))
+    if (!self->in_stride) 
     {
-        GST_WARNING_OBJECT (self, "does not have rowstride, defaulting to %d",
-                self->in_stride);
+        self->in_stride = gstomx_calculate_stride (self->in_width, format);
     }
-
-    if (!self->in_stride)
-        self->in_stride = self->in_width;
 
     if (self->sink_setcaps)
         self->sink_setcaps (pad, caps);
@@ -289,21 +152,22 @@ src_setcaps (GstPad *pad, GstCaps *caps)
     g_return_val_if_fail (caps, FALSE);
     g_return_val_if_fail (gst_caps_is_fixed (caps), FALSE);
 
-    if (!(gst_structure_get_int (structure, "width", &self->out_width) &&
-            gst_structure_get_int (structure, "height", &self->out_height)))
+    if (!gst_video_format_parse_caps_strided (caps,
+            &format, &self->out_width, &self->out_height, &self->out_stride))
     {
-        GST_WARNING_OBJECT (self, "width and/or height not set in caps: %dx%d",
-                self->in_width, self->in_height);
-        self->out_width = self->in_width;
-        self->out_height = self->in_height;
+        GST_WARNING_OBJECT (self, "width and/or height is not set in caps");
         return FALSE;
     }
 
-    self->out_stride = self->out_width * 2;
+    if (!self->out_stride)
+    {
+        self->out_stride = gstomx_calculate_stride (self->out_width, format);
+    }
 
     /* save the src caps later needed by omx transport buffer */
     if (omx_base->out_port->caps)
         gst_caps_unref (omx_base->out_port->caps);
+
     omx_base->out_port->caps = gst_caps_copy (caps);
 
     return TRUE;
@@ -351,55 +215,6 @@ get_property (GObject *obj,
     }
 }
 
-static GstCaps*
-create_src_caps (GstOmxBaseFilter *omx_base)
-{
-    GstCaps *caps;    
-    GstOmxBaseVfpc *self;
-    int width, height;
-    GstStructure *struc;
-
-    self = GST_OMX_BASE_VFPC (omx_base);
-    caps = gst_pad_peer_get_caps (omx_base->srcpad);
-
-    if (gst_caps_is_empty (caps))
-    {
-        width = self->in_width;
-        height = self->in_height;
-    }
-    else
-    {
-        GstStructure *s;
-
-        s = gst_caps_get_structure (caps, 0);
-
-        if (!(gst_structure_get_int (s, "width", &width) &&
-            gst_structure_get_int (s, "height", &height)))
-        {
-            width = self->in_width;
-            height = self->in_height;    
-        }
-    }
-
-    caps = gst_caps_new_empty ();
-    struc = gst_structure_new (("video/x-raw-yuv"),
-            "width",  G_TYPE_INT, width,
-            "height", G_TYPE_INT, height,
-            "format", GST_TYPE_FOURCC, GST_MAKE_FOURCC ('Y', 'U', 'Y', '2'),
-            NULL);
-
-    if (self->framerate_denom)
-    {
-        gst_structure_set (struc,
-        "framerate", GST_TYPE_FRACTION, self->framerate_num, self->framerate_denom, NULL);
-    }
-
-    gst_caps_append_structure (caps, struc);
-
-    return caps;
-}
-
-
 static void
 omx_setup (GstOmxBaseFilter *omx_base)
 {
@@ -412,11 +227,10 @@ omx_setup (GstOmxBaseFilter *omx_base)
 
     GST_INFO_OBJECT (omx_base, "begin");
 
-    /* set the output cap */
-    gst_pad_set_caps (omx_base->srcpad, create_src_caps (omx_base));
-    
-    /* configure input and output port information */
-    setup_ports (omx_base);
+    if (self->omx_setup)
+    {
+        self->omx_setup (omx_base);
+    }
 
     /* enable input port */
     port = omx_base->in_port;
