@@ -25,3 +25,6 @@ gst-launch filesrc location=sample.264  ! typefind ! h264parse access-unit=true 
 # pipeline to scale the QVGA video test pattern to VGA
 gst-launch -v videotestsrc ! 'video/x-raw-yuv,width=320,height=240' ! omx_scaler ! 'video/x-raw-yuv,width=640,height=480' ! omx_ctrl display-mode=OMX_DC_MODE_1080P_60 ! omx_videosink sync=false -v
 
+# pipeline to encode videotest pattern in H.264
+gst-launch -v videotestsrc num-buffers=1000 ! omx_h264enc ! filesink location=sample.264 
+
