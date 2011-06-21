@@ -164,6 +164,22 @@ sink_setcaps (GstPad *pad,
         self->in_stride = gstomx_calculate_stride (self->in_width, format);
     }
 
+    {
+        const GValue *framerate = NULL;
+        framerate = gst_structure_get_value (structure, "framerate");
+        if (framerate)
+        {
+            self->framerate_num = gst_value_get_fraction_numerator (framerate);
+            self->framerate_denom = gst_value_get_fraction_denominator (framerate);
+
+            omx_base->duration = gst_util_uint64_scale_int(GST_SECOND,
+                    gst_value_get_fraction_denominator (framerate),
+                    gst_value_get_fraction_numerator (framerate));
+            GST_DEBUG_OBJECT (self, "Nominal frame duration =%"GST_TIME_FORMAT,
+                                GST_TIME_ARGS (omx_base->duration));
+        }
+    }
+
     if (self->sink_setcaps)
         self->sink_setcaps (pad, caps);
 
