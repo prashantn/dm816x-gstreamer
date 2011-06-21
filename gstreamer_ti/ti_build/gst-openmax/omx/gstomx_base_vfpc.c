@@ -281,26 +281,6 @@ type_instance_init (GTypeInstance *instance,
 
     omx_base->omx_setup = omx_setup;
 
-    /* GOmx */
-    g_omx_core_free (omx_base->gomx);
-    g_omx_port_free (omx_base->in_port);
-    g_omx_port_free (omx_base->out_port);
-
-    omx_base->gomx = g_omx_core_new (omx_base, g_class);
-    omx_base->in_port = g_omx_core_get_port (omx_base->gomx, "in", OMX_VFPC_INPUT_PORT_START_INDEX);
-    omx_base->out_port = g_omx_core_get_port (omx_base->gomx, "out", OMX_VFPC_OUTPUT_PORT_START_INDEX);
-
-    omx_base->in_port->omx_allocate = TRUE;
-    omx_base->in_port->share_buffer = FALSE;
-    omx_base->in_port->always_copy  = FALSE;
-
-    omx_base->out_port->omx_allocate = TRUE;
-    omx_base->out_port->share_buffer = FALSE;
-    omx_base->out_port->always_copy = FALSE;
-
-    omx_base->in_port->port_index = OMX_VFPC_INPUT_PORT_START_INDEX ;
-    omx_base->out_port->port_index = OMX_VFPC_OUTPUT_PORT_START_INDEX;
-
     gst_pad_set_setcaps_function (omx_base->sinkpad,
             GST_DEBUG_FUNCPTR (sink_setcaps));
     gst_pad_set_setcaps_function (omx_base->srcpad,
