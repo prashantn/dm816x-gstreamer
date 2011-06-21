@@ -30,7 +30,7 @@
 enum
 {
     ARG_0,
-    ARG_CHANNEL,
+    ARG_PORT_INDEX,
 };
 
 GSTOMX_BOILERPLATE (GstOmxBaseVfpc, gst_omx_base_vfpc, GstOmxBaseFilter, GST_OMX_BASE_FILTER_TYPE);
@@ -60,6 +60,40 @@ pad_event (GstPad *pad, GstEvent *event)
             return parent_class->pad_event (pad, event);
         }
     }
+}
+
+static void
+gstomx_vfpc_set_port_index (GObject *obj, int index)
+{
+    GstOmxBaseFilter *omx_base;
+    GstOmxBaseVfpc *self;
+
+    omx_base = GST_OMX_BASE_FILTER (obj);
+    self = GST_OMX_BASE_VFPC (obj);
+
+    self->input_port_index = OMX_VFPC_INPUT_PORT_START_INDEX + index;
+    self->output_port_index = OMX_VFPC_OUTPUT_PORT_START_INDEX + index;
+ 
+    /* free the existing core and ports */
+    g_omx_core_free (omx_base->gomx);
+    g_omx_port_free (omx_base->in_port);
+    g_omx_port_free (omx_base->out_port);
+
+    /* create new core and ports */
+    omx_base->gomx = g_omx_core_new (omx_base, self->g_class);
+    omx_base->in_port = g_omx_core_get_port (omx_base->gomx, "in", self->input_port_index);
+    omx_base->out_port = g_omx_core_get_port (omx_base->gomx, "out", self->output_port_index);
+
+    omx_base->in_port->omx_allocate = TRUE;
+    omx_base->in_port->share_buffer = FALSE;
+    omx_base->in_port->always_copy  = FALSE;
+
+    omx_base->out_port->omx_allocate = TRUE;
+    omx_base->out_port->share_buffer = FALSE;
+    omx_base->out_port->always_copy = FALSE;
+
+    omx_base->in_port->port_index = self->input_port_index;
+    omx_base->out_port->port_index = self->output_port_index;
 }
 
 static void
@@ -180,13 +214,17 @@ set_property (GObject *obj,
               GParamSpec *pspec)
 {
     GstOmxBaseVfpc *self;
+    GstOmxBaseFilter *omx_base;
 
+    omx_base = GST_OMX_BASE_FILTER (obj);
     self = GST_OMX_BASE_VFPC (obj);
 
     switch (prop_id)
     {
-        case ARG_CHANNEL:
-            self->channel_index = g_value_get_uint (value);
+        case ARG_PORT_INDEX:
+            self->port_index = g_value_get_uint (value);
+            if (!self->port_configured) 
+                gstomx_vfpc_set_port_index (obj, self->port_index);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
@@ -206,8 +244,8 @@ get_property (GObject *obj,
 
     switch (prop_id)
     {
-        case ARG_CHANNEL:
-            g_value_set_uint (value, self->channel_index);
+        case ARG_PORT_INDEX:
+            g_value_set_uint (value, self->port_index);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
@@ -231,7 +269,7 @@ omx_setup (GstOmxBaseFilter *omx_base)
     {
         self->omx_setup (omx_base);
     }
-
+    
     /* enable input port */
     port = omx_base->in_port;
     OMX_SendCommand (g_omx_core_get_handle (port->core),
@@ -244,7 +282,7 @@ omx_setup (GstOmxBaseFilter *omx_base)
             OMX_CommandPortEnable, port->port_index, NULL);
     g_sem_down (port->core->port_sem);
 
-    /* indicate the port is now configured */
+    /* indicate that port is now configured */
     self->port_configured = TRUE;
 
     GST_INFO_OBJECT (omx_base, "end");
@@ -264,9 +302,9 @@ type_class_init (gpointer g_class,
         gobject_class->set_property = set_property;
         gobject_class->get_property = get_property;
 
-        g_object_class_install_property (gobject_class, ARG_CHANNEL,
-                                         g_param_spec_uint ("use-channel", "channel",
-                                                            "which channel to use",
+        g_object_class_install_property (gobject_class, ARG_PORT_INDEX,
+                                         g_param_spec_uint ("port-index", "port index",
+                                                            "input/output start port index",
                                                             0, 8, 0, G_PARAM_READWRITE));
     }
 }
@@ -276,10 +314,13 @@ type_instance_init (GTypeInstance *instance,
                     gpointer g_class)
 {
     GstOmxBaseFilter *omx_base;
+    GstOmxBaseVfpc *self;
 
     omx_base = GST_OMX_BASE_FILTER (instance);
+    self = GST_OMX_BASE_VFPC (instance);
 
     omx_base->omx_setup = omx_setup;
+    self->g_class = g_class;
 
     gst_pad_set_setcaps_function (omx_base->sinkpad,
             GST_DEBUG_FUNCPTR (sink_setcaps));

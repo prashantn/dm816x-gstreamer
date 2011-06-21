@@ -121,7 +121,7 @@ omx_setup (GstOmxBaseFilter *omx_base)
     GST_LOG_OBJECT (self, "Setting input port to Raw memory");
 
     _G_OMX_INIT_PARAM (&memTypeCfg);
-    memTypeCfg.nPortIndex = OMX_VFPC_INPUT_PORT_START_INDEX + self->channel_index;
+    memTypeCfg.nPortIndex = self->input_port_index;
     memTypeCfg.eBufMemoryType = OMX_BUFFER_MEMORY_DEFAULT;    
     err = OMX_SetParameter (gomx->omx_handle, OMX_TI_IndexParamBuffMemType, &memTypeCfg);
 
@@ -132,7 +132,7 @@ omx_setup (GstOmxBaseFilter *omx_base)
     GST_LOG_OBJECT (self, "Setting output port to Raw memory");
 
     _G_OMX_INIT_PARAM (&memTypeCfg);
-    memTypeCfg.nPortIndex = OMX_VFPC_OUTPUT_PORT_START_INDEX + self->channel_index;
+    memTypeCfg.nPortIndex = self->output_port_index;
     memTypeCfg.eBufMemoryType = OMX_BUFFER_MEMORY_DEFAULT;
     err = OMX_SetParameter (gomx->omx_handle, OMX_TI_IndexParamBuffMemType, &memTypeCfg);
 
@@ -239,31 +239,10 @@ type_instance_init (GTypeInstance *instance,
                     gpointer g_class)
 {
     GstOmxBaseVfpc *self;
-    GstOmxBaseFilter *omx_base;
 
-    omx_base = GST_OMX_BASE_FILTER (instance);
     self = GST_OMX_BASE_VFPC (instance);
 
-    /* GOmx */
-    g_omx_core_free (omx_base->gomx);
-    g_omx_port_free (omx_base->in_port);
-    g_omx_port_free (omx_base->out_port);
-
-    omx_base->gomx = g_omx_core_new (omx_base, g_class);
-    omx_base->in_port = g_omx_core_get_port (omx_base->gomx, "in", OMX_VFPC_INPUT_PORT_START_INDEX);
-    omx_base->out_port = g_omx_core_get_port (omx_base->gomx, "out", OMX_VFPC_OUTPUT_PORT_START_INDEX);
-
-    omx_base->in_port->omx_allocate = TRUE;
-    omx_base->in_port->share_buffer = FALSE;
-    omx_base->in_port->always_copy  = FALSE;
-
-    omx_base->out_port->omx_allocate = TRUE;
-    omx_base->out_port->share_buffer = FALSE;
-    omx_base->out_port->always_copy = FALSE;
-
-    omx_base->in_port->port_index = OMX_VFPC_INPUT_PORT_START_INDEX;
-    omx_base->out_port->port_index = OMX_VFPC_OUTPUT_PORT_START_INDEX;
-
     self->omx_setup = omx_setup;
+    g_object_set (self, "port-index", 0, NULL);
 }
 

@@ -50,8 +50,9 @@ struct GstOmxBaseVfpc
     gint in_width, in_height, in_stride;
     gint out_width, out_height, out_stride;
     gint left, top;
-    gint channel_index;
+    gint port_index, input_port_index, output_port_index;
     GstOmxBaseFilterCb omx_setup;
+    gpointer g_class;
 };
 
 struct GstOmxBaseVfpcClass
