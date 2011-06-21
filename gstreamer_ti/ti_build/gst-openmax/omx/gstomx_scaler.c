@@ -281,7 +281,7 @@ type_instance_init (GTypeInstance *instance,
 
     omx_base->out_port->omx_allocate = TRUE;
     omx_base->out_port->share_buffer = FALSE;
-    omx_base->out_port->always_copy = TRUE;
+    omx_base->out_port->always_copy = FALSE;
 
     omx_base->in_port->port_index = OMX_VFPC_INPUT_PORT_START_INDEX ;
     omx_base->out_port->port_index = OMX_VFPC_OUTPUT_PORT_START_INDEX;
