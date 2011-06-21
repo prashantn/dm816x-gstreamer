@@ -341,6 +341,7 @@ src_setcaps (GstPad *pad, GstCaps *caps)
     return TRUE;
 }
 
+#if 0
 static gboolean
 src_query (GstPad *pad, GstQuery *query)
 {
@@ -407,6 +408,7 @@ src_query (GstPad *pad, GstQuery *query)
 
     return ret;
 }
+#endif
 
 static void
 omx_setup (GstOmxBaseFilter *omx_base)
@@ -460,7 +462,7 @@ type_instance_init (GTypeInstance *instance,
             GST_DEBUG_FUNCPTR (src_getcaps));
     gst_pad_set_setcaps_function (omx_base->srcpad,
             GST_DEBUG_FUNCPTR (src_setcaps));
-    gst_pad_set_query_function (omx_base->srcpad,
-            GST_DEBUG_FUNCPTR (src_query));
+//    gst_pad_set_query_function (omx_base->srcpad,
+//            GST_DEBUG_FUNCPTR (src_query));
 }
 
