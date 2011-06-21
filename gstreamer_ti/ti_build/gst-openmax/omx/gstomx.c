@@ -56,6 +56,7 @@
 #include "swcsc.h"
 #include "gstperf.h"
 #include "gstomx_scaler.h"
+#include "gstomx_noisefilter.h"
 #include "gstomx_base_ctrl.h"
 
 #include "config.h"
@@ -110,6 +111,7 @@ static TableItem element_table[] =
     { "swcsc",         "libOMX_Core.so",   NULL,      NULL,                   GST_RANK_PRIMARY,      gst_swcsc_get_type },
     { "gstperf",         "libOMX_Core.so",   NULL,      NULL,                   GST_RANK_PRIMARY,      gst_perf_get_type },
     { "omx_scaler",         "libOMX_Core.so",   "OMX.TI.VPSSM3.VFPC.INDTXSCWB",     "",                   GST_RANK_PRIMARY,      gst_omx_scaler_get_type },
+    { "omx_noisefilter",         "libOMX_Core.so",   "OMX.TI.VPSSM3.VFPC.NF",     "",                   GST_RANK_PRIMARY,      gst_omx_noisefilter_get_type },
     { "omx_ctrl",         "libOMX_Core.so",   "OMX.TI.VPSSM3.CTRL.DC",     "",                   GST_RANK_PRIMARY,      gst_omx_base_ctrl_get_type },
 //    { "omx_camera",         "libOMX_Core.so",           "OMX.TI.DUCATI1.VIDEO.CAMERA",  NULL,                   GST_RANK_PRIMARY,   gst_omx_camera_get_type },
     { NULL, NULL, NULL, NULL, 0, NULL },
