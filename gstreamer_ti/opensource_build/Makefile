@@ -49,6 +49,7 @@ all: .plugins
 	$(CMD_PREFIX) $(MAKE) plugins $(BUILD_INSTALL) && touch $@
 
 base:
+	$(CMD_PREFIX) $(MAKE) orc         $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) glib         $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) check        $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) gstreamer    $(BUILD_INSTALL)

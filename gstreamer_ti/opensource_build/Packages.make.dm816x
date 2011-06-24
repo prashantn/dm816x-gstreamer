@@ -39,6 +39,19 @@ PACKAGE_check_BUILD_DIRS         =
 PACKAGE_check_DESCRIPTION        = Check: a unit test framework for C
 BASE_PACKAGES += $(PACKAGE_check_BUILD_TARGET)
 
+#-------------------------------------------------------------------------------
+# Package orc
+#-------------------------------------------------------------------------------
+PACKAGE_orc_BUILD_TARGET       = orc
+PACKAGE_orc_ARCHIVE_BASENAME   = orc-0.4.14
+PACKAGE_orc_PRECONFIG_PATCHES  = 
+PACKAGE_orc_CONFIGURE_OPTS     =
+PACKAGE_orc_POSTCONFIG_PATCHES =
+PACKAGE_orc_DESCRIPTION        = \
+        ORC compiler
+PLUGIN_PACKAGES += $(PACKAGE_orc_BUILD_TARGET)
+
+
 #------------------------------------------------------------------------------
 # Package gstreamer
 #------------------------------------------------------------------------------
@@ -228,4 +241,16 @@ PACKAGE_plugin_h264_POSTCONFIG_PATCHES =
 PACKAGE_plugin_h264_DESCRIPTION        = \
         Plugin to build nalbytestream_h264 parser
 PLUGIN_PACKAGES += $(PACKAGE_plugin_h264_BUILD_TARGET)
+
+#-------------------------------------------------------------------------------
+# Package orc
+#-------------------------------------------------------------------------------
+PACKAGE_orc_BUILD_TARGET       = orc
+PACKAGE_orc_ARCHIVE_BASENAME   = orc-0.4.14
+PACKAGE_orc_PRECONFIG_PATCHES  = 
+PACKAGE_orc_CONFIGURE_OPTS     =
+PACKAGE_orc_POSTCONFIG_PATCHES =
+PACKAGE_orc_DESCRIPTION        = \
+        ORC compiler
+PLUGIN_PACKAGES += $(PACKAGE_orc_BUILD_TARGET)
 
