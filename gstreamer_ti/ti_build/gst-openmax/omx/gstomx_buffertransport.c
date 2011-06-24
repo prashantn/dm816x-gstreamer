@@ -85,9 +85,7 @@ release_buffer (GOmxPort *port, OMX_BUFFERHEADERTYPE *omx_buffer)
     switch (port->type)
     {
         case GOMX_PORT_INPUT:
-            GST_LOG ("ETB: omx_buffer=%p, pAppPrivate=%p, pBuffer=%p",
-                    omx_buffer, omx_buffer ? omx_buffer->pAppPrivate : 0, omx_buffer ? omx_buffer->pBuffer : 0);
-            OMX_EmptyThisBuffer (port->core->omx_handle, omx_buffer);
+            /* do nothing */
             break;
         case GOMX_PORT_OUTPUT:
             GST_LOG ("FTB: omx_buffer=%p, pAppPrivate=%p, pBuffer=%p",
