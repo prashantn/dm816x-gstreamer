@@ -293,6 +293,45 @@ handle_event (GstBaseSink *gst_base,
     return TRUE;
 }
 
+#if 0
+static GstFlowReturn
+buffer_alloc(GstBaseSink *base, guint64 offset, guint size, GstCaps *caps, 
+    GstBuffer **buf)
+{
+
+    GstOmxBaseSink *self;
+    OMX_BUFFERHEADERTYPE *omx_buffer;
+    int i;
+    static int count = 0;
+
+    self = GST_OMX_BASE_SINK (base);
+
+    if (!self->port_initialized) 
+    {
+        self->omx_setup (base, caps);
+    }
+
+    if (G_UNLIKELY (self->gomx->omx_state == OMX_StateLoaded))
+    {
+        self->in_port->omx_allocate = TRUE;
+        self->in_port->always_copy = FALSE;
+        self->in_port->share_buffer = FALSE;
+        g_omx_core_prepare (self->gomx);
+        g_omx_core_start (self->gomx);
+        
+        /* queue all the buffers */
+        for (i=0; i < self->in_port->num_buffers; i++)
+            g_omx_port_push_buffer (self->in_port, self->in_port->buffers[i]);
+    }
+
+    omx_buffer = async_queue_pop (self->in_port->queue);
+    omx_buffer->nFilledLen = size;
+    *buf = gst_omxbuffertransport_new (self->in_port, omx_buffer);
+
+    return GST_FLOW_OK;
+}
+#endif
+
 static void
 set_property (GObject *obj,
               guint prop_id,
@@ -372,8 +411,9 @@ type_class_init (gpointer g_class,
     gstelement_class->change_state = change_state;
 
     gst_base_sink_class->event = handle_event;
-    gst_base_sink_class->preroll = render;
+    gst_base_sink_class->preroll = NULL;
     gst_base_sink_class->render = render;
+//    gst_base_sink_class->buffer_alloc = buffer_alloc;
 
     /* Properties stuff */
     {
