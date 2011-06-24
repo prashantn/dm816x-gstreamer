@@ -235,6 +235,9 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
     self = omx_base = GST_OMX_BASE_SINK (gst_sink);
     gomx = (GOmxCore *) omx_base->gomx;
 
+    if (self->port_initialized)
+        return;
+
     structure = gst_caps_get_structure (caps, 0);
 
     gst_structure_get_int (structure, "width", &width);
@@ -305,6 +308,9 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
     /* enable the input port */
     OMX_SendCommand (gomx->omx_handle, OMX_CommandPortEnable, omx_base->in_port->port_index, NULL);
     g_sem_down (omx_base->in_port->core->port_sem);
+
+    /* port is now initalized */
+    self->port_initialized = TRUE;
 
     return;
 }
