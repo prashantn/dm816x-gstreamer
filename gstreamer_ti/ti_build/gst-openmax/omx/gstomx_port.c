@@ -553,6 +553,7 @@ get_input_buffer_header (GOmxPort *port, GstBuffer *src)
     omx_buffer->nOffset = GST_GET_OMXBUFFER(src)->nOffset;
     omx_buffer->nFilledLen = GST_BUFFER_SIZE (src);
     omx_buffer->pAppPrivate = gst_buffer_ref (src);
+    omx_buffer->nFlags = GST_GET_OMXBUFFER(src)->nFlags;
 
     return omx_buffer;
 }
