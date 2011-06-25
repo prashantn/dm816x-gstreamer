@@ -28,3 +28,6 @@ gst-launch -v videotestsrc ! 'video/x-raw-yuv,width=320,height=240' ! omx_scaler
 # pipeline to encode videotest pattern in H.264
 gst-launch -v videotestsrc num-buffers=1000 ! omx_h264enc ! filesink location=sample.264 
 
+# play mp4 using playbin2
+gst-launch playbin2 uri=file:///home/root/sample.mp4 -v 
+
