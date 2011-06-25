@@ -659,11 +659,17 @@ pad_event (GstPad *pad,
              * in any other case, we send EOS */
             if (self->ready && self->last_pad_push_return == GST_FLOW_OK)
             {
+                /***** FIXME: EZSDK OMX componet does not execute FBD callback for an 
+                 ETB call when nFlags is set to OMX_BUFFERFLAG_EOS. Because of this 
+                 we are not able to trigger EOS on srcpad task. For now disable sending this event
+                 until we get OMX component fixed. */
+                #if 0
                 if (g_omx_port_send (self->in_port, event) >= 0)
                 {
                     gst_event_unref (event);
                     break;
                 }
+                #endif
             }
 
             /* we tried, but it's up to us here */
