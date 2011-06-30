@@ -56,11 +56,11 @@ VERBOSE = false
 #------------------------------------------------------------------------------
 # Pull in build settings from the DVSDK, and error-check the settings we get.
 #------------------------------------------------------------------------------
-ifndef DVSDK_INSTALL_DIR
+ifndef EZSDK_INSTALL_DIR
    $(error DVSDK_INSTALL_DIR must be set in Makefile before building)
 endif
 
-include $(DVSDK_INSTALL_DIR)/Rules.make
+include $(EZSDK_INSTALL_DIR)/Rules.make
 
 # Set GST_TI_PLATFORM from the DVSDK's variable if it hasn't been set already
 ifndef GST_TI_PLATFORM

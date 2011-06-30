@@ -58,8 +58,11 @@ libgstomx_la_CFLAGS = $(OMXCORE_CFLAGS) $(OMXTIAUDIODEC_CFLAGS) $(USE_OMXTIAUDIO
     	-I$(XDC_INSTALL_DIR)/packages \
     	-I$(OMX_INSTALL_DIR)/include \
     	-I$(OMX_INSTALL_DIR)/packages/ti/omx/comp/ctrl \
-        -I${LINUX_INSTALL_DIR}/include -I${LINUX_INSTALL_DIR}/arch/arm/include
-        
+        -I${LINUX_INSTALL_DIR}/include -I${LINUX_INSTALL_DIR}/arch/arm/include \
+        -I$(OMX_INSTALL_DIR)/ti/omx/interfaces/openMaxv11  \
+        -I$(OMX_INSTALL_DIR)/ti/omx/comp/vfpc  \
+        -I$(OMX_INSTALL_DIR)/ti/omx/comp/vfdc \
+        -I$(OMX_INSTALL_DIR)/ti/omx/comp/ctrl
 
 libgstomx_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -L../ext/lib -lOMX_Core -pthread 
 
