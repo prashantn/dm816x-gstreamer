@@ -49,7 +49,7 @@ enum
     ARG_TOP,
     ARG_LEFT,
     ARG_DISPLAY_MODE,
-    ARG_ENABLE_TRANS,
+    ARG_ENABLE_COLORKEY,
 };
 
 static GstCaps *
@@ -117,7 +117,7 @@ type_base_init (gpointer g_class)
 }
 
 static int
-gstomx_videosink_transparency (gboolean enable)
+gstomx_videosink_colorkey (gboolean enable)
 {
 	struct fb_fix_screeninfo fixinfo;
 	struct fb_var_screeninfo varinfo;
@@ -146,6 +146,7 @@ gstomx_videosink_transparency (gboolean enable)
 	}
 
     regp.transen = enable ? TI81XXFB_FEATURE_ENABLE : TI81XXFB_FEATURE_DISABLE;
+    regp.transcolor = 0x000000;
 
 	ret = ioctl(fd, TIFB_SET_PARAMS, &regp);
 	if (ret < 0) {
@@ -364,9 +365,9 @@ set_property (GObject *object,
         case ARG_LEFT:
             self->left = g_value_get_uint (value);
             break;
-        case ARG_ENABLE_TRANS:
-            self->enable_trans = g_value_get_boolean (value);
-            gstomx_videosink_transparency (self->enable_trans);
+        case ARG_ENABLE_COLORKEY:
+            self->colorkey = g_value_get_boolean (value);
+            gstomx_videosink_colorkey (self->colorkey);
             break;
         case ARG_DISPLAY_MODE:
             g_free (self->display_mode);
@@ -405,8 +406,8 @@ get_property (GObject *object,
         case ARG_TOP:
             g_value_set_uint (value, self->top);
             break;
-        case ARG_ENABLE_TRANS:
-            g_value_set_boolean (value, self->enable_trans);
+        case ARG_ENABLE_COLORKEY:
+            g_value_set_boolean (value, self->colorkey);
             break;
         case ARG_DISPLAY_MODE:
             g_value_set_string (value, self->display_mode);
@@ -440,9 +441,9 @@ type_class_init (gpointer g_class,
                                      g_param_spec_uint ("left", "left",
                                                         "The left most co-ordinate on video display",
                                                         0, G_MAXUINT, 100, G_PARAM_READWRITE));
-    g_object_class_install_property (gobject_class, ARG_ENABLE_TRANS,
-                                     g_param_spec_boolean ("transparency", "Enable transparency",
-                                                        "Enable transparency",
+    g_object_class_install_property (gobject_class, ARG_ENABLE_COLORKEY,
+                                     g_param_spec_boolean ("colorkey", "Enable colorkey",
+                                                        "Enable colorkey",
                                                         TRUE, G_PARAM_READWRITE));
     g_object_class_install_property (gobject_class, ARG_DISPLAY_MODE,
                                     g_param_spec_string ("display-mode", "Display mode", 
@@ -467,7 +468,7 @@ type_instance_init (GTypeInstance *instance,
     self = GST_OMX_VIDEOSINK (instance);
     omx_base->omx_setup = omx_setup;    
     
-    g_object_set (self, "transparency", TRUE, NULL);
+    g_object_set (self, "colorkey", TRUE, NULL);
     g_object_set (self, "display-mode", "OMX_DC_MODE_1080P_60", NULL);
 }
 
