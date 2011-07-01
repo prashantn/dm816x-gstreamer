@@ -103,6 +103,8 @@ gst_omx_ctrl_set_display_mode (GstOmxBaseCtrl *self)
 
     gomx = (GOmxCore*) self->gomx;
     
+    system ("insmod TI81xx_hdmi.ko hdmi_mode=2");
+
     GST_LOG_OBJECT (self, "setting display mode to: %s", self->display_mode);
 
     _G_OMX_INIT_PARAM (&driverId);
