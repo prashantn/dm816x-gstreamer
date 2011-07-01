@@ -101,10 +101,9 @@ gst_omx_ctrl_set_display_mode (GstOmxBaseCtrl *self)
     OMX_ERRORTYPE err;
     GOmxCore *gomx;
 
-    if (!self->mode_configured)
-        g_omx_core_init (self->gomx);
-
     gomx = (GOmxCore*) self->gomx;
+    
+    GST_LOG_OBJECT (self, "setting display mode to: %s", self->display_mode);
 
     _G_OMX_INIT_PARAM (&driverId);
     driverId.nDrvInstID = 0; /* on chip HDMI */
@@ -120,6 +119,54 @@ gst_omx_ctrl_set_display_mode (GstOmxBaseCtrl *self)
     self->mode_configured = TRUE;
 
     return TRUE;
+}
+
+static gboolean
+start (GstBaseTransform * trans)
+{
+    GstOmxBaseCtrl *self;
+
+    self = GST_OMX_BASE_CTRL (trans);
+
+    g_omx_core_init (self->gomx);
+    return TRUE;
+}
+
+static gboolean
+stop (GstBaseTransform * trans)
+{
+    GstOmxBaseCtrl *self;
+
+    self = GST_OMX_BASE_CTRL (trans);
+
+    g_omx_core_free (self->gomx);
+
+    return TRUE;
+}
+
+static GstFlowReturn
+transform_ip (GstBaseTransform * trans, GstBuffer * buf)
+{   
+    GstOmxBaseCtrl *self;
+    GstFlowReturn ret = GST_FLOW_OK;
+
+    self = GST_OMX_BASE_CTRL (trans);
+
+    /* if mode is already configure then return */
+    if (self->mode_configured)
+        return ret;
+
+    if (!gst_omx_ctrl_set_display_mode (self))
+        ret = GST_FLOW_ERROR;
+
+    return ret;
+}
+
+prepare_output_buffer (GstBaseTransform * trans,
+  GstBuffer * in_buf, gint out_size, GstCaps * out_caps, GstBuffer ** out_buf)
+{
+    *out_buf = gst_buffer_ref (in_buf);
+    return GST_FLOW_OK;
 }
 
 static void
@@ -149,7 +196,6 @@ set_property (GObject *obj,
         case ARG_DISPLAY_MODE:
             g_free (self->display_mode);
             self->display_mode = g_value_dup_string (value);
-            gst_omx_ctrl_set_display_mode (self);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
@@ -193,8 +239,6 @@ finalize (GObject *obj)
     GstOmxBaseCtrl *self;
 
     self = GST_OMX_BASE_CTRL (obj);
-
-    g_omx_core_free (self->gomx);
 
     g_free (self->omx_role);
     g_free (self->omx_component);
@@ -240,7 +284,13 @@ type_class_init (gpointer g_class,
 
         g_object_class_install_property (gobject_class, ARG_DISPLAY_MODE,
             g_param_spec_string ("display-mode", "Display mode", 
-            "Display driver configuration mode (see below) \n\t\t\t OMX_DC_MODE_NTSC \n\t\t\t OMX_DC_MODE_PAL\n\t\t\t OMX_DC_MODE_1080P_60 \n\t\t\t OMX_DC_MODE_720P_60\n\t\t\t OMX_DC_MODE_1080I_60\n\t\t\t OMX_DC_MODE_1080P_30\n", "", G_PARAM_READWRITE));
+            "Display driver configuration mode (see below)"
+            " \n\t\t\t OMX_DC_MODE_NTSC"
+            " \n\t\t\t OMX_DC_MODE_PAL"
+            " \n\t\t\t OMX_DC_MODE_1080P_60"
+            " \n\t\t\t OMX_DC_MODE_720P_60" 
+            " \n\t\t\t OMX_DC_MODE_1080I_60"
+            " \n\t\t\t OMX_DC_MODE_1080P_30\n", "OMX_DC_MODE_1080P_60", G_PARAM_READWRITE));
 
     }
 }
@@ -261,10 +311,15 @@ type_instance_init (GTypeInstance *instance,
     GST_LOG_OBJECT (self, "begin");
 
     self->gomx = g_omx_core_new (self, g_class);
-
     self->in_port = g_omx_core_get_port (self->gomx, "in", 0);
     
     trans_class->passthrough_on_same_caps = TRUE;
+    trans_class->transform_ip = GST_DEBUG_FUNCPTR (transform_ip);
+    trans_class->prepare_output_buffer = GST_DEBUG_FUNCPTR (prepare_output_buffer);
+    trans_class->start = GST_DEBUG_FUNCPTR (start);
+    trans_class->stop = GST_DEBUG_FUNCPTR (stop);
+
+    g_object_set (self, "display-mode", "OMX_DC_MODE_1080P_60", NULL);
 
     GST_LOG_OBJECT (self, "end");
 }
