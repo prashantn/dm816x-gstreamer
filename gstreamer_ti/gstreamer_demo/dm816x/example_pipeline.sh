@@ -31,3 +31,6 @@ gst-launch -v videotestsrc num-buffers=1000 ! omx_h264enc ! filesink location=sa
 # play mp4 using playbin2
 gst-launch playbin2 uri=file:///home/root/sample.mp4 -v 
 
+# playback rtsp stream
+gst-launch rtspsrc location=rtsp://<server_url> ! gstrtpjitterbuffer ! rtph264depay ! h264parse access-unit=true ! omx_h264dec ! omx_scaler ! omx_ctrl ! omx_videosink -v
+
