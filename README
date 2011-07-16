@@ -40,6 +40,8 @@ BUILDING
 
 8) Copy libOMX_Core.so from gstreamer_ti/ti_build/gst-openmax/ext/lib to /lib directory on target root filesystem.
 
+9) Copy dm816xbm_m3video.xem3 and dm816xbm_m3vpss.xem3 firmware binaries from OMX package to /usr/share/ti/ti-media-controller-utils  directory on target root filesystem.
+
 If you want less output during the build, you can omit the "VERBOSE=true"
 above.
 
