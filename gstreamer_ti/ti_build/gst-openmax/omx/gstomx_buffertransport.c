@@ -1,21 +1,21 @@
 /*
  * This file defines the "OmxBufferTransport" buffer object, which is used
- * to encapsulate an existing DMAI buffer object inside of a gStreamer
- * buffer so it can be passed along the gStreamer pipeline.
+ * to encapsulate an existing OMX buffer object inside of a GStreamer
+ * buffer so it can be passed along the GStreamer pipeline.
  * 
- * Specifically, this object provides a finalize function that will release
- * a DMAI buffer properly when gst_buffer_unref() is called.  If the specified
- * DMAI buffer is part of a BufTab, it will be released for re-use.
- * DMAI buffers no part of a BufTab will be deleted when no longer referenced.
+ * Specifically, this object provides a finalize function that will
+ * call a FTB when gst_buffer_unref() is called.  If the specified
  *
  * Downstream elements may use the GST_IS_OMXBUFFERTRANSPORT() macro to
- * check to see if a gStreamer buffer encapsulates a DMAI buffer.  When passed
+ * check to see if a GStreamer buffer encapsulates a OMX buffer.  When passed
  * an element of this type, elements can take advantage of the fact that the
  * buffer is contiguously allocated in memory.  Also, if the element is using
- * OMX it can access the OMX buffer directly via the
- * GST_OMXBUFFERTRANSPORT_OMXBUF() macro.
+ * OMX it can access the OMX buffer directly via the GST_GET_OMXBUFFER() and similar 
+ * access the upstream OMX port via the GST_GET_OMXPORT.
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * Author: Brijesh Singh <bksingh@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify 
  * it under the terms of the GNU Lesser General Public License as
