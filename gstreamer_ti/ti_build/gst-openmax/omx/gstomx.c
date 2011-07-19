@@ -53,7 +53,6 @@
 #include "gstomx_filereadersrc.h"
 #include "gstomx_volume.h"
 #include "gstomx_camera.h"
-#include "swcsc.h"
 #include "gstperf.h"
 #include "gstomx_scaler.h"
 #include "gstomx_noisefilter.h"
@@ -108,7 +107,6 @@ static TableItem element_table[] =
     { "omx_videosink",      "libOMX_Core.so",   "OMX.TI.VPSSM3.VFDC",             NULL,              GST_RANK_PRIMARY,      gst_omx_videosink_get_type },
 //    { "omx_filereadersrc",  "libomxil-bellagio.so.0",   "OMX.st.audio_filereader",      NULL,                   GST_RANK_NONE,      gst_omx_filereadersrc_get_type },
 //    { "omx_volume",         "libomxil-bellagio.so.0",   "OMX.st.volume.component",      NULL,                   GST_RANK_NONE,      gst_omx_volume_get_type },
-    { "swcsc",         "libOMX_Core.so",   NULL,      NULL,                   GST_RANK_PRIMARY,      gst_swcsc_get_type },
     { "gstperf",         "libOMX_Core.so",   NULL,      NULL,                   GST_RANK_PRIMARY,      gst_perf_get_type },
     { "omx_scaler",         "libOMX_Core.so",   "OMX.TI.VPSSM3.VFPC.INDTXSCWB",     "",                   GST_RANK_PRIMARY,      gst_omx_scaler_get_type },
     { "omx_noisefilter",         "libOMX_Core.so",   "OMX.TI.VPSSM3.VFPC.NF",     "",                   GST_RANK_PRIMARY,      gst_omx_noisefilter_get_type },
