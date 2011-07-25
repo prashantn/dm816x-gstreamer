@@ -86,7 +86,6 @@ initialize_port (GstOmxBaseFilter *omx_base)
     OMX_PARAM_PORTDEFINITIONTYPE paramPort;
     gint width, height;
     GOmxPort *port;
-    guint output_buffer_count;
 
     self = GST_OMX_BASE_VIDEODEC (omx_base);
     gomx = (GOmxCore *) omx_base->gomx;
@@ -98,10 +97,8 @@ initialize_port (GstOmxBaseFilter *omx_base)
 
     width = self->extendedParams.width;
     height = self->extendedParams.height;
-    output_buffer_count = paramPort.nBufferCountActual << 1;
 
     paramPort.nPortIndex = 1;
-    paramPort.nBufferCountActual = output_buffer_count;
     paramPort.format.video.nFrameWidth = width;
     paramPort.format.video.nFrameHeight = height;
     paramPort.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
