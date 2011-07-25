@@ -103,13 +103,16 @@ gst_omx_ctrl_set_display_mode (GstOmxBaseCtrl *self)
 
     gomx = (GOmxCore*) self->gomx;
     
-    system ("insmod TI81xx_hdmi.ko hdmi_mode=2");
+    printf ("******** installing kernel modules **************\n");
+    system ("insmod vpss.ko sbufaddr=0xA0200000");
+    system ("insmod ti81xxhdmi.ko");
+    system ("echo 1080P-60 > /sys/devices/platform/vpss/display0/mode");
 
     GST_LOG_OBJECT (self, "setting display mode to: %s", self->display_mode);
 
     _G_OMX_INIT_PARAM (&driverId);
     driverId.nDrvInstID = 0; /* on chip HDMI */
-    driverId.eDispVencMode = gst_omx_display_string_to_mode (self->display_mode);
+    driverId.eDispVencMode = gst_omx_display_string_to_mode(self->display_mode);
 
     err = OMX_SetParameter (gomx->omx_handle, (OMX_INDEXTYPE) OMX_TI_IndexParamVFDCDriverInstId, &driverId);
     if(err != OMX_ErrorNone) 
