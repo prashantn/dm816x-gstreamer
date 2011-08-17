@@ -497,6 +497,7 @@ send_prep_buffer_data (GOmxPort *port, OMX_BUFFERHEADERTYPE *omx_buffer, GstBuff
         omx_buffer->nTimeStamp = gst_util_uint64_scale_int (
                 GST_BUFFER_TIMESTAMP (buf),
                 OMX_TICKS_PER_SECOND, GST_SECOND);
+		       //printf("using timestamp:%llu!!\n",omx_buffer->nTimeStamp);
     }
 
     DEBUG (port, "omx_buffer: size=%lu, len=%lu, flags=%lu, offset=%lu, timestamp=%lld",
@@ -553,7 +554,6 @@ get_input_buffer_header (GOmxPort *port, GstBuffer *src)
     omx_buffer->nOffset = GST_GET_OMXBUFFER(src)->nOffset;
     omx_buffer->nFilledLen = GST_BUFFER_SIZE (src);
     omx_buffer->pAppPrivate = gst_buffer_ref (src);
-    omx_buffer->nFlags = GST_GET_OMXBUFFER(src)->nFlags;
 
     return omx_buffer;
 }
@@ -665,6 +665,10 @@ g_omx_port_recv (GOmxPort *port)
         DEBUG (port, "omx_buffer=%p size=%lu, len=%lu, flags=%lu, offset=%lu, timestamp=%lld",
                 omx_buffer, omx_buffer->nAllocLen, omx_buffer->nFilledLen, omx_buffer->nFlags,
                 omx_buffer->nOffset, omx_buffer->nTimeStamp);
+
+		/*printf("omx_buffer=%p size=%lu, len=%lu, flags=%lu, offset=%lu, timestamp=%lld\n",
+                omx_buffer, omx_buffer->nAllocLen, omx_buffer->nFilledLen, omx_buffer->nFlags,
+                omx_buffer->nOffset, omx_buffer->nTimeStamp);*/
 
         /* XXX this ignore_count workaround might play badly w/ refcnting
          * in OMX component..

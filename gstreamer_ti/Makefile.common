@@ -15,8 +15,8 @@
 
 #------------------------------------------------------------------------------
 # User specified paths:
-#    DVSDK_INSTALL_DIR 
-#        location of DVSDK installation directory; settings from the DVSDK's
+#    EZSDK_INSTALL_DIR 
+#        location of EZSDK installation directory; settings from the DVSDK's
 #        Rules.make will be used for the build.
 #    TARGET_ROOT_DIR 
 #        root directory of target filesystem on host machine
@@ -39,25 +39,27 @@
 #
 # These paths must be specified or the build will fail.
 #------------------------------------------------------------------------------
-DVSDK_INSTALL_DIR    = 
-TARGET_ROOT_DIR      = 
+#DVSDK_INSTALL_DIR    = /home/prashant/ti-ezsdk_dm816x-evm_5_01_01_80
+#TARGET_ROOT_DIR      = /home/prashant/targetfs
+TARGET_ROOT_DIR      = /home/prashant/centaurus/targetfs.ezsdk
 GSTREAMER_DIR        = /opt/gstreamer
 CROSS_COMPILER       = 
-GST_TI_PLATFORM      = 
-
+GST_TI_PLATFORM      = dm816x
+#EZSDK_INSTALL_DIR    = /home/prashant/centaurus/omx_root_tear
+EZSDK_INSTALL_DIR    = /home1/prashant/centaurus/ti-ezsdk_dm814x-evm_5_02_00_56
 #------------------------------------------------------------------------------
 # Build configuration:
 #
 #    VERBOSE 
 #        Set to "true" to see all build commands.     
 #------------------------------------------------------------------------------
-VERBOSE = false
+VERBOSE = true
 
 #------------------------------------------------------------------------------
 # Pull in build settings from the DVSDK, and error-check the settings we get.
 #------------------------------------------------------------------------------
 ifndef EZSDK_INSTALL_DIR
-   $(error DVSDK_INSTALL_DIR must be set in Makefile before building)
+   $(error EZSDK_INSTALL_DIR must be set in Makefile before building)
 endif
 
 include $(EZSDK_INSTALL_DIR)/Rules.make
@@ -106,6 +108,7 @@ export XDC_INSTALL_DIR
 export EDMA3_LLD_INSTALL_DIR
 export USER_XDC_PATH
 export LINUX_DEVKIT_DIR
+export UIA_INSTALL_DIR
 
 #------------------------------------------------------------------------------
 # Location of gstreamer installation on target

@@ -103,10 +103,10 @@ gst_omx_ctrl_set_display_mode (GstOmxBaseCtrl *self)
 
     gomx = (GOmxCore*) self->gomx;
     
-    printf ("******** installing kernel modules **************\n");
-    system ("insmod vpss.ko sbufaddr=0xA0200000");
-    system ("insmod ti81xxhdmi.ko");
-    system ("echo 1080P-60 > /sys/devices/platform/vpss/display0/mode");
+  //  printf ("******** installing kernel modules **************\n");
+  //  system ("insmod vpss.ko sbufaddr=0xbfb00000");
+  //  system ("insmod ti81xxhdmi.ko");
+  //  system ("echo 1080P-60 > /sys/devices/platform/vpss/display0/mode");
 
     GST_LOG_OBJECT (self, "setting display mode to: %s", self->display_mode);
 
@@ -143,6 +143,9 @@ stop (GstBaseTransform * trans)
     GstOmxBaseCtrl *self;
 
     self = GST_OMX_BASE_CTRL (trans);
+
+	g_omx_core_stop (self->gomx);
+    g_omx_core_unload (self->gomx);
 
     g_omx_core_free (self->gomx);
 

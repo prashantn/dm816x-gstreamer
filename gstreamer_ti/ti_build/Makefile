@@ -55,6 +55,10 @@ $(TI_PLUGINS):
 	$(CMD_PREFIX) cd $@; ./configure $(CONFIGURE_VERBOSE) $(CC_CONFIGURE_OPTS) $(EXTRA_CONFIGURE_OPTS)
 	$(CMD_PREFIX) $(MAKE) $(MAKE_VERBOSE) -C $@ $(BUILD_INSTALL)
 
+my: 
+	@echo Building gst-openmax
+	$(CMD_PREFIX) $(MAKE) $(MAKE_VERBOSE) -C gst-openmax $(BUILD_INSTALL)
+
 install:
 
 clean:

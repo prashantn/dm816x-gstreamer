@@ -59,6 +59,8 @@ struct _GstOmxBufferTransport {
     GstBuffer  parent_instance;
     OMX_BUFFERHEADERTYPE *omxbuffer;
     GOmxPort *port;
+	guint numAdditionalHeaders;
+	OMX_BUFFERHEADERTYPE **addHeader;
 };
 
 struct _GstOmxBufferTransportClass {
@@ -68,6 +70,8 @@ struct _GstOmxBufferTransportClass {
 /* External function declarations */
 GType      gst_omxbuffertransport_get_type(void);
 GstBuffer* gst_omxbuffertransport_new(GOmxPort *port, OMX_BUFFERHEADERTYPE *buffer);
+void gst_omxbuffertransport_set_additional_headers (GstOmxBufferTransport *self ,guint numHeaders,OMX_BUFFERHEADERTYPE **buffer);
+
 
 G_END_DECLS 
 

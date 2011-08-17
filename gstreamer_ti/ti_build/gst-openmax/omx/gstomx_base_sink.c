@@ -199,7 +199,7 @@ render (GstBaseSink *gst_base,
     gomx = self->gomx;
 
     GST_LOG_OBJECT (self, "begin");
-    PRINT_BUFFER (self, buf);
+    //PRINT_BUFFER (self, buf);
 
     GST_LOG_OBJECT (self, "state: %d", gomx->omx_state);
 

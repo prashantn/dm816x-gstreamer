@@ -207,10 +207,10 @@ omx_setup (GstOmxBaseFilter *omx_base)
     chResolution.Frm1Width = 0;
     chResolution.Frm1Height = 0;
     chResolution.Frm1Pitch = 0;
-    chResolution.FrmStartX = self->left;
-    chResolution.FrmStartY = self->top;
-    chResolution.FrmCropWidth = self->in_width - self->left;
-    chResolution.FrmCropHeight = self->in_height - self->top;
+    chResolution.FrmStartX = 0;//self->left;
+    chResolution.FrmStartY = 0;//self->top;
+    chResolution.FrmCropWidth = 0;//self->in_width - self->left;
+    chResolution.FrmCropHeight = 0;//self->in_height - self->top;
     chResolution.eDir = OMX_DirInput;
     chResolution.nChId = 0;
     err = OMX_SetConfig (gomx->omx_handle, OMX_TI_IndexConfigVidChResolution, &chResolution);

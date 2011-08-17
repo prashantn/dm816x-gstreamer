@@ -134,7 +134,7 @@ GType type_as_function ## _get_type (void)                                    \
 
 /* Debug Macros:
  */
-
+#if 1
 #define PRINT_BUFFER(obj, buffer)    G_STMT_START {             \
     if (buffer) {                                               \
       GST_DEBUG_OBJECT (obj, #buffer "=%p (time=%"GST_TIME_FORMAT", duration=%"GST_TIME_FORMAT", flags=%08x, size=%d)", \
@@ -144,6 +144,17 @@ GType type_as_function ## _get_type (void)                                    \
       GST_DEBUG_OBJECT (obj, #buffer "=null");                  \
     }                                                           \
   } G_STMT_END
+#else
+#define PRINT_BUFFER(obj, buffer)    G_STMT_START {             \
+    if (buffer) {                                               \
+      printf ( "buffer=%p (time=%"GST_TIME_FORMAT", duration=%"GST_TIME_FORMAT", flags=%08x, size=%d)\n", \
+              (buffer), GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (buffer)), GST_TIME_ARGS (GST_BUFFER_DURATION(buffer)), \
+              GST_BUFFER_FLAGS (buffer), GST_BUFFER_SIZE (buffer)); \
+    } else {                                                    \
+      GST_DEBUG_OBJECT (obj, #buffer "=null");                  \
+    }                                                           \
+  } G_STMT_END
+#endif
 
 G_END_DECLS
 

@@ -99,6 +99,7 @@ initialize_port (GstOmxBaseFilter *omx_base)
     height = self->extendedParams.height;
 
     paramPort.nPortIndex = 1;
+	paramPort.nBufferCountActual = 6;//output_buffer_count
     paramPort.format.video.nFrameWidth = width;
     paramPort.format.video.nFrameHeight = height;
     paramPort.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;

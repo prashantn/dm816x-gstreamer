@@ -48,7 +48,8 @@ libgstomx_la_SOURCES = gstomx.c gstomx.h \
                gstomx_base_vfpc.c gstomx_base_vfpc.h \
                gstomx_base_ctrl.c gstomx_base_ctrl.h \
                gstomx_scaler.c gstomx_scaler.h   \
-               gstomx_noisefilter.c gstomx_noisefilter.h   
+               gstomx_noisefilter.c gstomx_noisefilter.h  \
+	       gstomx_videomixer.c gstomx_videomixer.h 
 
 libgstomx_la_LIBADD = $(OMXCORE_LIBS) $(GST_LIBS) $(GST_BASE_LIBS) -lgstvideo-0.10 $(top_builddir)/util/libutil.la
 libgstomx_la_CFLAGS = $(OMXCORE_CFLAGS) $(OMXTIAUDIODEC_CFLAGS) $(USE_OMXTIAUDIODEC) $(GST_CFLAGS) $(GST_BASE_CFLAGS) -I$(top_srcdir)/util \
@@ -59,10 +60,10 @@ libgstomx_la_CFLAGS = $(OMXCORE_CFLAGS) $(OMXTIAUDIODEC_CFLAGS) $(USE_OMXTIAUDIO
     	-I$(OMX_INSTALL_DIR)/include \
     	-I$(OMX_INSTALL_DIR)/packages/ti/omx/comp/ctrl \
         -I$(KERNEL_INSTALL_DIR)/include -I$(KERNEL_INSTALL_DIR)/arch/arm/include \
-        -I$(OMX_INSTALL_DIR)/ti/omx/interfaces/openMaxv11  \
-        -I$(OMX_INSTALL_DIR)/ti/omx/comp/vfpc  \
-        -I$(OMX_INSTALL_DIR)/ti/omx/comp/vfdc \
-        -I$(OMX_INSTALL_DIR)/ti/omx/comp/ctrl
+        -I$(OMX_INSTALL_DIR)/packages/ti/omx/interfaces/openMaxv11  \
+        -I$(OMX_INSTALL_DIR)/packages/ti/omx/comp/vfpc  \
+        -I$(OMX_INSTALL_DIR)/packages/ti/omx/comp/vfdc \
+        -I$(OMX_INSTALL_DIR)/packages/ti/omx/comp/ctrl
 
 libgstomx_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -L../ext/lib -lOMX_Core -pthread 
 

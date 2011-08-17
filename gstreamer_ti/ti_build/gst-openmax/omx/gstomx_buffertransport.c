@@ -85,7 +85,9 @@ release_buffer (GOmxPort *port, OMX_BUFFERHEADERTYPE *omx_buffer)
     switch (port->type)
     {
         case GOMX_PORT_INPUT:
-            /* do nothing */
+            GST_LOG ("ETB: omx_buffer=%p, pAppPrivate=%p, pBuffer=%p",
+                    omx_buffer, omx_buffer ? omx_buffer->pAppPrivate : 0, omx_buffer ? omx_buffer->pBuffer : 0);
+            OMX_EmptyThisBuffer (port->core->omx_handle, omx_buffer);
             break;
         case GOMX_PORT_OUTPUT:
             GST_LOG ("FTB: omx_buffer=%p, pAppPrivate=%p, pBuffer=%p",
@@ -100,10 +102,15 @@ release_buffer (GOmxPort *port, OMX_BUFFERHEADERTYPE *omx_buffer)
 static void gst_omxbuffertransport_finalize(GstBuffer *gstbuffer)
 {
     GstOmxBufferTransport *self = GST_OMXBUFFERTRANSPORT(gstbuffer);
-
+    int ii;
     GST_LOG("begin\n");
 
     release_buffer (self->port, self->omxbuffer);
+
+	for(ii = 0; ii < self->numAdditionalHeaders; ii++) {
+		//printf("finalize buffer:%p\n",self->addHeader[ii]);
+		release_buffer(self->port,self->addHeader[ii]);
+	}
 
     self->omxbuffer = NULL;
     self->port = NULL;
@@ -139,8 +146,30 @@ GstBuffer* gst_omxbuffertransport_new (GOmxPort *port, OMX_BUFFERHEADERTYPE *buf
     tdt_buf->omxbuffer  = buffer;
     tdt_buf->port       = port;
 
+	tdt_buf->numAdditionalHeaders = 0;
+	tdt_buf->addHeader = NULL;
+
     GST_LOG("end new\n");
 
     return GST_BUFFER(tdt_buf);
 }
+
+void gst_omxbuffertransport_set_additional_headers (GstOmxBufferTransport *self ,guint numHeaders,OMX_BUFFERHEADERTYPE **buffer)
+{
+    int ii;
+
+	if(numHeaders == 0)
+		return;
+	
+    self->addHeader = malloc(numHeaders*sizeof(OMX_BUFFERHEADERTYPE *));
+
+	for(ii = 0; ii < numHeaders; ii++) {
+		//printf("additional header:%p\n", buffer[ii]);
+		self->addHeader[ii] = buffer[ii];
+	}
+	self->numAdditionalHeaders = numHeaders;
+
+    return ;
+}
+
 

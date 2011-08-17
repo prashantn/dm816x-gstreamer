@@ -385,6 +385,7 @@ push_buffer (GstOmxBaseFilter *self,
     GstFlowReturn ret;
 
     GST_BUFFER_DURATION (buf) = self->duration;
+	//printf("output!!\n");
 
     PRINT_BUFFER (self, buf);
 
@@ -503,6 +504,7 @@ pad_chain (GstPad *pad,
 
     self = GST_OMX_BASE_FILTER (GST_OBJECT_PARENT (pad));
 
+    //printf("INput!!\n");
     PRINT_BUFFER (self, buf);
 
     gomx = self->gomx;
