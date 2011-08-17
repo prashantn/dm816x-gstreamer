@@ -59,7 +59,7 @@
 #include "gstomx_noisefilter.h"
 #include "gstomx_base_ctrl.h"
 
-#include "gstomx_videomixer.h"
+//#include "gstomx_videomixer.h"
 #include "config.h"
 
 GST_DEBUG_CATEGORY (gstomx_debug);
