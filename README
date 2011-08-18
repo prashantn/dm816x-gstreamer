@@ -1,19 +1,17 @@
 Prerequisites
 =============
-- The EZSDK 5_02_00_56 is installed on the Linux host. 
+- The EZSDK 5.01.01.80 is installed on the Linux host. The EZSDK can be downloaded from http://software-dl.ti.com/dsps/dsps_public_sw/ezsdk/latest/index_FDS.html
 
 BUILDING
 ========
 
-1) Copy the libz.* libraries which is part of the linux devkit as follows -
-   cd ti-ezsdk_dm814x-evm_5_02_00_56/linux-devkit/arm-none-linux-gnueabi/usr/lib
-   mkdir .libs
-   cp libz.* ./.libs/
+1) Run this command on host machine to fix libz.la file provided with EZSDK
+% sed -i 's/installed=no/installed=yes/' <path_to_your_ezsdk_installation>/linux-devkit/arm-none-linux-gnueabi/usr/lib/libz.la
 
 2) Change to the top level "gstreamer_ti" directory, and open the file named "Makefile.common" in your favorite editor (vi, emacs, etc.).
    Set the following variables at the top of the file:
 
-    EZSDK_INSTALL_DIR:  Location of your EZSDK installation directory
+    DVSDK_INSTALL_DIR:  Location of your EZSDK installation directory
     TARGET_ROOT_DIR:    Location of the target filesystem's root directory
                         on the Linux host machine.
     CROSS_COMPILER:     Cross compiler being used.  A default is chosen based
@@ -27,15 +25,20 @@ BUILDING
 3) Export cross compiler location in your environment
 % export PATH=<path_to_cs_installation>/arm-2009q1/bin:$PATH
 
-4) Build the EZSDK components using the above OMX package.
+4) Use OMX package from git://github.com/bksingh/ezsdk-omx.git
+% git clone git://github.com/bksingh/ezsdk-omx.git
+
+5) Update OMX_INSTALL_DIR variable in EZSDK Rules.make to point to above OMX package installation directory.
+
+6) Build the EZSDK components using the above OMX package.
 % cd <path_to_your_ezsdk_installation>
 % make clean
 % make all
 
-5) Execute this command from the top-level "gstreamer_ti" directory to build gstreamer packages:
+7) Execute this command from the top-level "gstreamer_ti" directory to build gstreamer packages:
 % make all install VERBOSE=true
 
-6) Copy libOMX_Core.so from gstreamer_ti/ti_build/gst-openmax/ext/lib to /lib directory on target root filesystem.
+8) Copy libOMX_Core.so from gstreamer_ti/ti_build/gst-openmax/ext/lib to /lib directory on target root filesystem.
 
 If you want less output during the build, you can omit the "VERBOSE=true"
 above.
@@ -55,5 +58,14 @@ NOTES:
  2) Stop the matrix application launcher before running any gstreamer pipeline using the below command
    target# /etc/init.d/matrix-gui-e stop
 
-There are some example pipelines present in /opt/gstreamer_demo/dm816x/example_pipeline.sh file. Also /usr/share/ti/data/videos contains some demo clips.
+ 3) Export the following environment variables -
+    export GST_REGISTRY=/tmp/gst_registry.bin
+    export LD_LIBRARY_PATH=/opt/gstreamer/lib
+    export GST_PLUGIN_PATH=/opt/gstreamer/lib/gstreamer-0.10
+    export PATH=/opt/gstreamer/bin:$PATH
+    export GST_PLUGIN_SCANNER=/opt/gstreamer/libexec/gstreamer-0.10/gst-plugin-scanner
+
+ 4) Use the following pipeline to run an MP4/MOV file containing H.264 video and AAC audio -
+    gst-launch -v filesrc location=seas.mov ! qtdemux name=demux demux.audio_00 ! queue ! faad ! alsasink demux.video_00 ! queue !  nal2bytestream_h264  !  omx_h264dec ! omx_scaler ! omx_ctrl display-mode=OMX_DC_MODE_1080P_60  ! gstperf ! omx_videosink
+
 
