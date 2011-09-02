@@ -109,7 +109,8 @@ static void gst_omxbuffertransport_finalize(GstBuffer *gstbuffer)
 
 	for(ii = 0; ii < self->numAdditionalHeaders; ii++) {
 		//printf("finalize buffer:%p\n",self->addHeader[ii]);
-		release_buffer(self->port,self->addHeader[ii]);
+		if(self->addHeader[ii])
+    		release_buffer(self->port,self->addHeader[ii]);
 	}
 
     self->omxbuffer = NULL;

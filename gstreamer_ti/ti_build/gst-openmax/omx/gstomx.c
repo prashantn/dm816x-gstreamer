@@ -22,6 +22,7 @@
 #include "gstomx.h"
 #include "gstomx_dummy.h"
 #include "gstomx_mpeg4dec.h"
+#include "gstomx_mpeg2dec.h"
 #include "gstomx_h263dec.h"
 #include "gstomx_h264dec.h"
 #include "gstomx_vp6dec.h"
@@ -59,7 +60,7 @@
 #include "gstomx_noisefilter.h"
 #include "gstomx_base_ctrl.h"
 
-//#include "gstomx_videomixer.h"
+#include "gstomx_videomixer.h"
 #include "config.h"
 
 GST_DEBUG_CATEGORY (gstomx_debug);
@@ -80,6 +81,7 @@ static TableItem element_table[] =
 //    { "omx_dummy",          "libOMX_Core.so",           "OMX.TI.DUCATI1.MISC.SAMPLE",   NULL,                   GST_RANK_NONE,      gst_omx_dummy_get_type },
 //    { "omx_mpeg4dec",       "libOMX_Core.so",           "OMX.TI.DUCATI.VIDDEC", "",  GST_RANK_PRIMARY,   gst_omx_mpeg4dec_get_type },
     { "omx_h264dec",        "libOMX_Core.so",           "OMX.TI.DUCATI.VIDDEC", "",    GST_RANK_PRIMARY,   gst_omx_h264dec_get_type },
+    { "omx_mpeg2dec",       "libOMX_Core.so",           "OMX.TI.DUCATI.VIDDEC", "",  GST_RANK_PRIMARY,   gst_omx_mpeg2dec_get_type },
 //    { "omx_h263dec",        "libOMX_Core.so",           "OMX.TI.DUCATI.VIDDEC", "",   GST_RANK_PRIMARY,   gst_omx_h263dec_get_type },
 //    { "omx_vp6dec",         "libOMX_Core.so",           "OMX.TI.DUCATI1.VIDEO.DECODER", "video_decoder.vp6",    GST_RANK_PRIMARY,   gst_omx_vp6dec_get_type },
 //    { "omx_wmvdec",         "libOMX_Core.so",           "OMX.TI.Video.Decoder",         NULL,                   GST_RANK_NONE,      gst_omx_wmvdec_get_type },
@@ -115,7 +117,7 @@ static TableItem element_table[] =
     { "omx_noisefilter",         "libOMX_Core.so",   "OMX.TI.VPSSM3.VFPC.NF",     "",                   GST_RANK_PRIMARY,      gst_omx_noisefilter_get_type },
     { "omx_ctrl",         "libOMX_Core.so",   "OMX.TI.VPSSM3.CTRL.DC",     "",                   GST_RANK_PRIMARY,      gst_omx_base_ctrl_get_type },
 //    { "omx_camera",         "libOMX_Core.so",           "OMX.TI.DUCATI1.VIDEO.CAMERA",  NULL,                   GST_RANK_PRIMARY,   gst_omx_camera_get_type },
-//	{ "omx_videomixer", 		"libOMX_Core.so",	"OMX.TI.VPSSM3.VFPC.INDTXSCWB", 	"", 				  GST_RANK_PRIMARY, 	 gst_omx_video_mixer_get_type },
+	{ "omx_videomixer", 		"libOMX_Core.so",	"OMX.TI.VPSSM3.VFPC.INDTXSCWB", 	"", 				  GST_RANK_PRIMARY, 	 gst_omx_video_mixer_get_type },
     { NULL, NULL, NULL, NULL, 0, NULL },
 };
 

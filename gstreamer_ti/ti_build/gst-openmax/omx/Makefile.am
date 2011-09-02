@@ -12,6 +12,7 @@ libgstomx_la_SOURCES = gstomx.c gstomx.h \
 		       gstomx_dummy.c gstomx_dummy.h \
 		       gstomx_volume.c gstomx_volume.h \
 		       gstomx_mpeg4dec.c gstomx_mpeg4dec.h \
+		       gstomx_mpeg2dec.c gstomx_mpeg2dec.h \
 		       gstomx_h263dec.c gstomx_h263dec.h \
 		       gstomx_h264dec.c gstomx_h264dec.h \
 		       gstomx_wmvdec.c gstomx_wmvdec.h \
@@ -48,7 +49,8 @@ libgstomx_la_SOURCES = gstomx.c gstomx.h \
                gstomx_base_vfpc.c gstomx_base_vfpc.h \
                gstomx_base_ctrl.c gstomx_base_ctrl.h \
                gstomx_scaler.c gstomx_scaler.h   \
-               gstomx_noisefilter.c gstomx_noisefilter.h
+               gstomx_noisefilter.c gstomx_noisefilter.h  \
+	       gstomx_videomixer.c gstomx_videomixer.h 
 
 libgstomx_la_LIBADD = $(OMXCORE_LIBS) $(GST_LIBS) $(GST_BASE_LIBS) -lgstvideo-0.10 $(top_builddir)/util/libutil.la
 libgstomx_la_CFLAGS = $(OMXCORE_CFLAGS) $(OMXTIAUDIODEC_CFLAGS) $(USE_OMXTIAUDIODEC) $(GST_CFLAGS) $(GST_BASE_CFLAGS) -I$(top_srcdir)/util \

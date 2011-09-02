@@ -46,7 +46,7 @@ GSTREAMER_DIR        = /opt/gstreamer
 CROSS_COMPILER       = 
 GST_TI_PLATFORM      = dm816x
 #EZSDK_INSTALL_DIR    = /home/prashant/centaurus/omx_root_tear
-EZSDK_INSTALL_DIR    = /home1/prashant/centaurus/ti-ezsdk_dm814x-evm_5_02_00_56
+EZSDK_INSTALL_DIR    = /home1/prashant/centaurus/ti-ezsdk_dm814x-evm_5_02_01_59
 #------------------------------------------------------------------------------
 # Build configuration:
 #

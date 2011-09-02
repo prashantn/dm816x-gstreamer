@@ -623,8 +623,14 @@ g_omx_port_send (GOmxPort *port, gpointer obj)
         {
             if (GST_IS_OMXBUFFERTRANSPORT (obj)) 
                 omx_buffer = get_input_buffer_header (port, obj);
-            else
+			else if(GST_IS_EVENT (obj) && (GST_EVENT_TYPE (obj) == GST_EVENT_EOS)) {
+				printf("Returning omx_buffer header for non always-copy case!!\n");
+                omx_buffer = port->buffers[0];
+			}
+            else {
+				GST_ERROR_OBJECT(port->core->object,"something went wrong!!\n");
                 return -1; /* something went wrong */
+            }
         }
 
         send_prep (port, omx_buffer, obj);
