@@ -58,6 +58,7 @@ struct GstOmxBaseCtrl
     char *display_mode;
 
     gboolean mode_configured;
+	char *display_device;
 };
 
 struct GstOmxBaseCtrlClass

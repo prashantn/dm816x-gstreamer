@@ -47,6 +47,7 @@ struct GstOmxVideoSink
     gboolean colorkey;
     gchar *display_mode;
     guint maxWidth, maxHeight;
+	gchar *display_device;
 };
 
 struct GstOmxVideoSinkClass

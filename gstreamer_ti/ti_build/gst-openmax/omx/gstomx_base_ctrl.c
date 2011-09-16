@@ -28,7 +28,8 @@ enum
     ARG_COMPONENT_ROLE,
     ARG_COMPONENT_NAME,
     ARG_LIBRARY_NAME,
-    ARG_DISPLAY_MODE
+    ARG_DISPLAY_MODE,
+    ARG_DISPLAY_DEVICE
 };
 
 GSTOMX_BOILERPLATE (GstOmxBaseCtrl, gst_omx_base_ctrl, GstBaseTransform, GST_TYPE_BASE_TRANSFORM);
@@ -93,6 +94,15 @@ gst_omx_display_string_to_mode (char *str)
     return -1;
 }
 
+#define LCD_WIDTH         (800)
+#define LCD_HEIGHT        (480)
+#define LCD_PIXEL_CLOCK   (33500)
+#define LCD_H_FRONT_PORCH (164)
+#define LCD_H_BACK_PORCH  (89)
+#define LCD_H_SYNC_LENGTH (10)
+#define LCD_V_FRONT_PORCH (10)
+#define LCD_V_BACK_PORCH  (23)
+#define LCD_V_SYNC_LENGTH (10)
 
 static gboolean 
 gst_omx_ctrl_set_display_mode (GstOmxBaseCtrl *self)
@@ -100,6 +110,8 @@ gst_omx_ctrl_set_display_mode (GstOmxBaseCtrl *self)
     OMX_PARAM_VFDC_DRIVERINSTID driverId;
     OMX_ERRORTYPE err;
     GOmxCore *gomx;
+	OMX_PARAM_DC_CUSTOM_MODE_INFO customModeInfo;
+	guint isLCD;
 
     gomx = (GOmxCore*) self->gomx;
     
@@ -111,13 +123,44 @@ gst_omx_ctrl_set_display_mode (GstOmxBaseCtrl *self)
     GST_LOG_OBJECT (self, "setting display mode to: %s", self->display_mode);
 
     _G_OMX_INIT_PARAM (&driverId);
-    driverId.nDrvInstID = 0; /* on chip HDMI */
-    driverId.eDispVencMode = gst_omx_display_string_to_mode(self->display_mode);
+
+	if(!strcmp(self->display_device,"LCD")) {
+      driverId.nDrvInstID = OMX_VIDEO_DISPLAY_ID_HD1;
+      driverId.eDispVencMode = OMX_DC_MODE_CUSTOM;//mode;
+      isLCD = 1;
+	} else {
+      driverId.nDrvInstID = 0; /* on chip HDMI */
+      driverId.eDispVencMode = gst_omx_display_string_to_mode(self->display_mode);;
+	  isLCD = 0;
+	}
 
     err = OMX_SetParameter (gomx->omx_handle, (OMX_INDEXTYPE) OMX_TI_IndexParamVFDCDriverInstId, &driverId);
     if(err != OMX_ErrorNone) 
         return FALSE;
 
+#if 1
+    if(isLCD) {
+     _G_OMX_INIT_PARAM (&customModeInfo);
+    
+    customModeInfo.width = LCD_WIDTH;
+    customModeInfo.height = LCD_HEIGHT;
+    customModeInfo.scanFormat = OMX_SF_PROGRESSIVE;
+    customModeInfo.pixelClock = LCD_PIXEL_CLOCK;
+    customModeInfo.hFrontPorch = LCD_H_FRONT_PORCH;
+    customModeInfo.hBackPorch = LCD_H_BACK_PORCH;
+    customModeInfo.hSyncLen = LCD_H_SYNC_LENGTH;
+    customModeInfo.vFrontPorch = LCD_V_FRONT_PORCH;
+    customModeInfo.vBackPorch = LCD_V_BACK_PORCH;
+    customModeInfo.vSyncLen = LCD_V_SYNC_LENGTH;
+    /*Configure Display component and Display controller with these parameters*/
+
+    err = OMX_SetParameter (gomx->omx_handle, (OMX_INDEXTYPE)
+                               OMX_TI_IndexParamVFDCCustomModeInfo,
+                               &customModeInfo); 
+	if(err != OMX_ErrorNone) 
+        return FALSE;
+    }
+#endif
     g_omx_core_change_state (gomx, OMX_StateIdle);
     g_omx_core_change_state (gomx, OMX_StateExecuting);
 
@@ -205,6 +248,10 @@ set_property (GObject *obj,
             g_free (self->display_mode);
             self->display_mode = g_value_dup_string (value);
             break;
+		case ARG_DISPLAY_DEVICE:
+            g_free (self->display_device);
+            self->display_device = g_value_dup_string (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
             break;
@@ -234,6 +281,9 @@ get_property (GObject *obj,
             break;
         case ARG_DISPLAY_MODE:
             g_value_set_string (value, self->display_mode);
+            break;
+		case ARG_DISPLAY_DEVICE:
+            g_value_set_string (value, self->display_device);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
@@ -300,6 +350,12 @@ type_class_init (gpointer g_class,
             " \n\t\t\t OMX_DC_MODE_1080I_60"
             " \n\t\t\t OMX_DC_MODE_1080P_30\n", "OMX_DC_MODE_1080P_60", G_PARAM_READWRITE));
 
+		g_object_class_install_property (gobject_class, ARG_DISPLAY_DEVICE,
+                                    g_param_spec_string ("display-device", "Display Device", 
+            "Display device to be used -"
+            "\n\t\t\t HDMI "
+            "\n\t\t\t LCD ", "HDMI",G_PARAM_READWRITE));
+
     }
 }
 
@@ -328,6 +384,7 @@ type_instance_init (GTypeInstance *instance,
     trans_class->stop = GST_DEBUG_FUNCPTR (stop);
 
     g_object_set (self, "display-mode", "OMX_DC_MODE_1080P_60", NULL);
+	g_object_set (self, "display-device", "HDMI", NULL);
 
     GST_LOG_OBJECT (self, "end");
 }
