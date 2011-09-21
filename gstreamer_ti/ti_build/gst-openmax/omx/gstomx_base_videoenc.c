@@ -170,13 +170,18 @@ sink_setcaps (GstPad *pad,
 
         if (framerate)
         {
+            guint frameRate;
             self->framerate_num = gst_value_get_fraction_numerator (framerate);
             self->framerate_denom = gst_value_get_fraction_denominator (framerate);
-
+            frameRate = (self->framerate_num + self->framerate_denom - 1)/self->framerate_denom;
+			/*if(ABS(30 - framerate) < ABS(60 - framerate))
+				frameRate = 30;
+			else 
+				frameRate = 60;*/
             /* convert to Q.16 */
-            param.format.video.xFramerate =
-                (gst_value_get_fraction_numerator (framerate) << 16) /
-                gst_value_get_fraction_denominator (framerate);
+            param.format.video.xFramerate = (frameRate << 16);
+               /* (gst_value_get_fraction_numerator (framerate) /
+                gst_value_get_fraction_denominator (framerate)) << 16;*/
         }
 
         G_OMX_PORT_SET_DEFINITION (omx_base->out_port, &param);
