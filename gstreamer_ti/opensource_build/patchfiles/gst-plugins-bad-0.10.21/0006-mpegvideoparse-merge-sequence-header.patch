@@ -1,0 +1,50 @@
+--- gst-plugins-bad-0.10.21/gst/mpegvideoparse/mpegpacketiser.c	2011-01-08 00:41:04.000000000 +0530
++++ gst-plugins-bad-0.10.21.bak/gst/mpegvideoparse/mpegpacketiser.c	2011-08-29 13:50:49.283361090 +0530
+@@ -306,7 +306,11 @@ handle_packet (MPEGPacketiser * p, guint
+     case MPEG_PACKET_SEQUENCE:
+     case MPEG_PACKET_GOP:
+       /* Start a new block */
+-      start_new_block (p, offset, pack_type);
++      if (p->prev_sync_packet != MPEG_PACKET_SEQUENCE) {
++        start_new_block (p, offset, pack_type);
++      } else {
++        append_to_current_block (p, offset, pack_type);
++      }
+       p->prev_sync_packet = pack_type;
+       break;
+     case MPEG_PACKET_PICTURE:{
+@@ -349,6 +353,11 @@ handle_packet (MPEGPacketiser * p, guint
+       }
+       break;
+     }
++	case MPEG_PACKET_SEQUENCE_END:
++		printf("sequence end!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
++		start_new_block (p, offset, pack_type);
++		//mpeg_packetiser_handle_eos(p);
++		break;
+     default:
+       append_to_current_block (p, offset, pack_type);
+       break;
+--- gst-plugins-bad-0.10.21/gst/mpegvideoparse/mpegvideoparse.c	2011-01-08 00:41:04.000000000 +0530
++++ gst-plugins-bad-0.10.21.bak/gst/mpegvideoparse/mpegvideoparse.c	2011-08-29 11:46:08.079360486 +0530
+@@ -264,9 +264,9 @@ mpegvideoparse_handle_sequence (MpegVide
+ 
+     /* Store the entire sequence header + sequence header extension
+        for output as codec_data */
+-    seq_buf = gst_buffer_copy (buf);
++    /*seq_buf = gst_buffer_copy (buf);
+     gst_buffer_replace (&mpegvideoparse->seq_hdr_buf, seq_buf);
+-    gst_buffer_unref (seq_buf);
++    gst_buffer_unref (seq_buf);*/
+ 
+     caps = gst_caps_new_simple ("video/mpeg",
+         "systemstream", G_TYPE_BOOLEAN, FALSE,
+@@ -277,7 +277,7 @@ mpegvideoparse_handle_sequence (MpegVide
+         "framerate", GST_TYPE_FRACTION, new_hdr.fps_n, new_hdr.fps_d,
+         "pixel-aspect-ratio", GST_TYPE_FRACTION, new_hdr.par_w, new_hdr.par_h,
+         "interlaced", G_TYPE_BOOLEAN, !new_hdr.progressive,
+-        "codec_data", GST_TYPE_BUFFER, seq_buf, NULL);
++        /*"codec_data", GST_TYPE_BUFFER, seq_buf,*/ NULL);
+ 
+     if (new_hdr.mpeg_version == 2) {
+       const gchar *profile = NULL, *level = NULL;

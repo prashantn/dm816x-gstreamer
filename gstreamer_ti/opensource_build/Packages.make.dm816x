@@ -162,7 +162,8 @@ PACKAGE_plugins_bad_PRECONFIG_PATCHES   = \
     0002-fixes-to-mux-h264-stream-utilizing-ctts.patch \
     0003-ugly-hack-to-avoid-a-memcpy.patch \
     0004-h264parse-Add-workaround-for-separate-codec_config-a.patch \
-    0005-jpegparse-ignore-unhandled-application-markers.patch 
+    0005-jpegparse-ignore-unhandled-application-markers.patch \
+    0006-mpegvideoparse-merge-sequence-header.patch 
 PACKAGE_plugins_bad_POSTCONFIG_PATCHES  =
 PACKAGE_plugins_bad_BUILD_DIRS          = 
 PACKAGE_plugins_bad_CONFIGURE_OPTS      = --disable-sdl
