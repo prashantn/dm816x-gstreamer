@@ -179,6 +179,18 @@ sink_setcaps (GstPad *pad,
                                 GST_TIME_ARGS (omx_base->duration));
         }
     }
+	/* check for pixel-aspect-ratio, to set to src caps */
+    {
+        const GValue *v = NULL;
+        v = gst_structure_get_value (structure, "pixel-aspect-ratio");
+        if (v) {
+            self->pixel_aspect_ratio_num = gst_value_get_fraction_numerator (v);
+            self->pixel_aspect_ratio_denom = gst_value_get_fraction_denominator (v);
+		} else self->pixel_aspect_ratio_denom = 0;
+    }
+
+	if (!gst_structure_get_boolean (structure, "interlaced", &self->interlaced))
+		self->interlaced = FALSE;
 
     if (self->sink_setcaps)
         self->sink_setcaps (pad, caps);

@@ -681,7 +681,7 @@ push_buffer (GstOmxVideoMixer *self,
 {
     GstFlowReturn ret;
 
-    GST_BUFFER_DURATION (buf) = self->duration;
+	GST_BUFFER_DURATION (buf) = self->duration;
 
     PRINT_BUFFER (self, buf);
 

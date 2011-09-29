@@ -157,6 +157,8 @@ g_omx_core_new (gpointer object, gpointer klass)
     core->omx_state = OMX_StateInvalid;
 
     core->use_timestamps = TRUE;
+    core->gen_timestamps = TRUE;
+    core->last_buf_timestamp = GST_CLOCK_TIME_NONE;
 
     {
         gchar *library_name, *component_name, *component_role;
@@ -655,15 +657,23 @@ EventHandler (OMX_HANDLETYPE omx_handle,
             }
         case OMX_EventError:
             {
-                core->omx_error = data_1;
                 GST_ERROR_OBJECT (core->object, "unrecoverable error: %s (0x%lx)",
                                   g_omx_error_to_str (data_1), data_1);
-                /* component might leave us waiting for buffers, unblock */
-                g_omx_core_flush_start (core);
-                /* unlock wait_for_state */
-                g_mutex_lock (core->omx_state_mutex);
-                g_cond_signal (core->omx_state_condition);
-                g_mutex_unlock (core->omx_state_mutex);
+				if (data_1 != 0x8000100b) {
+					printf("unrecoverable error: %s (0x%lx)\n",
+							g_omx_error_to_str (data_1), data_1);
+					fflush(stdout);
+					core->omx_error = data_1;
+					/* component might leave us waiting for buffers, unblock */
+					g_omx_core_flush_start (core);
+					/* unlock wait_for_state */
+					g_mutex_lock (core->omx_state_mutex);
+					g_cond_signal (core->omx_state_condition);
+					g_mutex_unlock (core->omx_state_mutex);
+				} else {
+					printf("Stream is corrupt error, ignorable ... \n");
+					fflush(stdout);
+				}
                 break;
             }
 #ifdef USE_OMXTICORE

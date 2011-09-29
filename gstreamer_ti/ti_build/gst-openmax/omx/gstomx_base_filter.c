@@ -33,6 +33,7 @@ enum
     ARG_USE_TIMESTAMPS,
     ARG_NUM_INPUT_BUFFERS,
     ARG_NUM_OUTPUT_BUFFERS,
+	ARG_GEN_TIMESTAMPS
 };
 
 static void init_interfaces (GType type);
@@ -251,6 +252,9 @@ set_property (GObject *obj,
         case ARG_USE_TIMESTAMPS:
             self->gomx->use_timestamps = g_value_get_boolean (value);
             break;
+        case ARG_GEN_TIMESTAMPS:
+            self->gomx->gen_timestamps = g_value_get_boolean (value);
+            break;
         case ARG_NUM_INPUT_BUFFERS:
         case ARG_NUM_OUTPUT_BUFFERS:
             {
@@ -296,6 +300,9 @@ get_property (GObject *obj,
             break;
         case ARG_USE_TIMESTAMPS:
             g_value_set_boolean (value, self->gomx->use_timestamps);
+            break;
+        case ARG_GEN_TIMESTAMPS:
+            g_value_set_boolean (value, self->gomx->gen_timestamps);
             break;
         case ARG_NUM_INPUT_BUFFERS:
         case ARG_NUM_OUTPUT_BUFFERS:
@@ -363,6 +370,11 @@ type_class_init (gpointer g_class,
                                                                "Whether or not to use timestamps",
                                                                TRUE, G_PARAM_READWRITE));
 
+        g_object_class_install_property (gobject_class, ARG_GEN_TIMESTAMPS,
+                                         g_param_spec_boolean ("gen-timestamps", "Generate timestamps",
+                                                               "Whether or not to generate timestamps using interpolation/extrapolation",
+                                                               TRUE, G_PARAM_READWRITE));
+
         /* note: the default values for these are just a guess.. since we wouldn't know
          * until the OMX component is constructed.  But that is ok, these properties are
          * only for debugging
@@ -385,7 +397,15 @@ push_buffer (GstOmxBaseFilter *self,
     GstFlowReturn ret;
 
     GST_BUFFER_DURATION (buf) = self->duration;
-	//printf("output!!\n");
+
+	if (self->gomx->gen_timestamps == TRUE) {
+		if (GST_CLOCK_TIME_NONE == GST_BUFFER_TIMESTAMP(buf) && 
+		    GST_CLOCK_TIME_NONE != self->gomx->last_buf_timestamp &&
+		    GST_CLOCK_TIME_NONE != self->duration) {
+			GST_BUFFER_TIMESTAMP(buf) = self->gomx->last_buf_timestamp + self->duration;
+		}
+		self->gomx->last_buf_timestamp = GST_BUFFER_TIMESTAMP(buf);
+	}
 
     PRINT_BUFFER (self, buf);
 
@@ -702,6 +722,7 @@ pad_event (GstPad *pad,
             break;
 
         case GST_EVENT_NEWSEGMENT:
+			self->gomx->last_buf_timestamp = GST_CLOCK_TIME_NONE;
             ret = gst_pad_push_event (self->srcpad, event);
             break;
 

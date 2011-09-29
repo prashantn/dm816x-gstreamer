@@ -53,6 +53,9 @@ struct GstOmxBaseVfpc
     gint port_index, input_port_index, output_port_index;
     GstOmxBaseFilterCb omx_setup;
     gpointer g_class;
+	gint pixel_aspect_ratio_num;
+	gint pixel_aspect_ratio_denom;
+	gboolean interlaced;
 };
 
 struct GstOmxBaseVfpcClass

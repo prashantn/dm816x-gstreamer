@@ -161,6 +161,18 @@ sink_setcaps (GstPad *pad,
                                 GST_TIME_ARGS (omx_base->duration));
         }
     }
+	/* check for pixel-aspect-ratio, to set to src caps */
+    {
+        const GValue *v = NULL;
+        v = gst_structure_get_value (structure, "pixel-aspect-ratio");
+        if (v) {
+            self->pixel_aspect_ratio_num = gst_value_get_fraction_numerator (v);
+            self->pixel_aspect_ratio_denom = gst_value_get_fraction_denominator (v);
+		} else self->pixel_aspect_ratio_denom = 0;
+    }
+
+	if (!gst_structure_get_boolean (structure, "interlaced", &self->interlaced))
+		self->interlaced = FALSE;
 
     {
         const GValue *codec_data;
@@ -274,6 +286,16 @@ src_getcaps (GstPad *pad)
                         "framerate", GST_TYPE_FRACTION, self->framerate_num, self->framerate_denom,
                         NULL);
             }
+
+            if (self->pixel_aspect_ratio_denom)
+            {
+                gst_structure_set (struc,
+                        "pixel-aspect-ratio", GST_TYPE_FRACTION, self->pixel_aspect_ratio_num, 
+						self->pixel_aspect_ratio_denom, NULL);
+            }
+
+			gst_structure_set (struc,
+				"interlaced", G_TYPE_BOOLEAN, self->interlaced, NULL);
 
             gst_caps_append_structure (caps, struc);
         }

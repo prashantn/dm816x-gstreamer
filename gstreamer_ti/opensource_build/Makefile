@@ -59,7 +59,7 @@ base:
 	$(CMD_PREFIX) $(MAKE) faad         $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) faac         $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) plugins_base $(BUILD_INSTALL)
-#	$(CMD_PREFIX) $(MAKE) ffmpeg       $(BUILD_INSTALL)
+	$(CMD_PREFIX) $(MAKE) ffmpeg       $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) plugin_h264  $(BUILD_INSTALL)
 
 plugins:     $(PLUGIN_PACKAGES)

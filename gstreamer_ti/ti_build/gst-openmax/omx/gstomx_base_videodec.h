@@ -56,6 +56,10 @@ struct GstOmxBaseVideoDec
     struct _extendedParams extendedParams;
 
     gint rowstride;     /**< rowstride of output buffer */
+
+	gint pixel_aspect_ratio_num;
+	gint pixel_aspect_ratio_denom;
+	gboolean interlaced;
 };
 
 struct GstOmxBaseVideoDecClass

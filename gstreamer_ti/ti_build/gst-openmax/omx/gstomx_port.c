@@ -368,10 +368,14 @@ release_buffer (GOmxPort *port, OMX_BUFFERHEADERTYPE *omx_buffer)
         case GOMX_PORT_INPUT:
             DEBUG (port, "ETB: omx_buffer=%p, pAppPrivate=%p, pBuffer=%p",
                     omx_buffer, omx_buffer ? omx_buffer->pAppPrivate : 0, omx_buffer ? omx_buffer->pBuffer : 0);
+            HARI_DBG("ETB: omx_buffer=%p, pAppPrivate=%p, pBuffer=%p\n",
+                    omx_buffer, omx_buffer ? omx_buffer->pAppPrivate : 0, omx_buffer ? omx_buffer->pBuffer : 0);
             OMX_EmptyThisBuffer (port->core->omx_handle, omx_buffer);
             break;
         case GOMX_PORT_OUTPUT:
             DEBUG (port, "FTB: omx_buffer=%p, pAppPrivate=%p, pBuffer=%p",
+                    omx_buffer, omx_buffer ? omx_buffer->pAppPrivate : 0, omx_buffer ? omx_buffer->pBuffer : 0);
+            HARI_DBG("FTB: omx_buffer=%p, pAppPrivate=%p, pBuffer=%p\n",
                     omx_buffer, omx_buffer ? omx_buffer->pAppPrivate : 0, omx_buffer ? omx_buffer->pBuffer : 0);
             OMX_FillThisBuffer (port->core->omx_handle, omx_buffer);
             break;
@@ -493,12 +497,15 @@ send_prep_buffer_data (GOmxPort *port, OMX_BUFFERHEADERTYPE *omx_buffer, GstBuff
     }
 
     if (port->core->use_timestamps)
-    {
-        omx_buffer->nTimeStamp = gst_util_uint64_scale_int (
-                GST_BUFFER_TIMESTAMP (buf),
-                OMX_TICKS_PER_SECOND, GST_SECOND);
-		       //printf("using timestamp:%llu!!\n",omx_buffer->nTimeStamp);
-    }
+	{
+		if (GST_CLOCK_TIME_NONE != GST_BUFFER_TIMESTAMP (buf)) {
+			omx_buffer->nTimeStamp = gst_util_uint64_scale_int (
+					GST_BUFFER_TIMESTAMP (buf),
+					OMX_TICKS_PER_SECOND, GST_SECOND);
+		} else {
+			omx_buffer->nTimeStamp = (OMX_TICKS)-1;
+		}
+	}
 
     DEBUG (port, "omx_buffer: size=%lu, len=%lu, flags=%lu, offset=%lu, timestamp=%lld",
             omx_buffer->nAllocLen, omx_buffer->nFilledLen, omx_buffer->nFlags,
@@ -672,10 +679,6 @@ g_omx_port_recv (GOmxPort *port)
                 omx_buffer, omx_buffer->nAllocLen, omx_buffer->nFilledLen, omx_buffer->nFlags,
                 omx_buffer->nOffset, omx_buffer->nTimeStamp);
 
-		/*printf("omx_buffer=%p size=%lu, len=%lu, flags=%lu, offset=%lu, timestamp=%lld\n",
-                omx_buffer, omx_buffer->nAllocLen, omx_buffer->nFilledLen, omx_buffer->nFlags,
-                omx_buffer->nOffset, omx_buffer->nTimeStamp);*/
-
         /* XXX this ignore_count workaround might play badly w/ refcnting
          * in OMX component..
          */
@@ -723,11 +726,15 @@ g_omx_port_recv (GOmxPort *port)
             }
 
             if (port->core->use_timestamps)
-            {
-                GST_BUFFER_TIMESTAMP (buf) = gst_util_uint64_scale_int (
-                        omx_buffer->nTimeStamp,
-                        GST_SECOND, OMX_TICKS_PER_SECOND);
-            }
+			{
+				if (omx_buffer->nTimeStamp != (OMX_TICKS)-1) {
+					GST_BUFFER_TIMESTAMP (buf) = gst_util_uint64_scale_int (
+							omx_buffer->nTimeStamp,
+							GST_SECOND, OMX_TICKS_PER_SECOND);
+				} else {
+					GST_BUFFER_TIMESTAMP (buf) = GST_CLOCK_TIME_NONE;
+				}
+			}
 
             if (G_UNLIKELY (omx_buffer->nFlags & OMX_BUFFERFLAG_CODECCONFIG))
             {

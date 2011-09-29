@@ -108,6 +108,17 @@ create_src_caps (GstOmxBaseFilter *omx_base)
         "framerate", GST_TYPE_FRACTION, self->framerate_num, self->framerate_denom, NULL);
     }
 
+	if (self->pixel_aspect_ratio_denom)
+	{
+		gst_structure_set (struc,
+				"pixel-aspect-ratio", GST_TYPE_FRACTION, self->pixel_aspect_ratio_num, 
+				self->pixel_aspect_ratio_denom, NULL);
+	}
+
+	gst_structure_set (struc,
+			"interlaced", G_TYPE_BOOLEAN, self->interlaced, NULL);
+
+
     gst_caps_append_structure (caps, struc);
 
     return caps;

@@ -33,9 +33,9 @@ TARGET_DEMO_DIR = $(TARGET_ROOT_DIR)/opt/gstreamer_demo
 default: help
 
 all: 
-	$(CMD_PREFIX) $(MAKE) opensource_build $(BUILD_INSTALL)
+#	$(CMD_PREFIX) $(MAKE) opensource_build $(BUILD_INSTALL)
 	$(CMD_PREFIX) $(MAKE) ti_build         $(BUILD_INSTALL)
-	$(CMD_PREFIX) $(MAKE) gstreamer_demo   $(BUILD_INSTALL)
+#	$(CMD_PREFIX) $(MAKE) gstreamer_demo   $(BUILD_INSTALL)
 
 clean_dev: 
 	@echo "Removing header files....."

@@ -430,6 +430,8 @@ type_instance_init (GTypeInstance *instance,
     /* GOmx */
     self->gomx = g_omx_core_new (self, g_class);
     self->gomx->use_timestamps = FALSE;
+    self->gomx->gen_timestamps = FALSE;
+    self->gomx->last_buf_timestamp = GST_CLOCK_TIME_NONE;
     self->out_port = g_omx_core_get_port (self->gomx, "out", klass->out_port_index);
     self->out_port->buffer_alloc = buffer_alloc;
 
