@@ -59,6 +59,7 @@
 #include "gstomx_scaler.h"
 #include "gstomx_noisefilter.h"
 #include "gstomx_base_ctrl.h"
+#include "gstomx_vc1dec.h"
 
 #include "gstomx_videomixer.h"
 #include "config.h"
@@ -79,7 +80,7 @@ typedef struct TableItem
 static TableItem element_table[] =
 {
 //    { "omx_dummy",          "libOMX_Core.so",           "OMX.TI.DUCATI1.MISC.SAMPLE",   NULL,                   GST_RANK_NONE,      gst_omx_dummy_get_type },
-//    { "omx_mpeg4dec",       "libOMX_Core.so",           "OMX.TI.DUCATI.VIDDEC", "",  GST_RANK_PRIMARY,   gst_omx_mpeg4dec_get_type },
+    { "omx_mpeg4dec",       "libOMX_Core.so",           "OMX.TI.DUCATI.VIDDEC", "",  GST_RANK_PRIMARY,   gst_omx_mpeg4dec_get_type },
     { "omx_h264dec",        "libOMX_Core.so",           "OMX.TI.DUCATI.VIDDEC", "",    GST_RANK_PRIMARY,   gst_omx_h264dec_get_type },
     { "omx_mpeg2dec",       "libOMX_Core.so",           "OMX.TI.DUCATI.VIDDEC", "",  GST_RANK_PRIMARY,   gst_omx_mpeg2dec_get_type },
 //    { "omx_h263dec",        "libOMX_Core.so",           "OMX.TI.DUCATI.VIDDEC", "",   GST_RANK_PRIMARY,   gst_omx_h263dec_get_type },
@@ -87,6 +88,7 @@ static TableItem element_table[] =
 //    { "omx_wmvdec",         "libOMX_Core.so",           "OMX.TI.Video.Decoder",         NULL,                   GST_RANK_NONE,      gst_omx_wmvdec_get_type },
 //    { "omx_mpeg4enc",       "libOMX_Core.so",           "OMX.TI.DUCATI.VIDENC",  NULL,                   GST_RANK_PRIMARY,   gst_omx_mpeg4enc_get_type },
     { "omx_h264enc",        "libOMX_Core.so",           "OMX.TI.DUCATI.VIDENC",   "",                   GST_RANK_PRIMARY,   gst_omx_h264enc_get_type },
+    { "omx_vc1dec",        "libOMX_Core.so",           "OMX.TI.DUCATI.VIDDEC",   "",                   GST_RANK_PRIMARY,   gst_omx_vc1dec_get_type },
 //    { "omx_h263enc",        "libOMX_Core.so",           "OMX.TI.DUCATI.VIDENC",  NULL,                   GST_RANK_PRIMARY,   gst_omx_h263enc_get_type },
 //    { "omx_vorbisdec",      "libomxil-bellagio.so.0",   "OMX.st.audio_decoder.ogg.single", NULL,                GST_RANK_NONE,   gst_omx_vorbisdec_get_type },
 //    { "omx_mp3dec",         "libOMX_Core.so",           "OMX.TI.AUDIO.DECODE",          "audio_decode.dsp.mp3", GST_RANK_NONE,   gst_omx_mp3dec_get_type },
