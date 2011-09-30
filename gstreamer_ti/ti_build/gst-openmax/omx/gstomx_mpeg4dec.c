@@ -207,7 +207,7 @@ initialize_port (GstOmxBaseFilter *omx_base)
   /* bitrate does not matter for decoder */
   pOutPortDef.format.video.nBitrate = 25000000;
   /* as per openmax frame rate is in Q16 format */
-  pOutPortDef.format.video.xFramerate = 30 << 16;
+  pOutPortDef.format.video.xFramerate = 60 << 16;
   pOutPortDef.format.video.bFlagErrorConcealment = OMX_FALSE;
   /* output is raw YUV 420 SP format, It support only this */
   pOutPortDef.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;

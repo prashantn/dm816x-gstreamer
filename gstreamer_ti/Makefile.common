@@ -41,12 +41,14 @@
 #------------------------------------------------------------------------------
 #DVSDK_INSTALL_DIR    = /home/prashant/ti-ezsdk_dm816x-evm_5_01_01_80
 #TARGET_ROOT_DIR      = /home/prashant/targetfs
-TARGET_ROOT_DIR      = /proj/NEE/hari/prashant_gstreamer/target
+TARGET_ROOT_DIR      = /home/prashant/centaurus/targetfs.ezsdk
+#TARGET_ROOT_DIR      = /home/prashant/netra/targetfs
 GSTREAMER_DIR        = /opt/gstreamer
 CROSS_COMPILER       = 
 GST_TI_PLATFORM      = dm816x
 #EZSDK_INSTALL_DIR    = /home/prashant/centaurus/omx_root_tear
-EZSDK_INSTALL_DIR    = /proj/NEE/hari/ti-ezsdk_dm814x-evm_5_02_01_59
+EZSDK_INSTALL_DIR    = /home1/prashant/centaurus/ti-ezsdk_dm814x-evm_5_02_01_59
+#EZSDK_INSTALL_DIR    = /home/prashant/netra/ti-ezsdk_dm816x-evm_5_02_01_59
 #------------------------------------------------------------------------------
 # Build configuration:
 #
