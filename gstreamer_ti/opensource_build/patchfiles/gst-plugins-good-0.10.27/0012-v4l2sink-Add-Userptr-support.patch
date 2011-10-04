@@ -1,6 +1,6 @@
-diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2sink.c gst-plugins-good-0.10.27/sys/v4l2/gstv4l2sink.c
---- gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2sink.c	2011-09-27 14:24:05.811862434 +0530
-+++ gst-plugins-good-0.10.27/sys/v4l2/gstv4l2sink.c	2011-09-27 14:24:41.991360445 +0530
+diff -Npru gst-plugins-good-0.10.27_11_patch_applied/sys/v4l2/gstv4l2sink.c gst-plugins-good-0.10.27/sys/v4l2/gstv4l2sink.c
+--- gst-plugins-good-0.10.27_11_patch_applied/sys/v4l2/gstv4l2sink.c	2011-10-01 16:54:14.317291000 +0530
++++ gst-plugins-good-0.10.27/sys/v4l2/gstv4l2sink.c	2011-10-01 17:46:17.469290703 +0530
 @@ -62,6 +62,7 @@
  
  #include "gstv4l2sink.h"
@@ -66,7 +66,7 @@ diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2sink.c gst-plugins-good-
  
    GST_DEBUG_OBJECT (v4l2sink, "%d -> %d",
        GST_STATE_TRANSITION_CURRENT (transition),
-@@ -718,11 +734,28 @@ gst_v4l2sink_change_state (GstElement * 
+@@ -718,11 +734,30 @@ gst_v4l2sink_change_state (GstElement * 
        gst_v4l2sink_sync_rotation (v4l2sink);
        gst_v4l2sink_sync_flip (v4l2sink);
        break;
@@ -81,12 +81,14 @@ diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2sink.c gst-plugins-good-
 +    if(v4l2sink->enableUserPtr) {
 +	GST_DEBUG_OBJECT (v4l2sink, "!!!!!!!!!unreference all the remaining buffers!!!!!!!!!");
 +        printf("\n!!!!!!!!!unreference all the remaining buffers!!!!!!!!!");
-+	for(i = 0;i<v4l2sink->num_buffers;i++) {
-+ 	  if(v4l2sink->gst_buf_array[i] != NULL) {
-+	    gst_buffer_unref(v4l2sink->gst_buf_array[i]);
-+            v4l2sink->gst_buf_array[i] = NULL;
-+	  }
-+	}
++        if(v4l2sink->gst_buf_array != NULL){
++	   for(i = 0;i<v4l2sink->num_buffers;i++) {
++ 	      if(v4l2sink->gst_buf_array[i] != NULL) {
++	        gst_buffer_unref(v4l2sink->gst_buf_array[i]);
++                v4l2sink->gst_buf_array[i] = NULL;
++	      }
++	   }
++        }
 +      }
 +      ret = GST_ELEMENT_CLASS (parent_class)->change_state (element, transition);
 +   }
@@ -97,7 +99,7 @@ diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2sink.c gst-plugins-good-
  
    switch (transition) {
      case GST_STATE_CHANGE_PAUSED_TO_READY:
-@@ -734,9 +767,14 @@ gst_v4l2sink_change_state (GstElement * 
+@@ -734,9 +769,14 @@ gst_v4l2sink_change_state (GstElement * 
        }
        break;
      case GST_STATE_CHANGE_READY_TO_NULL:
@@ -113,7 +115,7 @@ diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2sink.c gst-plugins-good-
        /* close the device */
        if (!gst_v4l2_object_stop (v4l2sink->v4l2object))
          return GST_STATE_CHANGE_FAILURE;
-@@ -871,6 +909,18 @@ gst_v4l2sink_set_caps (GstBaseSink * bsi
+@@ -871,6 +911,18 @@ gst_v4l2sink_set_caps (GstBaseSink * bsi
      gst_caps_unref (caps);
      return FALSE;
    }
@@ -132,7 +134,7 @@ diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2sink.c gst-plugins-good-
  
    /* query to find if anyone upstream using these buffers has any
     * minimum requirements:
-@@ -1092,11 +1142,13 @@ gst_v4l2sink_show_frame (GstBaseSink * b
+@@ -1092,11 +1144,13 @@ gst_v4l2sink_show_frame (GstBaseSink * b
  {
    GstV4l2Sink *v4l2sink = GST_V4L2SINK (bsink);
    GstBuffer *newbuf = NULL;
@@ -148,7 +150,7 @@ diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2sink.c gst-plugins-good-
  
      /* special case check for sub-buffers:  In certain cases, places like
       * GstBaseTransform, which might check that the buffer is writable
-@@ -1175,7 +1227,37 @@ gst_v4l2sink_show_frame (GstBaseSink * b
+@@ -1175,7 +1229,37 @@ gst_v4l2sink_show_frame (GstBaseSink * b
        gst_buffer_unref (GST_BUFFER (v4l2buf));
      }
    }
@@ -186,9 +188,9 @@ diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2sink.c gst-plugins-good-
    return GST_FLOW_OK;
  }
  
-diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2sink.h gst-plugins-good-0.10.27/sys/v4l2/gstv4l2sink.h
---- gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2sink.h	2011-09-27 14:24:05.811862434 +0530
-+++ gst-plugins-good-0.10.27/sys/v4l2/gstv4l2sink.h	2011-09-27 14:24:41.995362580 +0530
+diff -Npru gst-plugins-good-0.10.27_11_patch_applied/sys/v4l2/gstv4l2sink.h gst-plugins-good-0.10.27/sys/v4l2/gstv4l2sink.h
+--- gst-plugins-good-0.10.27_11_patch_applied/sys/v4l2/gstv4l2sink.h	2011-10-01 16:53:07.057541000 +0530
++++ gst-plugins-good-0.10.27/sys/v4l2/gstv4l2sink.h	2011-10-01 17:43:29.053291476 +0530
 @@ -78,6 +78,9 @@ struct _GstV4l2Sink {
    guint8 state;
    gint rotation;
@@ -199,9 +201,9 @@ diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2sink.h gst-plugins-good-
  };
  
  struct _GstV4l2SinkClass {
-diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2_userpointer.c gst-plugins-good-0.10.27/sys/v4l2/gstv4l2_userpointer.c
---- gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2_userpointer.c	1970-01-01 05:30:00.000000000 +0530
-+++ gst-plugins-good-0.10.27/sys/v4l2/gstv4l2_userpointer.c	2011-09-27 14:24:42.124579536 +0530
+diff -Npru gst-plugins-good-0.10.27_11_patch_applied/sys/v4l2/gstv4l2_userpointer.c gst-plugins-good-0.10.27/sys/v4l2/gstv4l2_userpointer.c
+--- gst-plugins-good-0.10.27_11_patch_applied/sys/v4l2/gstv4l2_userpointer.c	1970-01-01 05:30:00.000000000 +0530
++++ gst-plugins-good-0.10.27/sys/v4l2/gstv4l2_userpointer.c	2011-10-01 17:43:29.053291476 +0530
 @@ -0,0 +1,151 @@
 +#ifdef HAVE_CONFIG_H
 +#include <config.h>
@@ -354,9 +356,9 @@ diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2_userpointer.c gst-plugi
 +}
 +
 +
-diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2_userpointer.h gst-plugins-good-0.10.27/sys/v4l2/gstv4l2_userpointer.h
---- gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2_userpointer.h	1970-01-01 05:30:00.000000000 +0530
-+++ gst-plugins-good-0.10.27/sys/v4l2/gstv4l2_userpointer.h	2011-09-27 14:24:42.302065376 +0530
+diff -Npru gst-plugins-good-0.10.27_11_patch_applied/sys/v4l2/gstv4l2_userpointer.h gst-plugins-good-0.10.27/sys/v4l2/gstv4l2_userpointer.h
+--- gst-plugins-good-0.10.27_11_patch_applied/sys/v4l2/gstv4l2_userpointer.h	1970-01-01 05:30:00.000000000 +0530
++++ gst-plugins-good-0.10.27/sys/v4l2/gstv4l2_userpointer.h	2011-10-01 17:43:29.053291476 +0530
 @@ -0,0 +1,20 @@
 +#ifndef GSTV4L2SINK_USERPTR_H
 +#define GSTV4L2SINK_USERPTR_H
@@ -378,9 +380,9 @@ diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/gstv4l2_userpointer.h gst-plugi
 +gst_v4l2sink_userpointer_deinit(GstV4l2Sink * );
 +
 +#endif
-diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/Makefile.am gst-plugins-good-0.10.27/sys/v4l2/Makefile.am
---- gst-plugins-good-0.10.27.bak/sys/v4l2/Makefile.am	2011-09-27 14:24:05.811862434 +0530
-+++ gst-plugins-good-0.10.27/sys/v4l2/Makefile.am	2011-09-27 14:25:28.711361655 +0530
+diff -Npru gst-plugins-good-0.10.27_11_patch_applied/sys/v4l2/Makefile.am gst-plugins-good-0.10.27/sys/v4l2/Makefile.am
+--- gst-plugins-good-0.10.27_11_patch_applied/sys/v4l2/Makefile.am	2011-01-02 17:10:29.000000000 +0530
++++ gst-plugins-good-0.10.27/sys/v4l2/Makefile.am	2011-10-01 17:43:29.053291476 +0530
 @@ -20,7 +20,8 @@ libgstvideo4linux2_la_SOURCES = gstv4l2.
  				$(xv_source)
  
@@ -399,9 +401,9 @@ diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/Makefile.am gst-plugins-good-0.
  	gstv4l2sink.h \
  	gstv4l2src.h \
  	gstv4l2tuner.h \
-diff -Npru gst-plugins-good-0.10.27.bak/sys/v4l2/Makefile.in gst-plugins-good-0.10.27/sys/v4l2/Makefile.in
---- gst-plugins-good-0.10.27.bak/sys/v4l2/Makefile.in	2011-09-27 14:24:05.811862434 +0530
-+++ gst-plugins-good-0.10.27/sys/v4l2/Makefile.in	2011-08-31 16:25:42.000000000 +0530
+diff -Npru gst-plugins-good-0.10.27_11_patch_applied/sys/v4l2/Makefile.in gst-plugins-good-0.10.27/sys/v4l2/Makefile.in
+--- gst-plugins-good-0.10.27_11_patch_applied/sys/v4l2/Makefile.in	2011-01-21 15:59:42.000000000 +0530
++++ gst-plugins-good-0.10.27/sys/v4l2/Makefile.in	2011-10-01 17:43:29.053291476 +0530
 @@ -35,7 +35,7 @@ PRE_UNINSTALL = :
  POST_UNINSTALL = :
  build_triplet = @build@
