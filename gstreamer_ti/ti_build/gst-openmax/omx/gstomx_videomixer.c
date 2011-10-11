@@ -752,7 +752,7 @@ vidmix_port_recv (GstOmxVideoMixer *self)
             
    buf = gst_omxbuffertransport_new (self->out_port[0], omx_buffer);
             //printf("buffer size:%d\n",GST_BUFFER_SIZE(buf));
-            //GST_BUFFER_SIZE(buf) = 691200;
+            GST_BUFFER_SIZE(buf) = GST_BUFFER_SIZE(buf)*2;
             if (port->core->use_timestamps)
             {
                 GST_BUFFER_TIMESTAMP (buf) = gst_util_uint64_scale_int (
@@ -1341,6 +1341,10 @@ pad_event (GstPad *pad,
         case GST_EVENT_NEWSEGMENT:
             ret = gst_pad_push_event (self->srcpad, event);
             break;
+		 case GST_EVENT_CROP:
+            gst_event_unref(event);
+            ret = TRUE;
+			break;
 
         default:
             ret = gst_pad_push_event (self->srcpad, event);
