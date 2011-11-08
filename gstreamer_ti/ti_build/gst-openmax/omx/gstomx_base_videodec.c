@@ -143,8 +143,12 @@ sink_setcaps (GstPad *pad,
     {
         GST_WARNING_OBJECT (self, "width and/or height not set in caps: %dx%d",
                 width, height);
-        return FALSE;
+		width = 320;
+		height = 240;
+        //return FALSE;
     }
+	if(width % 16)
+		width = ((width/16) + 1)*16;
 
     {
         const GValue *framerate = NULL;

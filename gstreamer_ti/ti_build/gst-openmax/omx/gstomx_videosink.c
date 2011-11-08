@@ -280,6 +280,8 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
 	if(!strcmp(sink->display_device,"LCD")) {
       driverId.nDrvInstID = OMX_VIDEO_DISPLAY_ID_HD1;
       driverId.eDispVencMode = OMX_DC_MODE_CUSTOM;//mode;
+      maxWidth = LCD_WIDTH;
+	  maxHeight = LCD_HEIGHT;
       isLCD = 1;
 	} else {
       driverId.nDrvInstID = 0; /* on chip HDMI */
@@ -322,12 +324,13 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
     _G_OMX_INIT_PARAM (&mosaicLayout);
     mosaicLayout.nPortIndex = 0;
 	
-  if (!isLCD) {
+/*  if (!isLCD) {*/
       mosaicLayout.sMosaicWinFmt[0].winStartX = sink->left;
       mosaicLayout.sMosaicWinFmt[0].winStartY = sink->top;
       mosaicLayout.sMosaicWinFmt[0].winWidth = width;
       mosaicLayout.sMosaicWinFmt[0].winHeight = height;
       mosaicLayout.sMosaicWinFmt[0].pitch[VFDC_YUV_INT_ADDR_IDX] = width * 2;
+#if 0
   } else {
       /* For LCD Display, start the window at (0,0) */
       mosaicLayout.sMosaicWinFmt[0].winStartX = 0;
@@ -339,6 +342,7 @@ omx_setup (GstBaseSink *gst_sink, GstCaps *caps)
       mosaicLayout.sMosaicWinFmt[0].pitch[VFDC_YUV_INT_ADDR_IDX] = 
                                          LCD_WIDTH * 2;  
   	}
+#endif
     mosaicLayout.sMosaicWinFmt[0].dataFormat =  VFDC_DF_YUV422I_YVYU;
     mosaicLayout.sMosaicWinFmt[0].bpp = VFDC_BPP_BITS16;
     mosaicLayout.sMosaicWinFmt[0].priority = 0;
